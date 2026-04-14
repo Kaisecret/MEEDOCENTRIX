@@ -1,0 +1,439 @@
+<script>
+(() => {
+    const statusToast = document.getElementById('msrStatusToast');
+    const registerModal = document.getElementById('registerStallModal');
+    const editModal = document.getElementById('editStallModal');
+    const viewModal = document.getElementById('viewStallModal');
+    const deleteModal = document.getElementById('deleteStallModal');
+    const allModals = [registerModal, editModal, viewModal, deleteModal].filter(Boolean);
+    const openRegisterButton = document.getElementById('openRegisterStallBtn');
+    const closeRegisterButton = document.getElementById('closeRegisterStallBtn');
+    const closeEditButton = document.getElementById('closeEditStallBtn');
+    const closeViewButton = document.getElementById('closeViewStallBtn');
+    const modalCloseButtons = Array.from(document.querySelectorAll('.msr-modal-close[data-close-modal]'));
+    const editStallForm = document.getElementById('editStallForm');
+    const registerStallForm = document.getElementById('registerStallForm');
+    const editActionTemplate = editStallForm ? (editStallForm.dataset.actionTemplate || '') : '';
+    const deleteStallNo = document.getElementById('deleteStallNo');
+    const deleteStallLocation = document.getElementById('deleteStallLocation');
+    const cancelDeleteButton = document.getElementById('cancelDeleteStallBtn');
+    const confirmDeleteButton = document.getElementById('confirmDeleteStallBtn');
+    const searchAction = "{{ route('market.stalls') }}";
+    const oldFormMode = "{{ old('form_mode') }}";
+    const oldFormStallId = "{{ old('form_stall_id') }}";
+    const hasErrors = {{ $errors->any() ? 'true' : 'false' }};
+    let pendingDeleteForm = null;
+    let searchTimer = null;
+    let activeSearchRequestId = 0;
+
+    const lockBody = () => document.body.classList.toggle('msr-lock-scroll', allModals.some((modal) => modal.classList.contains('is-open')));
+    const openModal = (modal) => {
+        if (!modal) return;
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        const body = modal.querySelector('.msr-modal-body');
+        if (body) body.scrollTop = 0;
+        lockBody();
+    };
+    const closeModal = (modal) => {
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        lockBody();
+    };
+    const resetForm = (form) => {
+        if (!form) return;
+        form.reset();
+        form.querySelectorAll('[data-rate-input]').forEach((input) => {
+            delete input.dataset.manual;
+        });
+    };
+    const setValue = (id, value) => {
+        const field = document.getElementById(id);
+        if (!field) return;
+        field.value = value || '';
+    };
+    const setChecked = (id, checked) => {
+        const field = document.getElementById(id);
+        if (!field) return;
+        field.checked = checked;
+    };
+    const setText = (id, value, fallback = '-') => {
+        const node = document.getElementById(id);
+        if (!node) return;
+        const text = String(value || '').trim();
+        node.textContent = text === '' ? fallback : text;
+    };
+    const formatDate = (value) => {
+        const text = String(value || '').trim();
+        return text === '' ? '-' : text;
+    };
+
+    const initStallFormBehavior = (form) => {
+        if (!form) return { syncRate: () => {}, syncTenant: () => {} };
+        const locationSelect = form.querySelector('select[name="market_stall_location_id"]');
+        const rateInput = form.querySelector('[data-rate-input]');
+        const statusSelect = form.querySelector('[data-stall-status]');
+        const tenantBox = form.querySelector('[data-tenant-box]');
+        const tenantFields = Array.from(form.querySelectorAll('[data-tenant-field]'));
+
+        const syncRate = () => {
+            if (!locationSelect || !rateInput) return;
+            const selectedOption = locationSelect.selectedOptions[0];
+            if (!selectedOption || !selectedOption.dataset.rate) return;
+            if (rateInput.value.trim() === '' || rateInput.dataset.manual !== '1') {
+                rateInput.value = Number(selectedOption.dataset.rate).toFixed(2);
+            }
+        };
+
+        const syncTenant = () => {
+            if (!statusSelect || !tenantBox) return;
+            const occupied = statusSelect.value === 'occupied';
+            tenantFields.forEach((field) => {
+                if (field.name === 'tenant_first_name' || field.name === 'tenant_last_name') {
+                    field.required = occupied;
+                }
+            });
+        };
+
+        if (rateInput) {
+            rateInput.addEventListener('input', () => {
+                rateInput.dataset.manual = '1';
+            });
+        }
+        if (locationSelect) {
+            locationSelect.addEventListener('change', syncRate);
+        }
+        if (statusSelect) {
+            statusSelect.addEventListener('change', syncTenant);
+        }
+
+        syncRate();
+        syncTenant();
+        return { syncRate, syncTenant };
+    };
+
+    const registerHelpers = initStallFormBehavior(registerStallForm);
+    const editHelpers = initStallFormBehavior(editStallForm);
+
+    if (openRegisterButton) {
+        openRegisterButton.addEventListener('click', () => {
+            if (!hasErrors) {
+                resetForm(registerStallForm);
+                registerHelpers.syncRate();
+                registerHelpers.syncTenant();
+            }
+            openModal(registerModal);
+        });
+    }
+
+    if (closeRegisterButton) {
+        closeRegisterButton.addEventListener('click', () => {
+            resetForm(registerStallForm);
+            registerHelpers.syncRate();
+            registerHelpers.syncTenant();
+            closeModal(registerModal);
+        });
+    }
+
+    if (closeEditButton) {
+        closeEditButton.addEventListener('click', () => closeModal(editModal));
+    }
+    if (closeViewButton) {
+        closeViewButton.addEventListener('click', () => closeModal(viewModal));
+    }
+
+    modalCloseButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const modalId = button.getAttribute('data-close-modal');
+            if (!modalId) return;
+            const modal = document.getElementById(modalId);
+            if (modal === registerModal) {
+                resetForm(registerStallForm);
+                registerHelpers.syncRate();
+                registerHelpers.syncTenant();
+            }
+            if (modal === deleteModal) {
+                pendingDeleteForm = null;
+            }
+            closeModal(modal);
+        });
+    });
+
+    const openEditFromButton = (button) => {
+        if (!editStallForm) return;
+        const stallId = button.dataset.stallId || '';
+        editStallForm.action = editActionTemplate.replace('__STALL_ID__', stallId);
+        setValue('editFormStallId', stallId);
+        setValue('editStallNo', button.dataset.stallNo);
+        setValue('editLocationId', button.dataset.locationId);
+        setValue('editTypeId', button.dataset.typeId);
+        setValue('editDimension', button.dataset.dimension);
+        setValue('editDescription', button.dataset.description);
+        setValue('editStatus', button.dataset.status);
+        setChecked('editBillable', button.dataset.billable === '1');
+        setValue('editRate', button.dataset.rate);
+        const editRateInput = document.getElementById('editRate');
+        if (editRateInput) editRateInput.dataset.manual = '1';
+        setValue('editStartDate', button.dataset.startDate);
+        setValue('editEndDate', button.dataset.endDate);
+        setValue('editContractNo', button.dataset.contractNumber);
+        setValue('editLeaseRemarks', button.dataset.leaseRemarks);
+        setValue('editTenantFirstName', button.dataset.tenantFirstName);
+        setValue('editTenantLastName', button.dataset.tenantLastName);
+        setValue('editTenantMiddleName', button.dataset.tenantMiddleName);
+        setValue('editTenantAddress', button.dataset.tenantAddress);
+        setValue('editTenantContact', button.dataset.tenantContact);
+        setValue('editBusinessName', button.dataset.businessName);
+        setValue('editBusinessType', button.dataset.businessType);
+        setValue('editMpoControlNo', button.dataset.mpoControlNo);
+        editHelpers.syncTenant();
+        openModal(editModal);
+    };
+
+    const openViewFromButton = (button) => {
+        setText('viewStallNo', button.dataset.stallNo);
+        setText('viewLocation', button.dataset.locationLabel);
+        setText('viewStatus', button.dataset.status);
+        setText('viewType', button.dataset.typeName);
+        setText('viewDimension', button.dataset.dimension);
+        setText('viewRate', `PHP ${Number(button.dataset.rate || 0).toFixed(2)}`);
+        setText('viewTenantName', button.dataset.tenantName);
+        setText('viewBusinessName', button.dataset.businessName);
+        setText('viewTenantContact', button.dataset.tenantContact);
+        setText('viewContractNo', button.dataset.contractNumber);
+        const startDate = formatDate(button.dataset.startDate);
+        const endDate = formatDate(button.dataset.endDate);
+        setText('viewLeasePeriod', `${startDate} to ${endDate}`);
+        setText('viewTenantAddress', button.dataset.tenantAddress);
+        setText('viewLeaseRemarks', button.dataset.leaseRemarks);
+        setText('viewDescription', button.dataset.description);
+        openModal(viewModal);
+    };
+
+    if (cancelDeleteButton) {
+        cancelDeleteButton.addEventListener('click', () => {
+            pendingDeleteForm = null;
+            closeModal(deleteModal);
+        });
+    }
+    if (confirmDeleteButton) {
+        confirmDeleteButton.addEventListener('click', () => {
+            if (!pendingDeleteForm) return;
+            const targetForm = pendingDeleteForm;
+            targetForm.dataset.confirmed = '1';
+            pendingDeleteForm = null;
+            closeModal(deleteModal);
+            if (typeof targetForm.requestSubmit === 'function') {
+                targetForm.requestSubmit();
+                return;
+            }
+            targetForm.submit();
+        });
+    }
+
+    const currentSearchNodes = () => {
+        const form = document.getElementById('stallSearchForm');
+        return {
+            form,
+            input: form ? form.querySelector('input[name="q"]') : null,
+        };
+    };
+
+    const captureSearchState = () => {
+        const { input } = currentSearchNodes();
+        if (!input) {
+            return { value: '', focused: false, start: null, end: null };
+        }
+        return {
+            value: input.value,
+            focused: document.activeElement === input,
+            start: typeof input.selectionStart === 'number' ? input.selectionStart : null,
+            end: typeof input.selectionEnd === 'number' ? input.selectionEnd : null,
+        };
+    };
+
+    const restoreSearchState = (state) => {
+        if (!state) return;
+        const { input } = currentSearchNodes();
+        if (!input) return;
+        if (typeof state.value === 'string' && input.value !== state.value) {
+            input.value = state.value;
+        }
+        if (!state.focused) return;
+        input.focus({ preventScroll: true });
+        if (typeof state.start === 'number' && typeof state.end === 'number' && typeof input.setSelectionRange === 'function') {
+            const length = input.value.length;
+            const start = Math.max(0, Math.min(state.start, length));
+            const end = Math.max(0, Math.min(state.end, length));
+            input.setSelectionRange(start, end);
+        }
+    };
+
+    const replaceRegistryCardFromHtml = (html) => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const incomingCard = doc.getElementById('stallRegistryCard');
+        const currentCard = document.getElementById('stallRegistryCard');
+        if (!incomingCard || !currentCard) return false;
+        currentCard.replaceWith(incomingCard);
+        return true;
+    };
+
+    const requestSearch = (query, delayMs = 0, state = null) => {
+        if (searchTimer) {
+            window.clearTimeout(searchTimer);
+            searchTimer = null;
+        }
+
+        const run = () => {
+            const requestId = ++activeSearchRequestId;
+            const url = `${searchAction}?${query.toString()}`;
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+                .then((response) => response.text())
+                .then((html) => {
+                    if (requestId !== activeSearchRequestId) return;
+                    if (!replaceRegistryCardFromHtml(html)) {
+                        window.location.assign(url);
+                        return;
+                    }
+                    history.replaceState({}, '', url);
+                    restoreSearchState(state);
+                })
+                .catch(() => {
+                    window.location.assign(url);
+                });
+        };
+
+        if (delayMs > 0) {
+            searchTimer = window.setTimeout(run, delayMs);
+            return;
+        }
+
+        run();
+    };
+
+    document.addEventListener('click', (event) => {
+        const editButton = event.target.closest('.js-open-edit-stall-btn');
+        if (editButton) {
+            openEditFromButton(editButton);
+            return;
+        }
+
+        const viewButton = event.target.closest('.js-open-view-stall-btn');
+        if (viewButton) {
+            openViewFromButton(viewButton);
+            return;
+        }
+
+        const paginationLink = event.target.closest('#stallRegistryCard .msr-pagination .msr-page-link[href]');
+        if (!paginationLink) return;
+
+        event.preventDefault();
+        const href = paginationLink.getAttribute('href');
+        if (!href) return;
+        const state = captureSearchState();
+        fetch(href, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then((response) => response.text())
+            .then((html) => {
+                if (!replaceRegistryCardFromHtml(html)) {
+                    window.location.assign(href);
+                    return;
+                }
+                history.replaceState({}, '', href);
+                restoreSearchState(state);
+            })
+            .catch(() => {
+                window.location.assign(href);
+            });
+    });
+
+    document.addEventListener('input', (event) => {
+        const { form, input } = currentSearchNodes();
+        if (!form || !input || event.target !== input) return;
+        const query = new URLSearchParams(new FormData(form));
+        const state = captureSearchState();
+        requestSearch(query, 260, state);
+    });
+
+    document.addEventListener('submit', (event) => {
+        const targetForm = event.target;
+        if (!(targetForm instanceof HTMLFormElement)) return;
+
+        if (targetForm.id === 'stallSearchForm') {
+            event.preventDefault();
+            const query = new URLSearchParams(new FormData(targetForm));
+            const state = captureSearchState();
+            requestSearch(query, 0, state);
+            return;
+        }
+
+        if (!targetForm.classList.contains('js-delete-stall-form')) return;
+        if (targetForm.dataset.confirmed === '1') {
+            targetForm.dataset.confirmed = '0';
+            return;
+        }
+
+        event.preventDefault();
+        pendingDeleteForm = targetForm;
+        if (deleteStallNo) deleteStallNo.textContent = targetForm.dataset.stallNo || '-';
+        if (deleteStallLocation) deleteStallLocation.textContent = targetForm.dataset.location || '-';
+        openModal(deleteModal);
+    });
+
+    allModals.forEach((modal) => {
+        modal.addEventListener('click', (event) => {
+            if (event.target !== modal) return;
+            if (modal === registerModal) {
+                resetForm(registerStallForm);
+                registerHelpers.syncRate();
+                registerHelpers.syncTenant();
+            }
+            if (modal === deleteModal) {
+                pendingDeleteForm = null;
+            }
+            closeModal(modal);
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        closeModal(registerModal);
+        closeModal(editModal);
+        closeModal(viewModal);
+        pendingDeleteForm = null;
+        closeModal(deleteModal);
+    });
+
+    if (hasErrors) {
+        if (oldFormMode === 'edit' && editStallForm) {
+            const stallId = String(oldFormStallId || '').trim();
+            if (stallId !== '') {
+                editStallForm.action = editActionTemplate.replace('__STALL_ID__', stallId);
+                setValue('editFormStallId', stallId);
+            }
+            openModal(editModal);
+        } else {
+            openModal(registerModal);
+        }
+    }
+
+    if (statusToast) {
+        window.setTimeout(() => {
+            statusToast.classList.add('is-hiding');
+            window.setTimeout(() => statusToast.remove(), 220);
+        }, 2600);
+    }
+
+    lockBody();
+})();
+</script>
+@endsection

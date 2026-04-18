@@ -16,7 +16,9 @@ class CollectionDispatchItem extends Model
     protected $fillable = [
         'collection_dispatch_id',
         'fishport_log_id',
+        'market_stall_lease_id',
         'payment_record_id',
+        'market_payment_collection_id',
         'amount_snapshot',
         'status',
         'payer_name',
@@ -54,6 +56,16 @@ class CollectionDispatchItem extends Model
     public function paymentRecord(): BelongsTo
     {
         return $this->belongsTo(FishportPaymentRecord::class, 'payment_record_id');
+    }
+
+    public function marketStallLease(): BelongsTo
+    {
+        return $this->belongsTo(MarketStallLease::class, 'market_stall_lease_id');
+    }
+
+    public function marketPaymentCollection(): BelongsTo
+    {
+        return $this->belongsTo(MarketPaymentCollection::class, 'market_payment_collection_id');
     }
 
     public function collectedBy(): BelongsTo

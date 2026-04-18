@@ -628,6 +628,19 @@
             </article>
         </section>
 
+        <script id="collectorDashboardChartData" type="application/json">
+            {!! json_encode([
+                'labels' => $chartLabels,
+                'submitted' => $chartSubmitted,
+                'accepted' => $chartAccepted,
+                'rejected' => $chartRejected,
+                'pendingCount' => $pendingCount,
+                'awaitingCount' => $awaitingCount,
+                'acceptedCount' => $acceptedCount,
+                'rejectedCount' => $rejectedCount,
+            ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!}
+        </script>
+
     </div>
 
     <script>
@@ -665,11 +678,32 @@
             const AMBER = '#d97706';
             const TEAL = '#0891b2';
 
+            const chartDataElement = document.getElementById('collectorDashboardChartData');
+            let chartData = {
+                labels: [],
+                submitted: [],
+                accepted: [],
+                rejected: [],
+                pendingCount: 0,
+                awaitingCount: 0,
+                acceptedCount: 0,
+                rejectedCount: 0,
+            };
+
+            if (chartDataElement) {
+                try {
+                    const parsed = JSON.parse(chartDataElement.textContent || '{}');
+                    chartData = { ...chartData, ...parsed };
+                } catch (error) {
+                    console.error('Failed to parse collector dashboard chart data.', error);
+                }
+            }
+
             // ── Trend Line Chart ──
-            const labels = @json($chartLabels);
-            const submitted = @json($chartSubmitted);
-            const accepted = @json($chartAccepted);
-            const rejected = @json($chartRejected);
+            const labels = chartData.labels;
+            const submitted = chartData.submitted;
+            const accepted = chartData.accepted;
+            const rejected = chartData.rejected;
 
             const trendCanvas = document.getElementById('collectorTrendChart');
             if (trendCanvas && window.Chart) {
@@ -736,10 +770,10 @@
                         labels: ['Pending', 'Awaiting', 'Accepted', 'Rejected'],
                         datasets: [{
                             data: [
-                                Number(@json($pendingCount)),
-                                Number(@json($awaitingCount)),
-                                Number(@json($acceptedCount)),
-                                Number(@json($rejectedCount)),
+                                Number(chartData.pendingCount),
+                                Number(chartData.awaitingCount),
+                                Number(chartData.acceptedCount),
+                                Number(chartData.rejectedCount),
                             ],
                             backgroundColor: [PRIMARY, AMBER, GREEN, RED],
                             borderWidth: 2,

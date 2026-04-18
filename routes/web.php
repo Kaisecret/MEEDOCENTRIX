@@ -9,6 +9,7 @@ use App\Http\Controllers\Collector\CollectorProfileController;
 use App\Http\Controllers\Cemetery\CemeteryOccupantRecordController;
 use App\Http\Controllers\Cemetery\CemeteryPaymentCollectionController;
 use App\Http\Controllers\Cemetery\CemeteryDashboardController;
+use App\Http\Controllers\Cemetery\CemeteryProfileController;
 use App\Http\Controllers\Cemetery\CemeteryReportController;
 use App\Http\Controllers\Cemetery\CemeteryServiceLogController;
 use App\Http\Controllers\Cemetery\CemeteryTransactionController;
@@ -19,7 +20,10 @@ use App\Http\Controllers\Fishport\FishportReportController;
 use App\Http\Controllers\Fishport\FishportSendPaymentController;
 use App\Http\Controllers\Fishport\FishportVesselRegistryController;
 use App\Http\Controllers\Market\MarketProfileController;
+use App\Http\Controllers\Market\MarketSendPaymentController;
 use App\Http\Controllers\Market\MarketStallController;
+use App\Http\Controllers\Market\MarketTenantController;
+use App\Http\Controllers\Market\MarketTransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -79,7 +83,7 @@ Route::middleware('auth')->group(function () {
     // Market
     Route::prefix('market')->middleware('area:market')->group(function () {
         Route::view('/dashboard', 'market.dashboard')->name('market.dashboard');
-        Route::view('/vendors', 'market.vendors')->name('market.vendors');
+        Route::get('/vendors', [MarketTenantController::class, 'index'])->name('market.vendors');
         Route::get('/stalls', [MarketStallController::class, 'index'])->name('market.stalls');
         Route::post('/stalls', [MarketStallController::class, 'store'])->name('market.stalls.store');
         Route::put('/stalls/{marketStall}', [MarketStallController::class, 'update'])->name('market.stalls.update');
@@ -88,8 +92,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/stalls/rates', [MarketStallController::class, 'storeLocationRate'])->name('market.stalls.rates.store');
         Route::get('/profile', [MarketProfileController::class, 'show'])->name('market.profile');
         Route::put('/profile', [MarketProfileController::class, 'update'])->name('market.profile.update');
-        Route::view('/send-payment', 'shared.send_payment')->name('market.send_payment');
-        Route::view('/records', 'market.transactions')->name('market.records');
+        Route::get('/send-payment', [MarketSendPaymentController::class, 'index'])->name('market.send_payment');
+        Route::post('/send-payment', [MarketSendPaymentController::class, 'store'])->name('market.send_payment.store');
+        Route::patch('/send-payment/items/{dispatchItem}/cancel', [MarketSendPaymentController::class, 'cancel'])->name('market.send_payment.items.cancel');
+        Route::patch('/send-payment/items/{dispatchItem}/approve', [MarketSendPaymentController::class, 'approve'])->name('market.send_payment.items.approve');
+        Route::patch('/send-payment/items/{dispatchItem}/reject', [MarketSendPaymentController::class, 'reject'])->name('market.send_payment.items.reject');
+        Route::get('/records', [MarketTransactionController::class, 'index'])->name('market.records');
     });
 
     // Cemetery
@@ -109,9 +117,13 @@ Route::middleware('auth')->group(function () {
         Route::delete('/transactions/{transaction}', [CemeteryTransactionController::class, 'destroy'])->name('cemetery.transactions.destroy');
         Route::get('/payments', [CemeteryPaymentCollectionController::class, 'index'])->name('cemetery.payments');
         Route::post('/payments', [CemeteryPaymentCollectionController::class, 'store'])->name('cemetery.payments.store');
+        Route::post('/transactions/{transaction}/quick-pay', [CemeteryPaymentCollectionController::class, 'quickPay'])->name('cemetery.payments.quick_pay');
+        Route::get('/payments/{paymentCollection}/receipt', [CemeteryPaymentCollectionController::class, 'receipt'])->name('cemetery.payments.receipt');
         Route::put('/payments/{paymentCollection}', [CemeteryPaymentCollectionController::class, 'update'])->name('cemetery.payments.update');
         Route::delete('/payments/{paymentCollection}', [CemeteryPaymentCollectionController::class, 'destroy'])->name('cemetery.payments.destroy');
         Route::get('/reports', [CemeteryReportController::class, 'index'])->name('cemetery.reports');
+        Route::get('/profile', [CemeteryProfileController::class, 'show'])->name('cemetery.profile');
+        Route::put('/profile', [CemeteryProfileController::class, 'update'])->name('cemetery.profile.update');
     });
 
     // Terminal

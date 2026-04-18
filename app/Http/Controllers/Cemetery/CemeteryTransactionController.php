@@ -6,12 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\CemeteryCategory;
 use App\Models\CemeteryOccupantRecord;
 use App\Models\CemeterySite;
-use App\Models\CemeteryServiceLog;
 use App\Models\CemeteryTransaction;
 use App\Models\CemeteryTransactionType;
 use App\Support\CemeteryFeeCalculator;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -37,11 +38,12 @@ class CemeteryTransactionController extends Controller
         $transactionTypeId = (int) $request->query('cemetery_transaction_type_id', 0);
         $status = trim((string) $request->query('status', ''));
         $prefillOccupantRecordId = (int) $request->query('occupant_record_id', 0);
-        $prefillServiceLogId = (int) $request->query('service_log_id', 0);
         $openCreateModal = filter_var($request->query('open_create', false), FILTER_VALIDATE_BOOL);
 
         $transactionQuery = CemeteryTransaction::query()
-            ->with(['site', 'category', 'transactionType', 'occupantRecord', 'serviceLog']);
+            ->with(['site', 'category', 'transactionType', 'occupantRecord'])
+            ->withCount('payments')
+            ->withMax('payments as latest_payment_id', 'id');
 
         if ($search !== '') {
             $like = '%' . $search . '%';
@@ -90,21 +92,12 @@ class CemeteryTransactionController extends Controller
             ->get();
 
         $occupantRecords = CemeteryOccupantRecord::query()
-            ->with(['plot:id,plot_reference', 'site:id,site_name', 'category:id,category_name'])
+            ->with(['plot:id,plot_reference', 'site:id,site_name,site_code', 'category:id,category_name,category_code'])
             ->orderByDesc('id')
             ->limit(300)
             ->get();
 
-        $serviceLogs = CemeteryServiceLog::query()
-            ->with(['site:id,site_name', 'serviceType:id,type_name'])
-            ->orderByDesc('service_date')
-            ->orderByDesc('id')
-            ->limit(300)
-            ->get();
-
-        $serviceLinkMap = $this->buildServiceLinkMap($serviceLogs);
-
-        $prefillData = $this->prefillData($prefillOccupantRecordId, $prefillServiceLogId, $serviceLinkMap);
+        $prefillData = $this->prefillData($prefillOccupantRecordId);
         if ($prefillData !== null) {
             $openCreateModal = true;
         }
@@ -115,8 +108,6 @@ class CemeteryTransactionController extends Controller
             'categories' => $categories,
             'transactionTypes' => $transactionTypes,
             'occupantRecords' => $occupantRecords,
-            'serviceLogs' => $serviceLogs,
-            'serviceLinkMap' => $serviceLinkMap,
             'statusOptions' => self::STATUS_OPTIONS,
             'search' => $search,
             'selectedSiteId' => $siteId,
@@ -144,16 +135,18 @@ class CemeteryTransactionController extends Controller
 
         CemeteryTransaction::query()->create([
             'transaction_no' => strtoupper(trim((string) $validated['transaction_no'])),
-            'transaction_date' => (string) $validated['transaction_date'],
+            'transaction_date' => $this->resolveTransactionDate($validated['transaction_date'] ?? null),
             'cemetery_site_id' => (int) $validated['cemetery_site_id'],
             'cemetery_category_id' => (int) $validated['cemetery_category_id'],
             'cemetery_transaction_type_id' => (int) $validated['cemetery_transaction_type_id'],
             'occupant_record_id' => $validated['occupant_record_id'] ?? null,
-            'service_log_id' => $validated['service_log_id'] ?? null,
+            'service_log_id' => null,
             'deceased_name' => trim((string) $validated['deceased_name']),
             'plot_reference' => strtoupper(trim((string) $validated['plot_reference'])),
             'quantity' => $validated['quantity'] ?? null,
             'amount_due' => $fees['amount_due'],
+            'total_paid' => 0,
+            'remaining_balance' => $fees['amount_due'],
             'maintenance_type' => $this->maintenanceTypeFrom($validated),
             'maintenance_years' => $this->maintenanceYearsFrom($validated),
             'has_burial_permit' => $this->hasBurialPermit($validated),
@@ -179,12 +172,12 @@ class CemeteryTransactionController extends Controller
 
         $transaction->update([
             'transaction_no' => strtoupper(trim((string) $validated['transaction_no'])),
-            'transaction_date' => (string) $validated['transaction_date'],
+            'transaction_date' => $this->resolveTransactionDate($validated['transaction_date'] ?? null),
             'cemetery_site_id' => (int) $validated['cemetery_site_id'],
             'cemetery_category_id' => (int) $validated['cemetery_category_id'],
             'cemetery_transaction_type_id' => (int) $validated['cemetery_transaction_type_id'],
             'occupant_record_id' => $validated['occupant_record_id'] ?? null,
-            'service_log_id' => $validated['service_log_id'] ?? null,
+            'service_log_id' => null,
             'deceased_name' => trim((string) $validated['deceased_name']),
             'plot_reference' => strtoupper(trim((string) $validated['plot_reference'])),
             'quantity' => $validated['quantity'] ?? null,
@@ -199,6 +192,7 @@ class CemeteryTransactionController extends Controller
             'remarks' => $validated['remarks'] ? trim((string) $validated['remarks']) : null,
             'status' => trim((string) $validated['status']),
         ]);
+        $this->syncPaymentDerivedFields($transaction);
 
         return redirect()
             ->back()
@@ -207,8 +201,20 @@ class CemeteryTransactionController extends Controller
 
     public function destroy(CemeteryTransaction $transaction): RedirectResponse
     {
+        if ($transaction->paymentCollection()->exists()) {
+            return redirect()
+                ->back()
+                ->withErrors("Transaction {$transaction->transaction_no} cannot be deleted because it already has a payment record. Delete or void the payment first.");
+        }
+
         $transactionNo = $transaction->transaction_no;
-        $transaction->delete();
+        try {
+            $transaction->delete();
+        } catch (QueryException $exception) {
+            return redirect()
+                ->back()
+                ->withErrors("Transaction {$transactionNo} cannot be deleted because it is linked to other records.");
+        }
 
         return redirect()
             ->back()
@@ -226,14 +232,13 @@ class CemeteryTransactionController extends Controller
 
         return [
             'transaction_no' => ['required', 'string', 'max:40', $transactionNoRule],
-            'transaction_date' => ['required', 'date'],
-            'cemetery_site_id' => ['required', 'integer', Rule::exists('cemetery_sites', 'id')],
-            'cemetery_category_id' => ['required', 'integer', Rule::exists('cemetery_categories', 'id')],
+            'transaction_date' => ['nullable', 'date'],
+            'cemetery_site_id' => ['nullable', 'integer', Rule::exists('cemetery_sites', 'id')],
+            'cemetery_category_id' => ['nullable', 'integer', Rule::exists('cemetery_categories', 'id')],
             'cemetery_transaction_type_id' => ['required', 'integer', Rule::exists('cemetery_transaction_types', 'id')],
-            'occupant_record_id' => ['nullable', 'integer', Rule::exists('cemetery_occupant_records', 'id')],
-            'service_log_id' => ['nullable', 'integer', Rule::exists('cemetery_service_logs', 'id')],
-            'deceased_name' => ['required', 'string', 'max:190'],
-            'plot_reference' => ['required', 'string', 'max:80'],
+            'occupant_record_id' => ['required', 'integer', Rule::exists('cemetery_occupant_records', 'id')],
+            'deceased_name' => ['nullable', 'string', 'max:190'],
+            'plot_reference' => ['nullable', 'string', 'max:80'],
             'quantity' => ['nullable', 'numeric', 'min:0.01'],
             'maintenance_type' => ['nullable', Rule::in(['none', 'yearly', 'five_year_fixed'])],
             'maintenance_years' => ['nullable', 'integer', 'min:1', 'max:50'],
@@ -290,6 +295,15 @@ class CemeteryTransactionController extends Controller
             ]);
         }
 
+        if (in_array($transactionType->type_code, ['TRANSFER', 'OTHER'], true)) {
+            $otherFee = (float) ($validated['other_applicable_fee'] ?? 0);
+            if ($otherFee < 0 || $otherFee > 200) {
+                throw ValidationException::withMessages([
+                    'other_applicable_fee' => 'For this service, additional fee must be between 0 and 200 (total range: 300 to 500).',
+                ]);
+            }
+        }
+
         return CemeteryFeeCalculator::compute(
             $site->site_code,
             $category->category_code,
@@ -332,29 +346,9 @@ class CemeteryTransactionController extends Controller
     }
 
     /**
-     * @param array<int, CemeteryServiceLog>|\Illuminate\Support\Collection<int, CemeteryServiceLog> $serviceLogs
-     * @return array<int, array{occupant_record_id: int|null, category_id: int|null}>
-     */
-    private function buildServiceLinkMap($serviceLogs): array
-    {
-        $serviceLinkMap = [];
-
-        foreach ($serviceLogs as $serviceLog) {
-            $match = $this->matchOccupantFromService($serviceLog);
-            $serviceLinkMap[(int) $serviceLog->id] = [
-                'occupant_record_id' => $match?->id,
-                'category_id' => $match?->cemetery_category_id,
-            ];
-        }
-
-        return $serviceLinkMap;
-    }
-
-    /**
-     * @param array<int, array{occupant_record_id: int|null, category_id: int|null}> $serviceLinkMap
      * @return array<string, int|string|null>|null
      */
-    private function prefillData(int $occupantRecordId, int $serviceLogId, array $serviceLinkMap): ?array
+    private function prefillData(int $occupantRecordId): ?array
     {
         if ($occupantRecordId > 0) {
             $occupant = CemeteryOccupantRecord::query()
@@ -364,26 +358,10 @@ class CemeteryTransactionController extends Controller
             if ($occupant) {
                 return [
                     'occupant_record_id' => $occupant->id,
-                    'service_log_id' => null,
                     'cemetery_site_id' => (int) $occupant->cemetery_site_id,
                     'cemetery_category_id' => (int) $occupant->cemetery_category_id,
                     'deceased_name' => (string) $occupant->deceased_name,
                     'plot_reference' => (string) ($occupant->plot?->plot_reference ?? ''),
-                ];
-            }
-        }
-
-        if ($serviceLogId > 0) {
-            $service = CemeteryServiceLog::query()->find($serviceLogId);
-            if ($service) {
-                $linkedMeta = $serviceLinkMap[$service->id] ?? ['occupant_record_id' => null, 'category_id' => null];
-                return [
-                    'occupant_record_id' => $linkedMeta['occupant_record_id'],
-                    'service_log_id' => $service->id,
-                    'cemetery_site_id' => (int) $service->cemetery_site_id,
-                    'cemetery_category_id' => $linkedMeta['category_id'],
-                    'deceased_name' => (string) $service->deceased_name,
-                    'plot_reference' => (string) $service->plot_reference,
                 ];
             }
         }
@@ -398,92 +376,30 @@ class CemeteryTransactionController extends Controller
     private function mergeLinkedSource(array $validated): array
     {
         $occupantRecordId = (int) ($validated['occupant_record_id'] ?? 0);
-        $serviceLogId = (int) ($validated['service_log_id'] ?? 0);
 
-        $occupant = null;
-        $service = null;
-
-        if ($occupantRecordId > 0) {
-            $occupant = CemeteryOccupantRecord::query()
-                ->with('plot:id,plot_reference')
-                ->find($occupantRecordId);
-
-            if (! $occupant) {
-                throw ValidationException::withMessages([
-                    'occupant_record_id' => 'Selected occupant record is not valid.',
-                ]);
-            }
-
-            $validated['cemetery_site_id'] = (int) $occupant->cemetery_site_id;
-            $validated['cemetery_category_id'] = (int) $occupant->cemetery_category_id;
-            $validated['deceased_name'] = (string) $occupant->deceased_name;
-            $validated['plot_reference'] = (string) ($occupant->plot?->plot_reference ?? $validated['plot_reference']);
-            $validated['occupant_record_id'] = (int) $occupant->id;
-        } else {
-            $validated['occupant_record_id'] = null;
+        if ($occupantRecordId <= 0) {
+            throw ValidationException::withMessages([
+                'occupant_record_id' => 'Select an occupant record before creating a transaction.',
+            ]);
         }
 
-        if ($serviceLogId > 0) {
-            $service = CemeteryServiceLog::query()->find($serviceLogId);
+        $occupant = CemeteryOccupantRecord::query()
+            ->with('plot:id,plot_reference')
+            ->find($occupantRecordId);
 
-            if (! $service) {
-                throw ValidationException::withMessages([
-                    'service_log_id' => 'Selected service log is not valid.',
-                ]);
-            }
-
-            $validated['cemetery_site_id'] = (int) $service->cemetery_site_id;
-            $validated['deceased_name'] = (string) $service->deceased_name;
-            $validated['plot_reference'] = (string) $service->plot_reference;
-            $validated['service_log_id'] = (int) $service->id;
-
-            if (! $occupant) {
-                $serviceOccupant = $this->matchOccupantFromService($service);
-                if ($serviceOccupant) {
-                    $validated['occupant_record_id'] = (int) $serviceOccupant->id;
-                    $validated['cemetery_category_id'] = (int) $serviceOccupant->cemetery_category_id;
-                }
-            }
-        } else {
-            $validated['service_log_id'] = null;
+        if (! $occupant || ! $occupant->plot) {
+            throw ValidationException::withMessages([
+                'occupant_record_id' => 'Selected occupant record is not valid or has no assigned niche/lot.',
+            ]);
         }
 
-        if ($occupant && $service) {
-            $occupantPlotRef = strtoupper(trim((string) ($occupant->plot?->plot_reference ?? '')));
-            $servicePlotRef = strtoupper(trim((string) $service->plot_reference));
-            $occupantDeceased = strtoupper(trim((string) $occupant->deceased_name));
-            $serviceDeceased = strtoupper(trim((string) $service->deceased_name));
-
-            if ((int) $occupant->cemetery_site_id !== (int) $service->cemetery_site_id
-                || $occupantPlotRef !== $servicePlotRef
-                || $occupantDeceased !== $serviceDeceased) {
-                throw ValidationException::withMessages([
-                    'service_log_id' => 'Linked occupant record and service log do not refer to the same cemetery person/location.',
-                ]);
-            }
-        }
+        $validated['cemetery_site_id'] = (int) $occupant->cemetery_site_id;
+        $validated['cemetery_category_id'] = (int) $occupant->cemetery_category_id;
+        $validated['deceased_name'] = (string) $occupant->deceased_name;
+        $validated['plot_reference'] = (string) ($occupant->plot?->plot_reference ?? '');
+        $validated['occupant_record_id'] = (int) $occupant->id;
 
         return $validated;
-    }
-
-    private function matchOccupantFromService(CemeteryServiceLog $service): ?CemeteryOccupantRecord
-    {
-        $plotReference = strtoupper(trim((string) $service->plot_reference));
-        $deceasedName = strtoupper(trim((string) $service->deceased_name));
-
-        if ($plotReference === '' || $deceasedName === '') {
-            return null;
-        }
-
-        return CemeteryOccupantRecord::query()
-            ->with('plot:id,plot_reference')
-            ->where('cemetery_site_id', $service->cemetery_site_id)
-            ->whereRaw('UPPER(deceased_name) = ?', [$deceasedName])
-            ->whereHas('plot', function ($query) use ($plotReference): void {
-                $query->whereRaw('UPPER(plot_reference) = ?', [$plotReference]);
-            })
-            ->latest('id')
-            ->first();
     }
 
     private function nextTransactionNo(): string
@@ -498,5 +414,37 @@ class CemeteryTransactionController extends Controller
         }
 
         return 'CTX-0001';
+    }
+
+    private function resolveTransactionDate(mixed $transactionDate): string
+    {
+        $value = trim((string) ($transactionDate ?? ''));
+        if ($value === '') {
+            return now()->format('Y-m-d H:i:s');
+        }
+
+        return Carbon::parse($value)->format('Y-m-d H:i:s');
+    }
+
+    private function syncPaymentDerivedFields(CemeteryTransaction $transaction): void
+    {
+        $amountDue = round((float) $transaction->amount_due, 2);
+        $totalPaid = round((float) $transaction->payments()->sum('amount_paid'), 2);
+        $remaining = round(max($amountDue - $totalPaid, 0), 2);
+
+        $transaction->total_paid = $totalPaid;
+        $transaction->remaining_balance = $remaining;
+
+        if ($transaction->status !== 'cancelled') {
+            if ($amountDue <= 0 || $totalPaid >= $amountDue) {
+                $transaction->status = 'paid';
+            } elseif ($totalPaid > 0) {
+                $transaction->status = 'partial';
+            } else {
+                $transaction->status = 'pending';
+            }
+        }
+
+        $transaction->save();
     }
 }

@@ -42,7 +42,7 @@
     <section class="mkt-hero">
         <div>
             <h2><i class="fa-solid fa-chart-line" style="margin-right:8px;opacity:.9;"></i>Market Administrator Dashboard</h2>
-            <p>Monitor high-level market activity, vendor statistics, and pending collections in real-time.</p>
+            <p>Monitor high-level market activity, tenant/lessee statistics, and pending collections in real-time.</p>
         </div>
     </section>
 
@@ -58,7 +58,7 @@
         <div class="mkt-kpi">
             <div class="mkt-kpi-icon mkt-kpi-blue"><i class="fa-solid fa-users"></i></div>
             <div class="mkt-kpi-info">
-                <h3>Registered Vendors</h3>
+                <h3>Registered Tenants / Lessees</h3>
                 <h2>168</h2>
                 <span style="color:#2563eb;"><i class="fa-solid fa-arrow-trend-up"></i> +3 new this month</span>
             </div>

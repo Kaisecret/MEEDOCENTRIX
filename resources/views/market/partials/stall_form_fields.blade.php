@@ -2,6 +2,13 @@
     $prefix = $prefix ?? 'stall';
     $defaultStatus = old('stall_status', 'vacant');
     $defaultRate = old('rate_amount', $rateValue ?? '');
+    $defaultRateTypeIds = collect(old('rate_type_ids', $rateTypeIds ?? []))
+        ->map(fn ($value) => (string) $value)
+        ->values()
+        ->all();
+    $defaultBillingPeriod = old('billing_period', $billingPeriod ?? 'monthly');
+    $defaultBillingCycles = old('billing_cycles', $billingCycles ?? 1);
+    $defaultRateMultiplier = old('rate_multiplier', $rateMultiplier ?? 1);
 @endphp
 
 <div class="msr-form-grid">
@@ -15,7 +22,7 @@
         <select id="{{ $prefix }}LocationId" name="market_stall_location_id" class="msr-control" required>
             <option value="">Select location...</option>
             @foreach($locations as $location)
-                <option value="{{ $location->id }}" data-rate="{{ number_format((float) ($location->activeRate?->rate_amount ?? 0), 2, '.', '') }}" @selected((string) old('market_stall_location_id') === (string) $location->id)>
+                <option value="{{ $location->id }}" @selected((string) old('market_stall_location_id') === (string) $location->id)>
                     {{ $location->location_code }} - {{ $location->location_name }}
                 </option>
             @endforeach
@@ -23,15 +30,83 @@
     </div>
 
     <div class="msr-form-field">
-        <label for="{{ $prefix }}TypeId"><i class="fa-solid fa-filter" style="color:#0f5fa8;margin-right:6px;"></i>Stall Type</label>
+        <label for="{{ $prefix }}TypeId"><i class="fa-solid fa-filter" style="color:#0f5fa8;margin-right:6px;"></i>Primary Stall Type</label>
         <select id="{{ $prefix }}TypeId" name="market_stall_type_id" class="msr-control" required>
             <option value="">Select type...</option>
             @foreach($stallTypes as $type)
-                <option value="{{ $type->id }}" @selected((string) old('market_stall_type_id') === (string) $type->id)>
+                <option
+                    value="{{ $type->id }}"
+                    data-default-rate="{{ number_format((float) ($type->default_rate ?? 0), 2, '.', '') }}"
+                    @selected((string) old('market_stall_type_id') === (string) $type->id)
+                >
                     {{ $type->type_name }}
                 </option>
             @endforeach
         </select>
+    </div>
+
+    <div class="msr-form-field msr-form-field--full">
+        <label><i class="fa-solid fa-layer-group" style="color:#0f5fa8;margin-right:6px;"></i>Rate Type Mix (Choose 1 or More)</label>
+        <div class="msr-rate-type-grid">
+            @foreach($stallTypes as $type)
+                @php
+                    $checked = in_array((string) $type->id, $defaultRateTypeIds, true);
+                    $checkboxId = $prefix . 'RateType' . $type->id;
+                    $defaultRateAmount = (float) ($type->default_rate ?? 0);
+                @endphp
+                <label class="msr-rate-type-item" for="{{ $checkboxId }}">
+                    <input
+                        id="{{ $checkboxId }}"
+                        type="checkbox"
+                        name="rate_type_ids[]"
+                        value="{{ $type->id }}"
+                        data-rate-type
+                        data-base-rate="{{ number_format($defaultRateAmount, 2, '.', '') }}"
+                        @checked($checked)
+                    >
+                    <span class="msr-rate-type-name">{{ $type->type_name }}</span>
+                    <small class="msr-rate-type-rate">PHP {{ number_format($defaultRateAmount, 2) }}</small>
+                </label>
+            @endforeach
+        </div>
+        <span class="msr-help" data-rate-formula-hint>Select one or more stall types to compute the lease rate.</span>
+    </div>
+
+    <div class="msr-form-field">
+        <label for="{{ $prefix }}BillingPeriod"><i class="fa-solid fa-calendar-day" style="color:#0f5fa8;margin-right:6px;"></i>Billing Period</label>
+        <select id="{{ $prefix }}BillingPeriod" name="billing_period" class="msr-control" data-billing-period>
+            <option value="daily" @selected((string) $defaultBillingPeriod === 'daily')>Daily</option>
+            <option value="weekly" @selected((string) $defaultBillingPeriod === 'weekly')>Weekly</option>
+            <option value="monthly" @selected((string) $defaultBillingPeriod === 'monthly')>Monthly</option>
+        </select>
+    </div>
+
+    <div class="msr-form-field">
+        <label for="{{ $prefix }}BillingCycles"><i class="fa-solid fa-repeat" style="color:#0f5fa8;margin-right:6px;"></i>No. of Cycles</label>
+        <input
+            id="{{ $prefix }}BillingCycles"
+            name="billing_cycles"
+            type="number"
+            step="1"
+            min="1"
+            class="msr-control"
+            value="{{ $defaultBillingCycles }}"
+            data-billing-cycles
+        >
+    </div>
+
+    <div class="msr-form-field">
+        <label for="{{ $prefix }}RateMultiplier"><i class="fa-solid fa-xmark" style="color:#0f5fa8;margin-right:6px;"></i>Rate Multiplier</label>
+        <input
+            id="{{ $prefix }}RateMultiplier"
+            name="rate_multiplier"
+            type="number"
+            step="0.01"
+            min="0.01"
+            class="msr-control"
+            value="{{ $defaultRateMultiplier }}"
+            data-rate-multiplier
+        >
     </div>
 
     <div class="msr-form-field">
@@ -49,7 +124,7 @@
     </div>
 
     <div class="msr-form-field">
-        <label for="{{ $prefix }}Rate"><i class="fa-solid fa-peso-sign" style="color:#0f5fa8;margin-right:6px;"></i>Rate (PHP)</label>
+        <label for="{{ $prefix }}Rate"><i class="fa-solid fa-peso-sign" style="color:#0f5fa8;margin-right:6px;"></i>Computed / Final Rate (PHP)</label>
         <input id="{{ $prefix }}Rate" name="rate_amount" type="number" step="0.01" min="0" class="msr-control" value="{{ $defaultRate }}" data-rate-input required>
     </div>
 

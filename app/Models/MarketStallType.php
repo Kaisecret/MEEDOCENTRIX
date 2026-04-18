@@ -13,12 +13,15 @@ class MarketStallType extends Model
     protected $fillable = [
         'type_name',
         'description',
+        'default_rate',
+        'rate_notes',
         'is_active',
     ];
 
     protected function casts(): array
     {
         return [
+            'default_rate' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }
@@ -28,4 +31,3 @@ class MarketStallType extends Model
         return $this->hasMany(MarketStall::class, 'market_stall_type_id');
     }
 }
-

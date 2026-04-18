@@ -160,7 +160,27 @@
     .csl-table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 1280px;
+    }
+
+    .csl-view-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 14px;
+    }
+    .csl-view-grid .csl-view-full { grid-column: 1 / -1; }
+    .csl-view-item { display: grid; gap: 3px; }
+    .csl-view-item span {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .csl-view-item strong {
+        font-size: 0.9rem;
+        color: #0f172a;
+        font-weight: 600;
+        word-break: break-word;
     }
 
     .csl-table th {
@@ -320,7 +340,13 @@
     }
 </style>
 
-<div class="csl-page" data-server-rendered-page="cemetery_services" data-page-title="Service Logs">
+<div
+    class="csl-page"
+    data-server-rendered-page="cemetery_services"
+    data-page-title="Service Logs"
+    data-old-form-mode="{{ old('form_mode', '') }}"
+    data-old-form-service-log-id="{{ old('form_service_log_id', '') }}"
+    data-has-errors="{{ $errors->any() ? '1' : '0' }}">
     <section class="csl-hero">
         <div>
             <h2>Cemetery Service Logs</h2>
@@ -377,13 +403,9 @@
                         <th>Log No.</th>
                         <th>Service Date</th>
                         <th>Deceased Name</th>
-                        <th>Niche / Lot No.</th>
                         <th>Cemetery</th>
                         <th>Service Type</th>
-                        <th>Details</th>
-                        <th>Processed By</th>
-                        <th>Remarks</th>
-                        <th>Actions</th>
+                        <th style="text-align:right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -392,20 +414,25 @@
                             <td><strong>{{ $serviceLog->log_no }}</strong></td>
                             <td>{{ optional($serviceLog->service_date)->format('Y-m-d') }}</td>
                             <td>{{ $serviceLog->deceased_name }}</td>
-                            <td>{{ $serviceLog->plot_reference }}</td>
                             <td>{{ $serviceLog->site?->site_name ?: '-' }}</td>
                             <td>{{ $serviceLog->serviceType?->type_name ?: '-' }}</td>
-                            <td>{{ $serviceLog->details ?: '-' }}</td>
-                            <td>{{ $serviceLog->processed_by }}</td>
-                            <td>{{ $serviceLog->remarks ?: '-' }}</td>
-                            <td>
-                                <div class="csl-actions">
-                                    <a
-                                        href="{{ route('cemetery.transactions', ['service_log_id' => $serviceLog->id, 'open_create' => 1]) }}"
-                                        class="csl-icon-btn"
-                                        title="Create transaction from this service log">
-                                        <i class="fa-solid fa-receipt"></i>
-                                    </a>
+                            <td style="text-align:right;">
+                                <div class="csl-actions" style="justify-content:flex-end;">
+                                    <button
+                                        type="button"
+                                        class="csl-icon-btn js-open-view-service-log-btn"
+                                        data-log-no="{{ $serviceLog->log_no }}"
+                                        data-service-date="{{ optional($serviceLog->service_date)->format('Y-m-d') }}"
+                                        data-deceased-name="{{ $serviceLog->deceased_name }}"
+                                        data-plot-reference="{{ $serviceLog->plot_reference }}"
+                                        data-site-name="{{ $serviceLog->site?->site_name }}"
+                                        data-service-type-name="{{ $serviceLog->serviceType?->type_name }}"
+                                        data-details="{{ $serviceLog->details }}"
+                                        data-processed-by="{{ $serviceLog->processed_by }}"
+                                        data-remarks="{{ $serviceLog->remarks }}"
+                                        title="View service log">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
                                     <button
                                         type="button"
                                         class="csl-icon-btn js-open-edit-service-log-btn"
@@ -413,9 +440,9 @@
                                         data-log-no="{{ $serviceLog->log_no }}"
                                         data-service-date="{{ optional($serviceLog->service_date)->format('Y-m-d') }}"
                                         data-site-id="{{ $serviceLog->cemetery_site_id }}"
-                                        data-service-type-id="{{ $serviceLog->cemetery_service_type_id }}"
                                         data-deceased-name="{{ $serviceLog->deceased_name }}"
                                         data-plot-reference="{{ $serviceLog->plot_reference }}"
+                                        data-service-type-id="{{ $serviceLog->cemetery_service_type_id }}"
                                         data-details="{{ $serviceLog->details }}"
                                         data-processed-by="{{ $serviceLog->processed_by }}"
                                         data-remarks="{{ $serviceLog->remarks }}"
@@ -431,7 +458,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="10" style="text-align:center; padding:1.4rem;">No service logs found.</td></tr>
+                        <tr><td colspan="6" style="text-align:center; padding:1.4rem;">No service logs found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -508,6 +535,31 @@
     </div>
 </div>
 
+<div id="viewServiceLogModal" class="csl-modal" aria-hidden="true">
+    <div class="csl-modal-card" style="width: min(720px, 96vw);">
+        <div class="csl-modal-head">
+            <h4>Service Log Details</h4>
+            <button type="button" class="csl-modal-close" data-close-modal="viewServiceLogModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="csl-modal-body">
+            <div class="csl-view-grid">
+                <div class="csl-view-item"><span>Log No.</span><strong id="viewSvcLogNo">-</strong></div>
+                <div class="csl-view-item"><span>Service Date</span><strong id="viewSvcServiceDate">-</strong></div>
+                <div class="csl-view-item"><span>Deceased Name</span><strong id="viewSvcDeceasedName">-</strong></div>
+                <div class="csl-view-item"><span>Niche / Lot No.</span><strong id="viewSvcPlotReference">-</strong></div>
+                <div class="csl-view-item"><span>Cemetery</span><strong id="viewSvcSiteName">-</strong></div>
+                <div class="csl-view-item"><span>Service Type</span><strong id="viewSvcServiceTypeName">-</strong></div>
+                <div class="csl-view-item"><span>Processed By</span><strong id="viewSvcProcessedBy">-</strong></div>
+                <div class="csl-view-item csl-view-full"><span>Details</span><strong id="viewSvcDetails">-</strong></div>
+                <div class="csl-view-item csl-view-full"><span>Remarks</span><strong id="viewSvcRemarks">-</strong></div>
+            </div>
+        </div>
+        <div class="csl-modal-foot">
+            <button type="button" class="csl-btn csl-btn-secondary" data-close-modal="viewServiceLogModal">Close</button>
+        </div>
+    </div>
+</div>
+
 <div id="deleteServiceLogModal" class="csl-modal" aria-hidden="true">
     <div class="csl-modal-card csl-modal-card-compact">
         <div class="csl-modal-head">
@@ -530,9 +582,11 @@
 
 <script>
 (() => {
+    const page = document.querySelector('.csl-page[data-server-rendered-page="cemetery_services"]');
     const createModal = document.getElementById('createServiceLogModal');
     const editModal = document.getElementById('editServiceLogModal');
     const deleteModal = document.getElementById('deleteServiceLogModal');
+    const viewModal = document.getElementById('viewServiceLogModal');
     const openCreateButton = document.getElementById('openCreateServiceLogBtn');
     const closeButtons = Array.from(document.querySelectorAll('[data-close-modal]'));
     const editForm = document.getElementById('editServiceLogForm');
@@ -540,12 +594,32 @@
     const confirmDeleteButton = document.getElementById('confirmDeleteServiceLogBtn');
     const deleteLogNo = document.getElementById('deleteServiceLogNo');
     const deleteDeceased = document.getElementById('deleteServiceLogDeceased');
-    const oldFormMode = "{{ old('form_mode') }}";
-    const oldFormServiceLogId = "{{ old('form_service_log_id') }}";
-    const hasErrors = {{ $errors->any() ? 'true' : 'false' }};
+    const oldFormMode = page?.dataset.oldFormMode || '';
+    const oldFormServiceLogId = page?.dataset.oldFormServiceLogId || '';
+    const hasErrors = (page?.dataset.hasErrors || '0') === '1';
     let pendingDeleteForm = null;
 
-    const allModals = [createModal, editModal, deleteModal].filter(Boolean);
+    const allModals = [createModal, editModal, deleteModal, viewModal].filter(Boolean);
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const text = (value ?? '').toString().trim();
+        el.textContent = text === '' ? '-' : text;
+    };
+
+    const openViewFromButton = (button) => {
+        setText('viewSvcLogNo', button.dataset.logNo);
+        setText('viewSvcServiceDate', button.dataset.serviceDate);
+        setText('viewSvcDeceasedName', button.dataset.deceasedName);
+        setText('viewSvcPlotReference', button.dataset.plotReference);
+        setText('viewSvcSiteName', button.dataset.siteName);
+        setText('viewSvcServiceTypeName', button.dataset.serviceTypeName);
+        setText('viewSvcProcessedBy', button.dataset.processedBy);
+        setText('viewSvcDetails', button.dataset.details);
+        setText('viewSvcRemarks', button.dataset.remarks);
+        openModal(viewModal);
+    };
 
     const lockBody = () => {
         const hasOpenModal = allModals.some((modal) => modal.classList.contains('is-open'));
@@ -574,6 +648,162 @@
         field.value = value || '';
     };
 
+    const toMoneyLabel = (value) => {
+        const amount = Number(value || 0);
+        const safeAmount = Number.isFinite(amount) ? amount : 0;
+        return `PHP ${safeAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
+    const serviceTypeToSuggestion = (serviceTypeCode, siteCode) => {
+        const code = String(serviceTypeCode || '').toUpperCase();
+        const site = String(siteCode || '').toUpperCase();
+
+        if (code === 'INTERMENT') {
+            if (site === 'SJM') {
+                return {
+                    transactionTypeName: 'Single Niche Purchase (Regular)',
+                    suggestedAmount: toMoneyLabel(10000),
+                    breakdown: 'San Jose Memorial: regular single niche PHP 10,000.00 (infant single niche PHP 5,000.00).',
+                };
+            }
+            if (site === 'NMC') {
+                return {
+                    transactionTypeName: 'Single Niche Purchase',
+                    suggestedAmount: toMoneyLabel(5000),
+                    breakdown: 'New Municipal Cemetery: single niche for Columbarium/Infant is PHP 5,000.00.',
+                };
+            }
+            if (site === 'SPMC') {
+                return {
+                    transactionTypeName: 'Lot Purchase',
+                    suggestedAmount: toMoneyLabel(10300),
+                    breakdown: 'San Pedro Memorial: Lot PHP 10,000.00 + Burial Permit PHP 300.00.',
+                };
+            }
+            if (site === 'OMC') {
+                return {
+                    transactionTypeName: 'Additional Burial',
+                    suggestedAmount: toMoneyLabel(5300),
+                    breakdown: 'Old Municipal Cemetery: Additional Burial PHP 5,000.00 + Burial Permit PHP 300.00.',
+                };
+            }
+            return {
+                transactionTypeName: 'Single Niche / Lot Purchase',
+                suggestedAmount: toMoneyLabel(0),
+                breakdown: 'Select a cemetery to show the exact interment fee.',
+            };
+        }
+
+        if (code === 'BURIAL') {
+            if (['OMC', 'NMC', 'SPMC'].includes(site)) {
+                return {
+                    transactionTypeName: 'Additional Burial',
+                    suggestedAmount: toMoneyLabel(5300),
+                    breakdown: 'Additional Burial PHP 5,000.00 + Burial Permit PHP 300.00.',
+                };
+            }
+            if (site === 'SJM') {
+                return {
+                    transactionTypeName: 'Burial Permit',
+                    suggestedAmount: toMoneyLabel(300),
+                    breakdown: 'San Jose Memorial: Burial Permit standard fee PHP 300.00.',
+                };
+            }
+            return {
+                transactionTypeName: 'Burial Service',
+                suggestedAmount: toMoneyLabel(300),
+                breakdown: 'Burial Permit standard fee is PHP 300.00.',
+            };
+        }
+
+        if (code === 'RENEWAL') {
+            return {
+                transactionTypeName: 'Maintenance Fee (5-year)',
+                suggestedAmount: toMoneyLabel(1500),
+                breakdown: '5-year maintenance fee is PHP 1,500.00.',
+            };
+        }
+
+        if (code === 'MAINTENANCE_UPDATE') {
+            return {
+                transactionTypeName: 'Maintenance Fee (5-year)',
+                suggestedAmount: toMoneyLabel(1500),
+                breakdown: '5-year fixed maintenance PHP 1,500.00 (yearly option PHP 300.00/year).',
+            };
+        }
+
+        if (code === 'EXHUMATION') {
+            return {
+                transactionTypeName: 'Exhumation',
+                suggestedAmount: toMoneyLabel(200),
+                breakdown: 'Exhumation (Kalkal) fee is PHP 200.00.',
+            };
+        }
+
+        if (code === 'TRANSFER') {
+            return {
+                transactionTypeName: 'Transfer',
+                suggestedAmount: toMoneyLabel(300),
+                breakdown: 'Transfer service base fee PHP 300.00 (add up to PHP 200.00 extra if applicable).',
+            };
+        }
+
+        if (code === 'RECORD_CORRECTION') {
+            return {
+                transactionTypeName: 'Other Cemetery Service',
+                suggestedAmount: toMoneyLabel(300),
+                breakdown: 'Record correction base fee PHP 300.00 (add up to PHP 200.00 extra if applicable).',
+            };
+        }
+
+        return {
+            transactionTypeName: '',
+            suggestedAmount: 'PHP 0.00',
+            breakdown: 'Choose Service Type to show suggested amount.',
+        };
+    };
+
+    const computeSuggestedRate = (prefix) => {
+        const siteField = document.getElementById(`${prefix}Site`);
+        const serviceTypeField = document.getElementById(`${prefix}ServiceType`);
+        const suggestedTypeField = document.getElementById(`${prefix}SuggestedTransactionType`);
+        const suggestedAmountField = document.getElementById(`${prefix}SuggestedAmountDue`);
+        const suggestedBreakdownField = document.getElementById(`${prefix}SuggestedBreakdown`);
+
+        if (!siteField || !serviceTypeField || !suggestedTypeField || !suggestedAmountField || !suggestedBreakdownField) return;
+
+        const selectedSite = siteField.options[siteField.selectedIndex];
+        const selectedServiceType = serviceTypeField.options[serviceTypeField.selectedIndex];
+        const siteCode = String(selectedSite?.dataset.siteCode || '').toUpperCase();
+        const serviceTypeCode = String(selectedServiceType?.dataset.serviceTypeCode || '').toUpperCase();
+
+        if (!selectedServiceType?.value) {
+            setValue(`${prefix}SuggestedTransactionType`, '');
+            setValue(`${prefix}SuggestedAmountDue`, 'PHP 0.00');
+            setValue(`${prefix}SuggestedBreakdown`, 'Choose Service Type to show suggested amount.');
+            return;
+        }
+
+        const suggestion = serviceTypeToSuggestion(serviceTypeCode, siteCode);
+        setValue(`${prefix}SuggestedTransactionType`, suggestion.transactionTypeName);
+        setValue(`${prefix}SuggestedAmountDue`, suggestion.suggestedAmount);
+        setValue(`${prefix}SuggestedBreakdown`, suggestion.breakdown);
+    };
+
+    const bindSuggestedRate = (prefix) => {
+        const siteField = document.getElementById(`${prefix}Site`);
+        const serviceTypeField = document.getElementById(`${prefix}ServiceType`);
+
+        if (siteField) {
+            siteField.addEventListener('change', () => computeSuggestedRate(prefix));
+        }
+        if (serviceTypeField) {
+            serviceTypeField.addEventListener('change', () => computeSuggestedRate(prefix));
+        }
+
+        computeSuggestedRate(prefix);
+    };
+
     const openEditFromButton = (button) => {
         if (!editForm) return;
 
@@ -583,19 +813,26 @@
 
         setValue('editSvcLogNo', button.dataset.logNo);
         setValue('editSvcServiceDate', button.dataset.serviceDate);
-        setValue('editSvcSite', button.dataset.siteId);
+        setValue('editSvcSite', button.dataset.siteId || '');
         setValue('editSvcServiceType', button.dataset.serviceTypeId);
-        setValue('editSvcDeceasedName', button.dataset.deceasedName);
-        setValue('editSvcPlotReference', button.dataset.plotReference);
+        setValue('editSvcDeceasedName', button.dataset.deceasedName || '');
+        setValue('editSvcPlotReference', button.dataset.plotReference || '');
         setValue('editSvcDetails', button.dataset.details);
         setValue('editSvcProcessedBy', button.dataset.processedBy);
         setValue('editSvcRemarks', button.dataset.remarks);
+        computeSuggestedRate('editSvc');
 
         openModal(editModal);
     };
 
+    bindSuggestedRate('newSvc');
+    bindSuggestedRate('editSvc');
+
     if (openCreateButton) {
-        openCreateButton.addEventListener('click', () => openModal(createModal));
+        openCreateButton.addEventListener('click', () => {
+            computeSuggestedRate('newSvc');
+            openModal(createModal);
+        });
     }
 
     closeButtons.forEach((button) => {
@@ -609,6 +846,13 @@
     });
 
     document.addEventListener('click', (event) => {
+        const viewButton = event.target.closest('.js-open-view-service-log-btn');
+        if (viewButton) {
+            event.preventDefault();
+            openViewFromButton(viewButton);
+            return;
+        }
+
         const editButton = event.target.closest('.js-open-edit-service-log-btn');
         if (editButton) {
             event.preventDefault();
@@ -653,6 +897,7 @@
         closeModal(createModal);
         closeModal(editModal);
         closeModal(deleteModal);
+        closeModal(viewModal);
     });
 
     if (hasErrors) {
@@ -662,8 +907,10 @@
                 editForm.action = editActionTemplate.replace('__ID__', serviceLogId);
                 setValue('editFormServiceLogId', serviceLogId);
             }
+            computeSuggestedRate('editSvc');
             openModal(editModal);
         } else {
+            computeSuggestedRate('newSvc');
             openModal(createModal);
         }
     }

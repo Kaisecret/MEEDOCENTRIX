@@ -65,4 +65,9 @@ class CemeteryOccupantRecord extends Model
     {
         return $this->hasMany(CemeteryTransaction::class, 'occupant_record_id');
     }
+
+    public function serviceLogs(): HasMany
+    {
+        return $this->hasMany(CemeteryServiceLog::class, 'occupant_record_id');
+    }
 }

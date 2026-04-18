@@ -3,16 +3,16 @@
     $defaultTransactionNo = old('transaction_no', $transactionNoValue ?? '');
     $defaultStatus = old('status', 'pending');
     $defaultMaintenanceType = old('maintenance_type', 'none');
+    $defaultTransactionDate = old('transaction_date', now()->format('Y-m-d\TH:i'));
     $prefillData = $prefillData ?? null;
     $occupantRecords = $occupantRecords ?? collect();
-    $serviceLogs = $serviceLogs ?? collect();
-    $serviceLinkMap = $serviceLinkMap ?? [];
     $defaultOccupantRecordId = old('occupant_record_id', $prefillData['occupant_record_id'] ?? '');
-    $defaultServiceLogId = old('service_log_id', $prefillData['service_log_id'] ?? '');
     $defaultSiteId = old('cemetery_site_id', $prefillData['cemetery_site_id'] ?? '');
     $defaultCategoryId = old('cemetery_category_id', $prefillData['cemetery_category_id'] ?? '');
     $defaultDeceasedName = old('deceased_name', $prefillData['deceased_name'] ?? '');
     $defaultPlotReference = old('plot_reference', $prefillData['plot_reference'] ?? '');
+    $defaultTransactionTypeId = old('cemetery_transaction_type_id', '');
+    $defaultMaintenanceYears = old('maintenance_years');
 @endphp
 
 <div class="ctx-form-grid">
@@ -22,20 +22,26 @@
     </div>
 
     <div class="ctx-field">
-        <label for="{{ $prefix }}TransactionDate"><i class="fa-regular fa-calendar-days"></i>Transaction Date</label>
-        <input id="{{ $prefix }}TransactionDate" name="transaction_date" type="date" class="ctx-control" value="{{ old('transaction_date') }}" required>
+        <label for="{{ $prefix }}TransactionDate"><i class="fa-regular fa-calendar-days"></i>Transaction Date & Time</label>
+        <input id="{{ $prefix }}TransactionDate" name="transaction_date" type="datetime-local" class="ctx-control" value="{{ $defaultTransactionDate }}" required readonly>
     </div>
 
-    <div class="ctx-field">
+    <div class="ctx-field ctx-field-full">
         <label for="{{ $prefix }}OccupantRecord"><i class="fa-solid fa-users"></i>Link Occupant Record</label>
-        <select id="{{ $prefix }}OccupantRecord" name="occupant_record_id" class="ctx-control js-txn-occupant-link">
-            <option value="">None</option>
+        <select id="{{ $prefix }}OccupantRecord" name="occupant_record_id" class="ctx-control js-txn-occupant-link" required>
+            <option value="">Select occupant record...</option>
             @foreach($occupantRecords as $occupantRecord)
-                @php $plotRef = $occupantRecord->plot?->plot_reference; @endphp
+                @php
+                    $plotRef = $occupantRecord->plot?->plot_reference;
+                @endphp
                 <option
                     value="{{ $occupantRecord->id }}"
                     data-site-id="{{ $occupantRecord->cemetery_site_id }}"
+                    data-site-name="{{ $occupantRecord->site?->site_name }}"
+                    data-site-code="{{ strtoupper((string) ($occupantRecord->site?->site_code ?? '')) }}"
                     data-category-id="{{ $occupantRecord->cemetery_category_id }}"
+                    data-category-name="{{ $occupantRecord->category?->category_name }}"
+                    data-category-code="{{ strtoupper((string) ($occupantRecord->category?->category_code ?? '')) }}"
                     data-deceased-name="{{ $occupantRecord->deceased_name }}"
                     data-plot-reference="{{ $plotRef }}"
                     @selected((string) $defaultOccupantRecordId === (string) $occupantRecord->id)
@@ -47,46 +53,15 @@
     </div>
 
     <div class="ctx-field">
-        <label for="{{ $prefix }}ServiceLog"><i class="fa-solid fa-book-journal-whills"></i>Link Service Log</label>
-        <select id="{{ $prefix }}ServiceLog" name="service_log_id" class="ctx-control js-txn-service-link">
-            <option value="">None</option>
-            @foreach($serviceLogs as $serviceLog)
-                @php
-                    $meta = $serviceLinkMap[$serviceLog->id] ?? ['occupant_record_id' => null, 'category_id' => null];
-                @endphp
-                <option
-                    value="{{ $serviceLog->id }}"
-                    data-site-id="{{ $serviceLog->cemetery_site_id }}"
-                    data-category-id="{{ $meta['category_id'] }}"
-                    data-occupant-record-id="{{ $meta['occupant_record_id'] }}"
-                    data-deceased-name="{{ $serviceLog->deceased_name }}"
-                    data-plot-reference="{{ $serviceLog->plot_reference }}"
-                    @selected((string) $defaultServiceLogId === (string) $serviceLog->id)
-                >
-                    {{ $serviceLog->log_no }} - {{ $serviceLog->deceased_name }}
-                </option>
-            @endforeach
-        </select>
+        <label for="{{ $prefix }}SiteName"><i class="fa-solid fa-location-dot"></i>Cemetery Name</label>
+        <input id="{{ $prefix }}SiteName" type="text" class="ctx-control js-txn-site-name" value="" placeholder="Auto from occupant record" readonly>
+        <input id="{{ $prefix }}Site" name="cemetery_site_id" type="hidden" value="{{ $defaultSiteId }}">
     </div>
 
     <div class="ctx-field">
-        <label for="{{ $prefix }}Site"><i class="fa-solid fa-location-dot"></i>Cemetery Name</label>
-        <select id="{{ $prefix }}Site" name="cemetery_site_id" class="ctx-control js-txn-site" required>
-            <option value="">Select cemetery...</option>
-            @foreach($sites as $site)
-                <option value="{{ $site->id }}" data-site-code="{{ $site->site_code }}" @selected((string) $defaultSiteId === (string) $site->id)>{{ $site->site_name }}</option>
-            @endforeach
-        </select>
-    </div>
-
-    <div class="ctx-field">
-        <label for="{{ $prefix }}Category"><i class="fa-solid fa-layer-group"></i>Cemetery Category</label>
-        <select id="{{ $prefix }}Category" name="cemetery_category_id" class="ctx-control js-txn-category" required>
-            <option value="">Select category...</option>
-            @foreach($categories as $category)
-                <option value="{{ $category->id }}" data-category-code="{{ $category->category_code }}" @selected((string) $defaultCategoryId === (string) $category->id)>{{ $category->category_name }}</option>
-            @endforeach
-        </select>
+        <label for="{{ $prefix }}CategoryName"><i class="fa-solid fa-layer-group"></i>Cemetery Category</label>
+        <input id="{{ $prefix }}CategoryName" type="text" class="ctx-control js-txn-category-name" value="" placeholder="Auto from occupant record" readonly>
+        <input id="{{ $prefix }}Category" name="cemetery_category_id" type="hidden" value="{{ $defaultCategoryId }}">
     </div>
 
     <div class="ctx-field">
@@ -94,7 +69,7 @@
         <select id="{{ $prefix }}TransactionType" name="cemetery_transaction_type_id" class="ctx-control js-txn-type" required>
             <option value="">Select transaction type...</option>
             @foreach($transactionTypes as $transactionType)
-                <option value="{{ $transactionType->id }}" data-type-code="{{ $transactionType->type_code }}" @selected((string) old('cemetery_transaction_type_id') === (string) $transactionType->id)>{{ $transactionType->type_name }}</option>
+                <option value="{{ $transactionType->id }}" data-type-code="{{ $transactionType->type_code }}" @selected((string) $defaultTransactionTypeId === (string) $transactionType->id)>{{ $transactionType->type_name }}</option>
             @endforeach
         </select>
     </div>
@@ -108,14 +83,16 @@
         </select>
     </div>
 
-    <div class="ctx-field ctx-field-full">
-        <label for="{{ $prefix }}DeceasedName"><i class="fa-solid fa-cross"></i>Deceased Name</label>
-        <input id="{{ $prefix }}DeceasedName" name="deceased_name" type="text" class="ctx-control" value="{{ $defaultDeceasedName }}" required>
+    <div class="ctx-field">
+        <label for="{{ $prefix }}DeceasedNameDisplay"><i class="fa-solid fa-cross"></i>Deceased Name</label>
+        <input id="{{ $prefix }}DeceasedNameDisplay" type="text" class="ctx-control js-txn-deceased-display" value="" placeholder="Auto from occupant record" readonly>
+        <input id="{{ $prefix }}DeceasedName" name="deceased_name" type="hidden" value="{{ $defaultDeceasedName }}">
     </div>
 
     <div class="ctx-field">
-        <label for="{{ $prefix }}PlotReference"><i class="fa-solid fa-vector-square"></i>Niche / Lot Number</label>
-        <input id="{{ $prefix }}PlotReference" name="plot_reference" type="text" class="ctx-control" value="{{ $defaultPlotReference }}" required>
+        <label for="{{ $prefix }}PlotReferenceDisplay"><i class="fa-solid fa-vector-square"></i>Niche / Lot Number</label>
+        <input id="{{ $prefix }}PlotReferenceDisplay" type="text" class="ctx-control js-txn-plot-display" value="" placeholder="Auto from occupant record" readonly>
+        <input id="{{ $prefix }}PlotReference" name="plot_reference" type="hidden" value="{{ $defaultPlotReference }}">
     </div>
 
     <div class="ctx-field">
@@ -134,7 +111,7 @@
 
     <div class="ctx-field">
         <label for="{{ $prefix }}MaintenanceYears"><i class="fa-regular fa-calendar"></i>Years to Cover</label>
-        <input id="{{ $prefix }}MaintenanceYears" name="maintenance_years" type="number" min="1" max="50" step="1" class="ctx-control js-txn-maintenance-years" value="{{ old('maintenance_years') }}" placeholder="Use for yearly only">
+        <input id="{{ $prefix }}MaintenanceYears" name="maintenance_years" type="number" min="1" max="50" step="1" class="ctx-control js-txn-maintenance-years" value="{{ $defaultMaintenanceYears }}" placeholder="Use for yearly only">
     </div>
 
     <div class="ctx-field">
@@ -177,7 +154,7 @@
 
     <div class="ctx-field ctx-field-full">
         <div style="border:1px solid #dbe6f0; border-radius:10px; background:#f8fbff; padding:10px 12px; color:#1f2937; font-size:0.8rem; line-height:1.5;">
-            <strong>Fee Rules Guide:</strong> SJM Regular Single Niche = 10,000; SJM Infant = 5,000; NMC Columbarium/Infant = 5,000; Additional Burial (OMC/NMC/SPMC) = 5,000; SPMC Lot Purchase = 10,000; Burial Permit add-on = 300; Maintenance yearly = years x 300; 5-year fixed = 1,500.
+            <strong>Flow:</strong> Add Occupant Record first, then create Transaction from the occupant record. Service Logs are independent from transactions.
         </div>
     </div>
 </div>

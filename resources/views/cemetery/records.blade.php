@@ -226,6 +226,27 @@
     .cor-icon-btn:hover { background: #f1f5f9; color: #155f8f; }
     .cor-icon-btn-danger:hover { border-color: #fecaca; background: #fff1f2; color: #b91c1c; }
 
+    .cor-view-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 14px;
+    }
+    .cor-view-grid .cor-view-full { grid-column: 1 / -1; }
+    .cor-view-item { display: grid; gap: 3px; }
+    .cor-view-item span {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .cor-view-item strong {
+        font-size: 0.9rem;
+        color: #0f172a;
+        font-weight: 600;
+        word-break: break-word;
+    }
+
     .cor-pagination {
         border-top: 1px solid #e2e8f0;
         background: #f8fafc;
@@ -328,6 +349,12 @@
         gap: 6px;
     }
     .cor-control-textarea { min-height: 82px; resize: vertical; }
+    .cor-field-error {
+        color: #b91c1c;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.35;
+    }
 
     body.cor-lock-scroll { overflow: hidden; }
 
@@ -348,7 +375,13 @@
     }
 </style>
 
-<div class="cor-page" data-server-rendered-page="cemetery_records" data-page-title="Occupant Records">
+<div
+    class="cor-page"
+    data-server-rendered-page="cemetery_records"
+    data-page-title="Occupant Records"
+    data-old-form-mode="{{ old('form_mode', '') }}"
+    data-old-form-record-id="{{ old('form_record_id', '') }}"
+    data-has-errors="{{ $errors->any() ? '1' : '0' }}">
     <section class="cor-hero">
         <div>
             <h2>Cemetery Occupant Records</h2>
@@ -463,12 +496,27 @@
                             </td>
                             <td>
                                 <div class="cor-actions">
-                                    <a
-                                        href="{{ route('cemetery.transactions', ['occupant_record_id' => $record->id, 'open_create' => 1]) }}"
-                                        class="cor-icon-btn"
-                                        title="Create transaction from this occupant">
-                                        <i class="fa-solid fa-receipt"></i>
-                                    </a>
+                                    <button
+                                        type="button"
+                                        class="cor-icon-btn js-open-view-record-btn"
+                                        data-record-no="{{ $record->record_no }}"
+                                        data-site-name="{{ $record->site?->site_name }}"
+                                        data-category-name="{{ $record->category?->category_name }}"
+                                        data-plot-reference="{{ $plot?->plot_reference }}"
+                                        data-plot-type="{{ $plot?->plot_type }}"
+                                        data-deceased-name="{{ $record->deceased_name }}"
+                                        data-interment-date="{{ optional($record->date_of_interment)->format('Y-m-d') }}"
+                                        data-contact-person="{{ $contact?->contact_person }}"
+                                        data-contact-number="{{ $contact?->contact_number }}"
+                                        data-address="{{ $contact?->address }}"
+                                        data-remarks="{{ $record->remarks }}"
+                                        data-status-label="{{ $statusOptions[$record->status] ?? strtoupper($record->status) }}"
+                                        data-maintenance-label="{{ $maintenanceStatusOptions[$record->maintenance_fee_status] ?? strtoupper((string) $record->maintenance_fee_status) }}"
+                                        data-coverage-start="{{ optional($record->coverage_start_date)->format('Y-m-d') }}"
+                                        data-coverage-end="{{ optional($record->coverage_end_date)->format('Y-m-d') }}"
+                                        title="View all details">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
                                     <button
                                         type="button"
                                         class="cor-icon-btn js-open-edit-record-btn"
@@ -542,14 +590,23 @@
             @csrf
             <input type="hidden" name="form_mode" value="create">
             <div class="cor-modal-body">
+                @if($errors->any() && old('form_mode', 'create') !== 'edit')
+                    <div class="alert alert-danger" style="margin:0 0 10px 0;">
+                        <i class="fa-solid fa-circle-exclamation"></i> {{ $errors->first() }}
+                    </div>
+                @endif
                 @include('cemetery.partials.occupant_form_fields', [
                     'prefix' => 'newOcc',
+                    'mode' => 'create',
                     'sites' => $sites,
                     'categories' => $categories,
                     'statusOptions' => $statusOptions,
                     'maintenanceStatusOptions' => $maintenanceStatusOptions,
                     'plotTypeOptions' => $plotTypeOptions,
                     'recordNoValue' => $nextRecordNo,
+                    'transactionTypes' => $transactionTypes,
+                    'transactionStatusOptions' => $transactionStatusOptions,
+                    'transactionNoValue' => $nextTransactionNo,
                 ])
             </div>
             <div class="cor-modal-foot">
@@ -572,8 +629,14 @@
             <input type="hidden" name="form_mode" value="edit">
             <input type="hidden" name="form_record_id" id="editFormRecordId" value="{{ old('form_record_id') }}">
             <div class="cor-modal-body">
+                @if($errors->any() && old('form_mode') === 'edit')
+                    <div class="alert alert-danger" style="margin:0 0 10px 0;">
+                        <i class="fa-solid fa-circle-exclamation"></i> {{ $errors->first() }}
+                    </div>
+                @endif
                 @include('cemetery.partials.occupant_form_fields', [
                     'prefix' => 'editOcc',
+                    'mode' => 'edit',
                     'sites' => $sites,
                     'categories' => $categories,
                     'statusOptions' => $statusOptions,
@@ -587,6 +650,36 @@
                 <button type="submit" class="cor-btn cor-btn-primary">Update Record</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div id="viewRecordModal" class="cor-modal" aria-hidden="true">
+    <div class="cor-modal-card" style="width: min(760px, 96vw);">
+        <div class="cor-modal-head">
+            <h4>Occupant Record Details</h4>
+            <button type="button" class="cor-modal-close" data-close-modal="viewRecordModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="cor-modal-body">
+            <div class="cor-view-grid">
+                <div class="cor-view-item"><span>Record No.</span><strong id="viewOccRecordNo">-</strong></div>
+                <div class="cor-view-item"><span>Name of Deceased</span><strong id="viewOccDeceasedName">-</strong></div>
+                <div class="cor-view-item"><span>Cemetery</span><strong id="viewOccSiteName">-</strong></div>
+                <div class="cor-view-item"><span>Category</span><strong id="viewOccCategoryName">-</strong></div>
+                <div class="cor-view-item"><span>Niche / Lot No.</span><strong id="viewOccPlotReference">-</strong></div>
+                <div class="cor-view-item"><span>Plot Type</span><strong id="viewOccPlotType">-</strong></div>
+                <div class="cor-view-item"><span>Interment Date</span><strong id="viewOccIntermentDate">-</strong></div>
+                <div class="cor-view-item"><span>Status</span><strong id="viewOccStatus">-</strong></div>
+                <div class="cor-view-item"><span>Contact Person</span><strong id="viewOccContactPerson">-</strong></div>
+                <div class="cor-view-item"><span>Contact Number</span><strong id="viewOccContactNumber">-</strong></div>
+                <div class="cor-view-item csl-view-full cor-view-full"><span>Address</span><strong id="viewOccAddress">-</strong></div>
+                <div class="cor-view-item"><span>Maintenance</span><strong id="viewOccMaintenance">-</strong></div>
+                <div class="cor-view-item"><span>Coverage</span><strong id="viewOccCoverage">-</strong></div>
+                <div class="cor-view-item cor-view-full"><span>Remarks</span><strong id="viewOccRemarks">-</strong></div>
+            </div>
+        </div>
+        <div class="cor-modal-foot">
+            <button type="button" class="cor-btn cor-btn-secondary" data-close-modal="viewRecordModal">Close</button>
+        </div>
     </div>
 </div>
 
@@ -612,9 +705,11 @@
 
 <script>
 (() => {
+    const page = document.querySelector('.cor-page[data-server-rendered-page="cemetery_records"]');
     const createModal = document.getElementById('createRecordModal');
     const editModal = document.getElementById('editRecordModal');
     const deleteModal = document.getElementById('deleteRecordModal');
+    const viewModal = document.getElementById('viewRecordModal');
     const openCreateButton = document.getElementById('openCreateRecordBtn');
     const closeButtons = Array.from(document.querySelectorAll('[data-close-modal]'));
     const editForm = document.getElementById('editRecordForm');
@@ -622,12 +717,40 @@
     const confirmDeleteButton = document.getElementById('confirmDeleteRecordBtn');
     const deleteRecordNo = document.getElementById('deleteRecordNo');
     const deleteDeceasedName = document.getElementById('deleteDeceasedName');
-    const oldFormMode = "{{ old('form_mode') }}";
-    const oldFormRecordId = "{{ old('form_record_id') }}";
-    const hasErrors = {{ $errors->any() ? 'true' : 'false' }};
+    const oldFormMode = page?.dataset.oldFormMode || '';
+    const oldFormRecordId = page?.dataset.oldFormRecordId || '';
+    const hasErrors = (page?.dataset.hasErrors || '0') === '1';
     let pendingDeleteForm = null;
 
-    const allModals = [createModal, editModal, deleteModal].filter(Boolean);
+    const allModals = [createModal, editModal, deleteModal, viewModal].filter(Boolean);
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const text = (value ?? '').toString().trim();
+        el.textContent = text === '' ? '-' : text;
+    };
+
+    const openViewFromButton = (button) => {
+        setText('viewOccRecordNo', button.dataset.recordNo);
+        setText('viewOccDeceasedName', button.dataset.deceasedName);
+        setText('viewOccSiteName', button.dataset.siteName);
+        setText('viewOccCategoryName', button.dataset.categoryName);
+        setText('viewOccPlotReference', button.dataset.plotReference);
+        setText('viewOccPlotType', (button.dataset.plotType || '').toUpperCase());
+        setText('viewOccIntermentDate', button.dataset.intermentDate);
+        setText('viewOccStatus', button.dataset.statusLabel);
+        setText('viewOccContactPerson', button.dataset.contactPerson);
+        setText('viewOccContactNumber', button.dataset.contactNumber);
+        setText('viewOccAddress', button.dataset.address);
+        setText('viewOccMaintenance', button.dataset.maintenanceLabel);
+        const start = (button.dataset.coverageStart || '').trim();
+        const end = (button.dataset.coverageEnd || '').trim();
+        const coverage = start || end ? `${start || '-'} to ${end || '-'}` : '';
+        setText('viewOccCoverage', coverage);
+        setText('viewOccRemarks', button.dataset.remarks);
+        openModal(viewModal);
+    };
 
     const lockBody = () => {
         const hasOpenModal = allModals.some((modal) => modal.classList.contains('is-open'));
@@ -656,6 +779,182 @@
         field.value = value || '';
     };
 
+    const currentDatetimeLocal = () => {
+        const now = new Date();
+        const pad = (value) => String(value).padStart(2, '0');
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    };
+
+    const setNowCreateTransactionDate = (force = false) => {
+        const field = document.getElementById('newOccTxDate');
+        if (!field) return;
+        if (!force && String(field.value || '').trim() !== '') return;
+        field.value = currentDatetimeLocal();
+    };
+
+    const toMoneyLabel = (value) => {
+        const amount = Number(value || 0);
+        const safeAmount = Number.isFinite(amount) ? amount : 0;
+        return `PHP ${safeAmount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
+    const syncCreateTransactionFromOccupant = () => {
+        const siteField = document.getElementById('newOccSite');
+        const categoryField = document.getElementById('newOccCategory');
+        const deceasedField = document.getElementById('newOccDeceasedName');
+        const plotField = document.getElementById('newOccPlotReference');
+        const txSiteNameField = document.getElementById('newOccTxSiteName');
+        const txCategoryNameField = document.getElementById('newOccTxCategoryName');
+        const txDeceasedField = document.getElementById('newOccTxDeceased');
+        const txPlotField = document.getElementById('newOccTxPlotReference');
+
+        if (siteField && txSiteNameField) {
+            const selectedSite = siteField.options[siteField.selectedIndex];
+            txSiteNameField.value = selectedSite?.text || '';
+        }
+
+        if (categoryField && txCategoryNameField) {
+            const selectedCategory = categoryField.options[categoryField.selectedIndex];
+            txCategoryNameField.value = selectedCategory?.text || '';
+        }
+
+        if (deceasedField && txDeceasedField) {
+            txDeceasedField.value = deceasedField.value || '';
+        }
+
+        if (plotField && txPlotField) {
+            txPlotField.value = plotField.value || '';
+        }
+    };
+
+    const computeCreateTransactionFees = () => {
+        const siteField = document.getElementById('newOccSite');
+        const categoryField = document.getElementById('newOccCategory');
+        const typeField = document.getElementById('newOccTxType');
+        const maintenanceTypeField = document.getElementById('newOccTxMaintenanceType');
+        const maintenanceYearsField = document.getElementById('newOccTxMaintenanceYears');
+        const permitField = document.getElementById('newOccTxBurialPermit');
+        const otherFeeField = document.getElementById('newOccTxOtherFee');
+        const baseFeeField = document.getElementById('newOccTxBaseFee');
+        const maintenanceFeeField = document.getElementById('newOccTxMaintenanceFee');
+        const permitFeeField = document.getElementById('newOccTxPermitFee');
+        const amountDueField = document.getElementById('newOccTxAmountDue');
+
+        if (!siteField || !categoryField || !typeField) return;
+
+        const selectedSite = siteField.options[siteField.selectedIndex];
+        const selectedCategory = categoryField.options[categoryField.selectedIndex];
+        const selectedType = typeField.options[typeField.selectedIndex];
+
+        const siteCode = String(selectedSite?.dataset.siteCode || '').toUpperCase();
+        const categoryCode = String(selectedCategory?.dataset.categoryCode || '').toUpperCase();
+        const typeCode = String(selectedType?.dataset.typeCode || '').toUpperCase();
+        const maintenanceType = String(maintenanceTypeField?.value || 'none').toLowerCase();
+        const maintenanceYears = Math.max(parseInt(String(maintenanceYearsField?.value || '0'), 10) || 0, 0);
+        const hasPermit = Boolean(permitField?.checked);
+        let otherFee = Math.max(parseFloat(String(otherFeeField?.value || '0')) || 0, 0);
+
+        let baseFee = 0;
+        let maintenanceFee = 0;
+        let burialPermitFee = hasPermit ? 300 : 0;
+        let forceBurialPermitFee = false;
+
+        if (typeCode === 'SINGLE_NICHE_PURCHASE') {
+            if (siteCode === 'SJM') {
+                if (categoryCode === 'INFANT') {
+                    baseFee = 5000;
+                } else if (['REGULAR', 'REGULAR_LARGE'].includes(categoryCode)) {
+                    baseFee = 10000;
+                }
+            } else if (siteCode === 'NMC' && ['COLUMBARIUM', 'INFANT'].includes(categoryCode)) {
+                baseFee = 5000;
+            }
+        } else if (typeCode === 'ADDITIONAL_BURIAL') {
+            if (['OMC', 'NMC', 'SPMC'].includes(siteCode)) {
+                baseFee = 5000;
+                forceBurialPermitFee = true;
+            }
+        } else if (typeCode === 'LOT_PURCHASE') {
+            if (siteCode === 'SPMC') {
+                baseFee = 10000;
+                forceBurialPermitFee = true;
+            }
+        } else if (typeCode === 'BURIAL_PERMIT') {
+            baseFee = 300;
+            burialPermitFee = 0;
+        } else if (typeCode === 'EXHUMATION') {
+            baseFee = 200;
+            burialPermitFee = 0;
+        } else if (['TRANSFER', 'OTHER'].includes(typeCode)) {
+            baseFee = 300;
+            maintenanceFee = 0;
+            burialPermitFee = 0;
+            if (otherFee > 200) {
+                otherFee = 200;
+                if (otherFeeField) {
+                    otherFeeField.value = '200';
+                }
+            }
+        }
+
+        if (maintenanceType === 'five_year_fixed') {
+            maintenanceFee = 1500;
+        } else if (maintenanceType === 'yearly' && maintenanceYears > 0) {
+            maintenanceFee = maintenanceYears * 300;
+        }
+
+        if (['TRANSFER', 'OTHER', 'EXHUMATION'].includes(typeCode)) {
+            maintenanceFee = 0;
+        }
+
+        if (forceBurialPermitFee) {
+            burialPermitFee = 300;
+        }
+
+        const total = Number((baseFee + maintenanceFee + burialPermitFee + otherFee).toFixed(2));
+
+        if (baseFeeField) baseFeeField.value = toMoneyLabel(baseFee);
+        if (maintenanceFeeField) maintenanceFeeField.value = toMoneyLabel(maintenanceFee);
+        if (permitFeeField) permitFeeField.value = toMoneyLabel(burialPermitFee);
+        if (amountDueField) amountDueField.value = toMoneyLabel(total);
+    };
+
+    const bindCreateTransactionFields = () => {
+        const ids = [
+            'newOccSite',
+            'newOccCategory',
+            'newOccDeceasedName',
+            'newOccPlotReference',
+            'newOccTxType',
+            'newOccTxMaintenanceType',
+            'newOccTxMaintenanceYears',
+            'newOccTxBurialPermit',
+            'newOccTxOtherFee',
+        ];
+
+        ids.forEach((id) => {
+            const element = document.getElementById(id);
+            if (!element) return;
+            const eventName = id === 'newOccDeceasedName' || id === 'newOccPlotReference' || id === 'newOccTxMaintenanceYears' || id === 'newOccTxOtherFee'
+                ? 'input'
+                : 'change';
+            element.addEventListener(eventName, () => {
+                syncCreateTransactionFromOccupant();
+                computeCreateTransactionFees();
+            });
+
+            if (eventName !== 'change') {
+                element.addEventListener('change', () => {
+                    syncCreateTransactionFromOccupant();
+                    computeCreateTransactionFees();
+                });
+            }
+        });
+
+        syncCreateTransactionFromOccupant();
+        computeCreateTransactionFees();
+    };
+
     const openEditFromButton = (button) => {
         if (!editForm) return;
 
@@ -682,8 +981,15 @@
         openModal(editModal);
     };
 
+    bindCreateTransactionFields();
+
     if (openCreateButton) {
-        openCreateButton.addEventListener('click', () => openModal(createModal));
+        openCreateButton.addEventListener('click', () => {
+            setNowCreateTransactionDate(true);
+            syncCreateTransactionFromOccupant();
+            computeCreateTransactionFees();
+            openModal(createModal);
+        });
     }
 
     closeButtons.forEach((button) => {
@@ -697,6 +1003,13 @@
     });
 
     document.addEventListener('click', (event) => {
+        const viewButton = event.target.closest('.js-open-view-record-btn');
+        if (viewButton) {
+            event.preventDefault();
+            openViewFromButton(viewButton);
+            return;
+        }
+
         const editButton = event.target.closest('.js-open-edit-record-btn');
         if (editButton) {
             event.preventDefault();
@@ -741,6 +1054,7 @@
         closeModal(createModal);
         closeModal(editModal);
         closeModal(deleteModal);
+        closeModal(viewModal);
     });
 
     if (hasErrors) {
@@ -752,6 +1066,9 @@
             }
             openModal(editModal);
         } else {
+            setNowCreateTransactionDate();
+            syncCreateTransactionFromOccupant();
+            computeCreateTransactionFees();
             openModal(createModal);
         }
     }

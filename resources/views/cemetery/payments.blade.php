@@ -156,12 +156,40 @@
         text-decoration: none;
     }
 
+    .cpc-status-toast {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 1700;
+        margin: 0;
+        min-width: min(420px, calc(100vw - 32px));
+        max-width: min(620px, calc(100vw - 32px));
+        border-radius: 12px;
+        border: 1px solid #a7f3d0;
+        background: #ecfdf5;
+        color: #065f46;
+        box-shadow: 0 14px 28px rgba(15, 39, 64, 0.24);
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        transition: opacity .22s ease, transform .22s ease;
+    }
+
+    .cpc-status-toast.is-hiding {
+        opacity: 0;
+        transform: translateY(-8px);
+        pointer-events: none;
+    }
+
     .cpc-table-wrap { overflow: auto; }
 
     .cpc-table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 1500px;
+        min-width: 980px;
     }
 
     .cpc-table th {
@@ -320,6 +348,33 @@
         gap: 6px;
     }
     .cpc-control-textarea { min-height: 84px; resize: vertical; }
+    .cpc-view-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px 12px;
+    }
+    .cpc-view-item {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #f8fafc;
+        padding: 10px 12px;
+    }
+    .cpc-view-item strong {
+        display: block;
+        color: #334155;
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 4px;
+    }
+    .cpc-view-item span {
+        color: #0f172a;
+        font-size: 0.9rem;
+        word-break: break-word;
+    }
+    .cpc-view-item.cpc-view-item-wide {
+        grid-column: 1 / -1;
+    }
     body.cpc-lock-scroll { overflow: hidden; }
 
     @media (max-width: 1120px) {
@@ -331,6 +386,7 @@
 
     @media (max-width: 680px) {
         .cpc-stats, .cpc-form-grid, .cpc-filter-grid { grid-template-columns: 1fr; }
+        .cpc-view-grid { grid-template-columns: 1fr; }
     }
 </style>
 
@@ -338,7 +394,7 @@
     <section class="cpc-hero">
         <div>
             <h2>Payment Collection</h2>
-            <p>Manual office payment recording with official receipt, coverage period, and payment status tracking.</p>
+            <p>Manual office payment recording with coverage period and payment status tracking.</p>
         </div>
         @if ($hasAvailableTransactions)
             <button type="button" id="openCreatePaymentBtn" class="cpc-add-btn">
@@ -354,6 +410,10 @@
     @if (! $hasTransactions)
         <div class="alert alert-warning" style="margin:0;">
             <i class="fa-solid fa-triangle-exclamation"></i> No cemetery transactions found yet. Start from <strong>Cemetery Transactions</strong>, then return here to collect payment.
+        </div>
+    @elseif ($hasUnrecordedWithoutContact)
+        <div class="alert alert-warning" style="margin:0;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Some transactions are missing linked occupant contact details. Update the occupant record contact first before collecting payment.
         </div>
     @elseif ($allTransactionsAlreadyRecorded)
         <div class="alert alert-info" style="margin:0;">
@@ -371,7 +431,19 @@
     </section>
 
     @if (session('status'))
-        <div class="alert alert-success" style="margin:0;"><i class="fa-solid fa-circle-check"></i> {{ session('status') }}</div>
+        <div id="cpcStatusToast" class="cpc-status-toast" role="status" aria-live="polite">
+            <span><i class="fa-solid fa-circle-check"></i> {{ session('status') }}</span>
+            @if (session('last_payment_id'))
+                <a
+                    href="{{ route('cemetery.payments.receipt', (int) session('last_payment_id')) }}"
+                    target="_blank"
+                    rel="noopener"
+                    class="cpc-btn cpc-btn-secondary"
+                    style="min-height:34px;">
+                    <i class="fa-solid fa-print"></i> Print Receipt
+                </a>
+            @endif
+        </div>
     @endif
     @if ($errors->any())
         <div class="alert alert-danger" style="margin:0;">
@@ -388,7 +460,7 @@
         <div class="cpc-card-head">
             <h3>Payment Collection List</h3>
             <form method="GET" action="{{ route('cemetery.payments') }}" class="cpc-filter-grid">
-                <input type="search" name="q" class="cpc-control" placeholder="Search payment no, transaction, deceased, OR no..." value="{{ $search }}">
+                <input type="search" name="q" class="cpc-control" placeholder="Search payment no, transaction, deceased..." value="{{ $search }}">
                 <select name="cemetery_site_id" class="cpc-control">
                     <option value="">All Cemeteries</option>
                     @foreach($sites as $site)
@@ -416,15 +488,9 @@
                         <th>Transaction Ref.</th>
                         <th>Cemetery</th>
                         <th>Deceased Name</th>
-                        <th>Niche / Lot</th>
-                        <th>Contact Person</th>
-                        <th>Amount Due</th>
                         <th>Amount Paid</th>
-                        <th>Official Receipt</th>
                         <th>Payment Date</th>
-                        <th>Coverage Period</th>
                         <th>Status</th>
-                        <th>Remarks</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -438,23 +504,32 @@
                             <td>{{ $transaction?->transaction_no ?: '-' }}</td>
                             <td>{{ $transaction?->site?->site_name ?: '-' }}</td>
                             <td>{{ $transaction?->deceased_name ?: '-' }}</td>
-                            <td>{{ $transaction?->plot_reference ?: '-' }}</td>
-                            <td>{{ $paymentCollection->contact?->contact_person ?: '-' }}</td>
-                            <td><strong>PHP {{ number_format((float) ($transaction?->amount_due ?? 0), 2) }}</strong></td>
                             <td>PHP {{ number_format((float) $paymentCollection->amount_paid, 2) }}</td>
-                            <td>{{ $paymentCollection->official_receipt_no ?: '-' }}</td>
                             <td>{{ optional($paymentCollection->payment_date)->format('Y-m-d') ?: '-' }}</td>
-                            <td>
-                                @if ($paymentCollection->coverage_start_date && $paymentCollection->coverage_end_date)
-                                    {{ optional($paymentCollection->coverage_start_date)->format('Y-m-d') }} to {{ optional($paymentCollection->coverage_end_date)->format('Y-m-d') }}
-                                @else
-                                    -
-                                @endif
-                            </td>
                             <td><span class="cpc-badge cpc-badge-{{ $paymentCollection->payment_status }}">{{ $statusOptions[$paymentCollection->payment_status] ?? strtoupper($paymentCollection->payment_status) }}</span></td>
-                            <td>{{ $paymentCollection->remarks ?: '-' }}</td>
                             <td>
                                 <div class="cpc-actions">
+                                    <button
+                                        type="button"
+                                        class="cpc-icon-btn js-open-view-payment-btn"
+                                        data-payment-no="{{ $paymentCollection->payment_no }}"
+                                        data-transaction-no="{{ $transaction?->transaction_no ?: '-' }}"
+                                        data-cemetery="{{ $transaction?->site?->site_name ?: '-' }}"
+                                        data-category="{{ $transaction?->category?->category_name ?: '-' }}"
+                                        data-deceased-name="{{ $transaction?->deceased_name ?: '-' }}"
+                                        data-plot-reference="{{ $transaction?->plot_reference ?: '-' }}"
+                                        data-contact-person="{{ $paymentCollection->contact?->contact_person ?: '-' }}"
+                                        data-contact-number="{{ $paymentCollection->contact?->contact_number ?: '-' }}"
+                                        data-amount-due="{{ number_format((float) ($transaction?->amount_due ?? 0), 2) }}"
+                                        data-amount-paid="{{ number_format((float) $paymentCollection->amount_paid, 2) }}"
+                                        data-payment-date="{{ optional($paymentCollection->payment_date)->format('Y-m-d') ?: '-' }}"
+                                        data-coverage-start="{{ optional($paymentCollection->coverage_start_date)->format('Y-m-d') }}"
+                                        data-coverage-end="{{ optional($paymentCollection->coverage_end_date)->format('Y-m-d') }}"
+                                        data-payment-status="{{ $statusOptions[$paymentCollection->payment_status] ?? strtoupper($paymentCollection->payment_status) }}"
+                                        data-remarks="{{ $paymentCollection->remarks ?: '-' }}"
+                                        title="View full details">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
                                     <button
                                         type="button"
                                         class="cpc-icon-btn js-open-edit-payment-btn"
@@ -463,7 +538,6 @@
                                         data-transaction-id="{{ $paymentCollection->cemetery_transaction_id }}"
                                         data-contact-id="{{ $paymentCollection->cemetery_contact_id }}"
                                         data-amount-paid="{{ number_format((float) $paymentCollection->amount_paid, 2, '.', '') }}"
-                                        data-or-no="{{ $paymentCollection->official_receipt_no }}"
                                         data-payment-date="{{ optional($paymentCollection->payment_date)->format('Y-m-d') }}"
                                         data-coverage-start="{{ optional($paymentCollection->coverage_start_date)->format('Y-m-d') }}"
                                         data-coverage-end="{{ optional($paymentCollection->coverage_end_date)->format('Y-m-d') }}"
@@ -472,6 +546,14 @@
                                         title="Edit payment record">
                                         <i class="fa-solid fa-pen"></i>
                                     </button>
+                                    <a
+                                        href="{{ route('cemetery.payments.receipt', $paymentCollection) }}"
+                                        target="_blank"
+                                        rel="noopener"
+                                        class="cpc-icon-btn"
+                                        title="Open receipt">
+                                        <i class="fa-solid fa-receipt"></i>
+                                    </a>
                                     <form method="POST" action="{{ route('cemetery.payments.destroy', $paymentCollection) }}" class="js-delete-payment-form" data-payment-no="{{ $paymentCollection->payment_no }}" data-transaction-no="{{ $transaction?->transaction_no ?: '-' }}">
                                         @csrf
                                         @method('DELETE')
@@ -481,7 +563,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="14" style="text-align:center; padding:1.4rem;">No payment records found.</td></tr>
+                        <tr><td colspan="8" style="text-align:center; padding:1.4rem;">No payment records found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -502,6 +584,34 @@
             </div>
         @endif
     </section>
+</div>
+
+<div id="viewPaymentModal" class="cpc-modal" aria-hidden="true">
+    <div class="cpc-modal-card">
+        <div class="cpc-modal-head">
+            <h4>Payment Details</h4>
+            <button type="button" class="cpc-modal-close" data-close-modal="viewPaymentModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="cpc-modal-body">
+            <div class="cpc-view-grid">
+                <div class="cpc-view-item"><strong>Payment Ref.</strong><span id="viewPayPaymentNo">-</span></div>
+                <div class="cpc-view-item"><strong>Transaction Ref.</strong><span id="viewPayTransactionNo">-</span></div>
+                <div class="cpc-view-item"><strong>Payment Date</strong><span id="viewPayPaymentDate">-</span></div>
+                <div class="cpc-view-item"><strong>Cemetery</strong><span id="viewPayCemetery">-</span></div>
+                <div class="cpc-view-item"><strong>Category</strong><span id="viewPayCategory">-</span></div>
+                <div class="cpc-view-item"><strong>Status</strong><span id="viewPayStatus">-</span></div>
+                <div class="cpc-view-item"><strong>Deceased Name</strong><span id="viewPayDeceasedName">-</span></div>
+                <div class="cpc-view-item"><strong>Niche / Lot</strong><span id="viewPayPlotReference">-</span></div>
+                <div class="cpc-view-item"><strong>Contact Person</strong><span id="viewPayContactPerson">-</span></div>
+                <div class="cpc-view-item"><strong>Amount Due</strong><span id="viewPayAmountDue">-</span></div>
+                <div class="cpc-view-item"><strong>Amount Paid</strong><span id="viewPayAmountPaid">-</span></div>
+                <div class="cpc-view-item cpc-view-item-wide"><strong>Remarks</strong><span id="viewPayRemarks">-</span></div>
+            </div>
+        </div>
+        <div class="cpc-modal-foot">
+            <button type="button" class="cpc-btn cpc-btn-secondary" data-close-modal="viewPaymentModal">Close</button>
+        </div>
+    </div>
 </div>
 
 <div id="createPaymentModal" class="cpc-modal" aria-hidden="true">
@@ -580,10 +690,18 @@
     </div>
 </div>
 
+<div
+    id="paymentPageState"
+    data-old-form-mode="{{ old('form_mode', '') }}"
+    data-old-form-payment-id="{{ old('form_payment_id', '') }}"
+    data-has-errors="{{ $errors->any() ? '1' : '0' }}"
+    hidden></div>
+
 <script>
 (() => {
     const createModal = document.getElementById('createPaymentModal');
     const editModal = document.getElementById('editPaymentModal');
+    const viewModal = document.getElementById('viewPaymentModal');
     const deleteModal = document.getElementById('deletePaymentModal');
     const openCreateButton = document.getElementById('openCreatePaymentBtn');
     const closeButtons = Array.from(document.querySelectorAll('[data-close-modal]'));
@@ -592,12 +710,14 @@
     const confirmDeleteButton = document.getElementById('confirmDeletePaymentBtn');
     const deletePaymentNo = document.getElementById('deletePaymentNo');
     const deletePaymentTransactionNo = document.getElementById('deletePaymentTransactionNo');
-    const oldFormMode = "{{ old('form_mode') }}";
-    const oldFormPaymentId = "{{ old('form_payment_id') }}";
-    const hasErrors = {{ $errors->any() ? 'true' : 'false' }};
+    const statusToast = document.getElementById('cpcStatusToast');
+    const pageState = document.getElementById('paymentPageState');
+    const oldFormMode = pageState?.dataset.oldFormMode || '';
+    const oldFormPaymentId = pageState?.dataset.oldFormPaymentId || '';
+    const hasErrors = (pageState?.dataset.hasErrors || '0') === '1';
     let pendingDeleteForm = null;
 
-    const allModals = [createModal, editModal, deleteModal].filter(Boolean);
+    const allModals = [createModal, editModal, viewModal, deleteModal].filter(Boolean);
 
     const lockBody = () => {
         const hasOpenModal = allModals.some((modal) => modal.classList.contains('is-open'));
@@ -620,10 +740,26 @@
         lockBody();
     };
 
+    const autoHideStatusToast = () => {
+        if (!statusToast) return;
+        window.setTimeout(() => {
+            statusToast.classList.add('is-hiding');
+            window.setTimeout(() => {
+                statusToast.remove();
+            }, 240);
+        }, 2200);
+    };
+
     const setValue = (id, value) => {
         const field = document.getElementById(id);
         if (!field) return;
         field.value = value || '';
+    };
+
+    const setText = (id, value) => {
+        const field = document.getElementById(id);
+        if (!field) return;
+        field.textContent = value || '-';
     };
 
     const selectedTransactionAmountDue = (prefix) => {
@@ -636,30 +772,30 @@
 
     const autoResolveStatus = (prefix) => {
         const statusField = document.getElementById(prefix + 'PaymentStatus');
+        const statusLabelField = document.getElementById(prefix + 'PaymentStatusLabel');
         const amountPaidField = document.getElementById(prefix + 'AmountPaid');
         if (!statusField || !amountPaidField) return;
 
-        const currentStatus = String(statusField.value || '').toLowerCase();
         const amountPaid = Math.max(Number(amountPaidField.value || 0), 0);
         const amountDue = Math.max(selectedTransactionAmountDue(prefix), 0);
+        let resolvedStatus = 'unpaid';
 
         if (!Number.isFinite(amountPaid) || !Number.isFinite(amountDue)) return;
 
         if (amountDue <= 0) {
-            statusField.value = 'paid';
-            return;
-        }
-
-        if (currentStatus === 'overdue' && amountPaid < amountDue) {
-            return;
-        }
-
-        if (amountPaid <= 0) {
-            statusField.value = 'unpaid';
+            resolvedStatus = 'paid';
+        } else if (amountPaid <= 0) {
+            resolvedStatus = 'unpaid';
         } else if (amountPaid >= amountDue) {
-            statusField.value = 'paid';
+            resolvedStatus = 'paid';
         } else {
-            statusField.value = 'partial';
+            resolvedStatus = 'partial';
+        }
+
+        statusField.value = resolvedStatus;
+        if (statusLabelField) {
+            const labels = { paid: 'Paid', unpaid: 'Unpaid', partial: 'Partial', overdue: 'Overdue' };
+            statusLabelField.value = labels[resolvedStatus] || resolvedStatus.toUpperCase();
         }
     };
 
@@ -691,17 +827,16 @@
         const plotReference = selectedOption ? (selectedOption.dataset.plotReference || '') : '';
         const amountDue = selectedOption ? (selectedOption.dataset.amountDue || '') : '';
         const defaultContactId = selectedOption ? (selectedOption.dataset.defaultContactId || '') : '';
+        const contactName = selectedOption ? (selectedOption.dataset.contactName || '') : '';
+        const contactNumber = selectedOption ? (selectedOption.dataset.contactNumber || '') : '';
 
         setValue(prefix + 'SiteName', siteName);
         setValue(prefix + 'CategoryName', categoryName);
         setValue(prefix + 'DeceasedName', deceasedName);
         setValue(prefix + 'PlotReference', plotReference);
         setValue(prefix + 'AmountDue', amountDue ? ('PHP ' + Number(amountDue).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '');
-
-        const contactSelect = document.getElementById(prefix + 'Contact');
-        if (contactSelect && defaultContactId && !contactSelect.value) {
-            contactSelect.value = defaultContactId;
-        }
+        setValue(prefix + 'ContactId', defaultContactId);
+        setValue(prefix + 'Contact', contactName ? `${contactName}${contactNumber ? ` (${contactNumber})` : ''}` : '');
 
         autoResolveStatus(prefix);
     };
@@ -715,17 +850,12 @@
 
     const bindFormAssist = (prefix) => {
         const amountPaidField = document.getElementById(prefix + 'AmountPaid');
-        const statusField = document.getElementById(prefix + 'PaymentStatus');
         const coverageStartField = document.getElementById(prefix + 'CoverageStart');
         const coverageEndField = document.getElementById(prefix + 'CoverageEnd');
 
         if (amountPaidField) {
             amountPaidField.addEventListener('input', () => autoResolveStatus(prefix));
             amountPaidField.addEventListener('change', () => autoResolveStatus(prefix));
-        }
-
-        if (statusField) {
-            statusField.addEventListener('change', () => autoResolveStatus(prefix));
         }
 
         if (coverageStartField) {
@@ -754,9 +884,8 @@
 
         setValue('editPayPaymentNo', button.dataset.paymentNo);
         setValue('editPayTransaction', button.dataset.transactionId);
-        setValue('editPayContact', button.dataset.contactId);
+        setValue('editPayContactId', button.dataset.contactId);
         setValue('editPayAmountPaid', button.dataset.amountPaid);
-        setValue('editPayOrNo', button.dataset.orNo);
         setValue('editPayPaymentDate', button.dataset.paymentDate);
         setValue('editPayCoverageStart', button.dataset.coverageStart);
         setValue('editPayCoverageEnd', button.dataset.coverageEnd);
@@ -767,6 +896,23 @@
         autoResolveStatus('editPay');
 
         openModal(editModal);
+    };
+
+    const openViewFromButton = (button) => {
+        setText('viewPayPaymentNo', button.dataset.paymentNo);
+        setText('viewPayTransactionNo', button.dataset.transactionNo);
+        setText('viewPayPaymentDate', button.dataset.paymentDate);
+        setText('viewPayCemetery', button.dataset.cemetery);
+        setText('viewPayCategory', button.dataset.category);
+        setText('viewPayStatus', button.dataset.paymentStatus);
+        setText('viewPayDeceasedName', button.dataset.deceasedName);
+        setText('viewPayPlotReference', button.dataset.plotReference);
+        setText('viewPayContactPerson', button.dataset.contactPerson);
+        setText('viewPayAmountDue', `PHP ${button.dataset.amountDue || '0.00'}`);
+        setText('viewPayAmountPaid', `PHP ${button.dataset.amountPaid || '0.00'}`);
+        setText('viewPayRemarks', button.dataset.remarks);
+
+        openModal(viewModal);
     };
 
     if (openCreateButton) {
@@ -784,6 +930,13 @@
     });
 
     document.addEventListener('click', (event) => {
+        const viewButton = event.target.closest('.js-open-view-payment-btn');
+        if (viewButton) {
+            event.preventDefault();
+            openViewFromButton(viewButton);
+            return;
+        }
+
         const editButton = event.target.closest('.js-open-edit-payment-btn');
         if (editButton) {
             event.preventDefault();
@@ -827,6 +980,7 @@
         pendingDeleteForm = null;
         closeModal(createModal);
         closeModal(editModal);
+        closeModal(viewModal);
         closeModal(deleteModal);
     });
 
@@ -847,6 +1001,10 @@
             autoResolveStatus('newPay');
             openModal(createModal);
         }
+    }
+
+    if (statusToast) {
+        autoHideStatusToast();
     }
 })();
 </script>

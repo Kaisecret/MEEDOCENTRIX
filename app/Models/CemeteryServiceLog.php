@@ -16,6 +16,9 @@ class CemeteryServiceLog extends Model
         'service_date',
         'cemetery_site_id',
         'cemetery_service_type_id',
+        'suggested_transaction_type_code',
+        'suggested_amount_due',
+        'occupant_record_id',
         'deceased_name',
         'plot_reference',
         'details',
@@ -28,6 +31,7 @@ class CemeteryServiceLog extends Model
     {
         return [
             'service_date' => 'date',
+            'suggested_amount_due' => 'decimal:2',
         ];
     }
 
@@ -39,6 +43,11 @@ class CemeteryServiceLog extends Model
     public function serviceType(): BelongsTo
     {
         return $this->belongsTo(CemeteryServiceType::class, 'cemetery_service_type_id');
+    }
+
+    public function occupantRecord(): BelongsTo
+    {
+        return $this->belongsTo(CemeteryOccupantRecord::class, 'occupant_record_id');
     }
 
     public function creator(): BelongsTo

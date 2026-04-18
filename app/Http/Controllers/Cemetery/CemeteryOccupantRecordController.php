@@ -8,6 +8,10 @@ use App\Models\CemeteryContact;
 use App\Models\CemeteryOccupantRecord;
 use App\Models\CemeteryPlot;
 use App\Models\CemeterySite;
+use App\Models\CemeteryTransaction;
+use App\Models\CemeteryTransactionType;
+use App\Support\CemeteryFeeCalculator;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -44,6 +48,16 @@ class CemeteryOccupantRecordController extends Controller
     private const PLOT_TYPE_OPTIONS = [
         'niche' => 'Niche',
         'lot' => 'Lot',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const TX_STATUS_OPTIONS = [
+        'pending' => 'Pending',
+        'paid' => 'Paid',
+        'partial' => 'Partial',
+        'cancelled' => 'Cancelled',
     ];
 
     public function index(Request $request): View
@@ -111,12 +125,19 @@ class CemeteryOccupantRecordController extends Controller
             ->orderBy('category_name')
             ->get();
 
+        $transactionTypes = CemeteryTransactionType::query()
+            ->where('is_active', true)
+            ->orderBy('type_name')
+            ->get();
+
         return view('cemetery.records', [
             'records' => $records,
             'sites' => $sites,
             'categories' => $categories,
+            'transactionTypes' => $transactionTypes,
             'statusOptions' => self::STATUS_OPTIONS,
             'maintenanceStatusOptions' => self::MAINTENANCE_STATUS_OPTIONS,
+            'transactionStatusOptions' => self::TX_STATUS_OPTIONS,
             'plotTypeOptions' => self::PLOT_TYPE_OPTIONS,
             'search' => $search,
             'selectedSiteId' => $siteId,
@@ -125,6 +146,7 @@ class CemeteryOccupantRecordController extends Controller
             'selectedMaintenanceStatus' => $maintenanceStatus,
             'hasActiveFilters' => $hasActiveFilters,
             'nextRecordNo' => $this->nextRecordNo(),
+            'nextTransactionNo' => $this->nextTransactionNo(),
             'summary' => [
                 'total_records' => CemeteryOccupantRecord::query()->count(),
                 'occupied_plots' => CemeteryPlot::query()->where('is_occupied', true)->count(),
@@ -138,14 +160,15 @@ class CemeteryOccupantRecordController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate($this->rules($request));
+        $createdTransactionNo = null;
 
-        DB::transaction(function () use ($validated): void {
+        DB::transaction(function () use ($validated, &$createdTransactionNo): void {
             $plot = $this->resolvePlot($validated);
             $this->ensurePlotAvailability($plot->id, null, (string) $validated['status']);
 
             $contact = $this->resolveContact($validated);
 
-            CemeteryOccupantRecord::query()->create([
+            $occupantRecord = CemeteryOccupantRecord::query()->create([
                 'record_no' => strtoupper(trim((string) $validated['record_no'])),
                 'cemetery_site_id' => (int) $validated['cemetery_site_id'],
                 'cemetery_category_id' => (int) $validated['cemetery_category_id'],
@@ -162,11 +185,20 @@ class CemeteryOccupantRecordController extends Controller
             ]);
 
             $this->syncPlotOccupancy($plot->id);
+
+            if ($this->shouldCreateInitialTransaction($validated)) {
+                $transaction = $this->createInitialTransaction($validated, $occupantRecord, $plot);
+                $createdTransactionNo = $transaction->transaction_no;
+            }
         });
+
+        $statusMessage = $createdTransactionNo
+            ? "Occupant record added successfully. Initial transaction {$createdTransactionNo} was also created."
+            : 'Occupant record added successfully.';
 
         return redirect()
             ->route('cemetery.records')
-            ->with('status', 'Occupant record added successfully.');
+            ->with('status', $statusMessage);
     }
 
     public function update(Request $request, CemeteryOccupantRecord $occupantRecord): RedirectResponse
@@ -226,6 +258,9 @@ class CemeteryOccupantRecordController extends Controller
         $recordNoRule = $record
             ? Rule::unique('cemetery_occupant_records', 'record_no')->ignore($record->id)
             : Rule::unique('cemetery_occupant_records', 'record_no');
+        $isCreateMode = $record === null;
+        $hasInitialTransaction = $isCreateMode && $request->filled('tx_transaction_type_id');
+        $txNoRule = Rule::unique('cemetery_transactions', 'transaction_no');
 
         return [
             'record_no' => ['required', 'string', 'max:40', $recordNoRule],
@@ -243,6 +278,16 @@ class CemeteryOccupantRecordController extends Controller
             'maintenance_fee_status' => ['required', Rule::in(array_keys(self::MAINTENANCE_STATUS_OPTIONS))],
             'coverage_start_date' => ['nullable', 'date'],
             'coverage_end_date' => ['nullable', 'date', 'after_or_equal:coverage_start_date'],
+            'tx_transaction_type_id' => [Rule::excludeIf(! $isCreateMode), 'nullable', 'integer', Rule::exists('cemetery_transaction_types', 'id')],
+            'tx_transaction_no' => [Rule::excludeIf(! $hasInitialTransaction), 'required', 'string', 'max:40', $txNoRule],
+            'tx_transaction_date' => [Rule::excludeIf(! $hasInitialTransaction), 'nullable', 'date'],
+            'tx_status' => [Rule::excludeIf(! $hasInitialTransaction), 'nullable', Rule::in(array_keys(self::TX_STATUS_OPTIONS))],
+            'tx_quantity' => [Rule::excludeIf(! $hasInitialTransaction), 'nullable', 'numeric', 'min:0.01'],
+            'tx_maintenance_type' => [Rule::excludeIf(! $hasInitialTransaction), 'nullable', Rule::in(['none', 'yearly', 'five_year_fixed'])],
+            'tx_maintenance_years' => [Rule::excludeIf(! $hasInitialTransaction), 'nullable', 'integer', 'min:1', 'max:50'],
+            'tx_other_applicable_fee' => [Rule::excludeIf(! $hasInitialTransaction), 'nullable', 'numeric', 'min:0'],
+            'tx_has_burial_permit' => [Rule::excludeIf(! $hasInitialTransaction), 'nullable', 'boolean'],
+            'tx_remarks' => [Rule::excludeIf(! $hasInitialTransaction), 'nullable', 'string', 'max:1000'],
             'form_mode' => ['nullable', 'string', Rule::in(['create', 'edit'])],
             'form_record_id' => ['nullable', 'integer'],
         ];
@@ -294,18 +339,24 @@ class CemeteryOccupantRecordController extends Controller
             return;
         }
 
-        $activeRecordExists = CemeteryOccupantRecord::query()
+        $activeRecord = CemeteryOccupantRecord::query()
             ->where('cemetery_plot_id', $plotId)
             ->where('status', 'active')
             ->when($ignoreRecordId !== null, fn ($query) => $query->where('id', '!=', $ignoreRecordId))
-            ->exists();
+            ->first(['id', 'record_no', 'deceased_name']);
 
-        if (! $activeRecordExists) {
+        if (! $activeRecord) {
             return;
         }
 
+        $plotReference = (string) (CemeteryPlot::query()->whereKey($plotId)->value('plot_reference') ?? 'this niche/lot');
+        $recordNo = (string) ($activeRecord->record_no ?? '');
+        $deceasedName = (string) ($activeRecord->deceased_name ?? '');
+        $occupiedBy = trim($recordNo . ($deceasedName !== '' ? " ({$deceasedName})" : ''));
+        $occupiedSuffix = $occupiedBy !== '' ? " by {$occupiedBy}" : '';
+
         throw ValidationException::withMessages([
-            'plot_reference' => 'The selected niche/lot is already occupied by another active record.',
+            'plot_reference' => "Niche/Lot {$plotReference} is already occupied{$occupiedSuffix}. Use the existing occupant record when adding transactions or payments.",
         ]);
     }
 
@@ -339,6 +390,20 @@ class CemeteryOccupantRecordController extends Controller
         return 'OCC-0001';
     }
 
+    private function nextTransactionNo(): string
+    {
+        $latestNo = (string) CemeteryTransaction::query()
+            ->orderByDesc('id')
+            ->value('transaction_no');
+
+        if (preg_match('/(\d+)$/', $latestNo, $matches) === 1) {
+            $next = (int) $matches[1] + 1;
+            return 'CTX-' . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        }
+
+        return 'CTX-0001';
+    }
+
     private function syncOverdueMaintenanceStatuses(): void
     {
         CemeteryOccupantRecord::query()
@@ -346,5 +411,89 @@ class CemeteryOccupantRecordController extends Controller
             ->whereDate('coverage_end_date', '<', now()->toDateString())
             ->whereIn('maintenance_fee_status', ['unpaid', 'partial'])
             ->update(['maintenance_fee_status' => 'overdue']);
+    }
+
+    /**
+     * @param array<string, mixed> $validated
+     */
+    private function shouldCreateInitialTransaction(array $validated): bool
+    {
+        return isset($validated['tx_transaction_type_id']) && (int) $validated['tx_transaction_type_id'] > 0;
+    }
+
+    /**
+     * @param array<string, mixed> $validated
+     */
+    private function createInitialTransaction(array $validated, CemeteryOccupantRecord $occupantRecord, CemeteryPlot $plot): CemeteryTransaction
+    {
+        $site = CemeterySite::query()
+            ->select(['id', 'site_code'])
+            ->find((int) $occupantRecord->cemetery_site_id);
+        $category = CemeteryCategory::query()
+            ->select(['id', 'category_code'])
+            ->find((int) $occupantRecord->cemetery_category_id);
+        $transactionType = CemeteryTransactionType::query()
+            ->select(['id', 'type_code'])
+            ->find((int) $validated['tx_transaction_type_id']);
+
+        if (! $site || ! $category || ! $transactionType) {
+            throw ValidationException::withMessages([
+                'tx_transaction_type_id' => 'Unable to create transaction. Please reselect transaction type.',
+            ]);
+        }
+
+        $maintenanceType = strtolower(trim((string) ($validated['tx_maintenance_type'] ?? 'none')));
+        if (! in_array($maintenanceType, ['none', 'yearly', 'five_year_fixed'], true)) {
+            $maintenanceType = 'none';
+        }
+
+        $maintenanceYears = isset($validated['tx_maintenance_years']) && $validated['tx_maintenance_years'] !== ''
+            ? (int) $validated['tx_maintenance_years']
+            : null;
+
+        $hasBurialPermit = filter_var($validated['tx_has_burial_permit'] ?? false, FILTER_VALIDATE_BOOL);
+        $otherFee = round((float) ($validated['tx_other_applicable_fee'] ?? 0), 2);
+
+        $fees = CemeteryFeeCalculator::compute(
+            $site->site_code,
+            $category->category_code,
+            $transactionType->type_code,
+            $maintenanceType,
+            $maintenanceYears,
+            $hasBurialPermit,
+            $otherFee
+        );
+
+        $txNo = strtoupper(trim((string) ($validated['tx_transaction_no'] ?? '')));
+        if ($txNo === '') {
+            $txNo = $this->nextTransactionNo();
+        }
+
+        $txDate = trim((string) ($validated['tx_transaction_date'] ?? ''));
+        $resolvedTxDate = $txDate === '' ? now()->format('Y-m-d H:i:s') : Carbon::parse($txDate)->format('Y-m-d H:i:s');
+
+        return CemeteryTransaction::query()->create([
+            'transaction_no' => $txNo,
+            'transaction_date' => $resolvedTxDate,
+            'cemetery_site_id' => (int) $occupantRecord->cemetery_site_id,
+            'cemetery_category_id' => (int) $occupantRecord->cemetery_category_id,
+            'cemetery_transaction_type_id' => (int) $transactionType->id,
+            'occupant_record_id' => (int) $occupantRecord->id,
+            'service_log_id' => null,
+            'deceased_name' => (string) $occupantRecord->deceased_name,
+            'plot_reference' => (string) ($plot->plot_reference ?? ''),
+            'quantity' => isset($validated['tx_quantity']) && $validated['tx_quantity'] !== '' ? (float) $validated['tx_quantity'] : null,
+            'amount_due' => $fees['amount_due'],
+            'maintenance_type' => $maintenanceType,
+            'maintenance_years' => $maintenanceYears,
+            'has_burial_permit' => $hasBurialPermit,
+            'base_fee' => $fees['base_fee'],
+            'maintenance_fee' => $fees['maintenance_fee'],
+            'burial_permit_fee' => $fees['burial_permit_fee'],
+            'other_applicable_fee' => $fees['other_applicable_fee'],
+            'remarks' => trim((string) ($validated['tx_remarks'] ?? '')) ?: null,
+            'status' => trim((string) ($validated['tx_status'] ?? 'pending')) ?: 'pending',
+            'created_by_user_id' => Auth::id(),
+        ]);
     }
 }

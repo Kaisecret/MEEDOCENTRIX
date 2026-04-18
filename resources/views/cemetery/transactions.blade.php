@@ -51,6 +51,26 @@
 
     .ctx-add-btn:hover { background: rgba(255, 255, 255, 0.28); }
 
+    .ctx-flow-cta {
+        border: 1px solid rgba(255, 255, 255, 0.42);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
+        min-height: 40px;
+        padding: 0 0.95rem;
+        font-size: 0.88rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+
+    .ctx-flow-cta:hover {
+        background: rgba(255, 255, 255, 0.28);
+        color: #fff;
+    }
+
     .ctx-stats {
         display: grid;
         gap: 10px;
@@ -160,7 +180,7 @@
     .ctx-table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 1380px;
+        min-width: 980px;
     }
 
     .ctx-table th {
@@ -184,6 +204,15 @@
     }
 
     .ctx-table tbody tr:hover { background: #f8fbff; }
+    .ctx-cell-main {
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .ctx-cell-sub {
+        font-size: 0.78rem;
+        color: #64748b;
+        margin-top: 2px;
+    }
 
     .ctx-badge {
         display: inline-flex;
@@ -216,6 +245,13 @@
     }
     .ctx-icon-btn:hover { background: #f1f5f9; color: #155f8f; }
     .ctx-icon-btn-danger:hover { border-color: #fecaca; background: #fff1f2; color: #b91c1c; }
+    .ctx-icon-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        pointer-events: none;
+        background: #f8fafc;
+        color: #94a3b8;
+    }
 
     .ctx-pagination {
         border-top: 1px solid #e2e8f0;
@@ -274,6 +310,7 @@
     }
 
     .ctx-modal-card-compact { width: min(460px, 96vw); }
+    .ctx-modal-card-view { width: min(900px, 96vw); }
     .ctx-modal-head {
         background: #f8fafc;
         border-bottom: 1px solid #e2e8f0;
@@ -319,6 +356,33 @@
         gap: 6px;
     }
     .ctx-control-textarea { min-height: 84px; resize: vertical; }
+    .ctx-view-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px 12px;
+    }
+    .ctx-view-item {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #f8fafc;
+        padding: 10px 12px;
+    }
+    .ctx-view-item strong {
+        display: block;
+        color: #334155;
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 4px;
+    }
+    .ctx-view-item span {
+        color: #0f172a;
+        font-size: 0.9rem;
+        word-break: break-word;
+    }
+    .ctx-view-item.ctx-view-item-wide {
+        grid-column: 1 / -1;
+    }
 
     body.ctx-lock-scroll { overflow: hidden; }
 
@@ -331,18 +395,29 @@
 
     @media (max-width: 680px) {
         .ctx-stats, .ctx-form-grid, .ctx-filter-grid { grid-template-columns: 1fr; }
+        .ctx-view-grid { grid-template-columns: 1fr; }
     }
 </style>
 
-<div class="ctx-page" data-server-rendered-page="cemetery_transactions" data-page-title="Cemetery Transactions">
+<div
+    class="ctx-page"
+    data-server-rendered-page="cemetery_transactions"
+    data-page-title="Cemetery Transactions"
+    data-old-form-mode="{{ old('form_mode', '') }}"
+    data-old-form-transaction-id="{{ old('form_transaction_id', '') }}"
+    data-old-quick-transaction-id="{{ old('quick_transaction_id', '') }}"
+    data-has-errors="{{ $errors->any() ? '1' : '0' }}"
+    data-open-create-modal="{{ $openCreateModal ? '1' : '0' }}"
+    data-quick-pay-template="{{ route('cemetery.payments.quick_pay', '__ID__') }}"
+    data-last-payment-id="{{ session('last_payment_id', '') }}">
     <section class="ctx-hero">
         <div>
             <h2>Cemetery Transactions</h2>
-            <p>Record official cemetery transaction entries including type, amount due, quantity, and status.</p>
+            <p>Transactions are created from Occupant Records to keep all records connected and valid.</p>
         </div>
-        <button type="button" id="openCreateTransactionBtn" class="ctx-add-btn">
-            <i class="fa-solid fa-plus"></i> Add Transaction
-        </button>
+        <a href="{{ route('cemetery.records') }}" class="ctx-flow-cta">
+            <i class="fa-solid fa-users"></i> Create from Occupant Records
+        </a>
     </section>
 
     <section class="ctx-stats">
@@ -354,7 +429,19 @@
     </section>
 
     @if (session('status'))
-        <div class="alert alert-success" style="margin:0;"><i class="fa-solid fa-circle-check"></i> {{ session('status') }}</div>
+        <div class="alert alert-success" style="margin:0; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span><i class="fa-solid fa-circle-check"></i> {{ session('status') }}</span>
+            @if (session('last_payment_id'))
+                <a
+                    href="{{ route('cemetery.payments.receipt', (int) session('last_payment_id')) }}"
+                    target="_blank"
+                    rel="noopener"
+                    class="ctx-btn ctx-btn-secondary"
+                    style="min-height:34px;">
+                    <i class="fa-solid fa-receipt"></i> View Receipt
+                </a>
+            @endif
+        </div>
     @endif
     @if ($errors->any())
         <div class="alert alert-danger" style="margin:0;"><i class="fa-solid fa-circle-exclamation"></i> {{ $errors->first() }}</div>
@@ -402,70 +489,114 @@
                     <tr>
                         <th>Transaction No.</th>
                         <th>Date</th>
-                        <th>Cemetery / Category</th>
                         <th>Deceased Name</th>
                         <th>Niche / Lot</th>
+                        <th>Cemetery / Category</th>
                         <th>Transaction Type</th>
-                        <th>Source</th>
-                        <th>Quantity</th>
+                        <th>Occupant Record</th>
                         <th>Amount Due</th>
-                        <th>Fee Breakdown</th>
-                        <th>Remarks</th>
+                        <th>Paid To Date</th>
+                        <th>Balance</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($transactions as $transaction)
+                        @php
+                            $totalPaid = round((float) ($transaction->total_paid ?? 0), 2);
+                            $amountDue = round((float) ($transaction->amount_due ?? 0), 2);
+                            $balance = round((float) ($transaction->remaining_balance ?? max($amountDue - $totalPaid, 0)), 2);
+                            $hasPaymentRecord = ((int) ($transaction->payments_count ?? 0)) > 0;
+                            $isQuickPayAllowed = $transaction->status !== 'cancelled' && $balance > 0;
+                        @endphp
                         <tr>
-                            <td><strong>{{ $transaction->transaction_no }}</strong></td>
-                            <td>{{ optional($transaction->transaction_date)->format('Y-m-d') }}</td>
-                            <td>{{ $transaction->site?->site_name ?: '-' }}<br><span class="csl-muted">{{ $transaction->category?->category_name ?: '-' }}</span></td>
-                            <td>{{ $transaction->deceased_name }}</td>
-                            <td>{{ $transaction->plot_reference }}</td>
+                            <td>
+                                <div class="ctx-cell-main">{{ $transaction->transaction_no }}</div>
+                            </td>
+                            <td>
+                                <div>{{ optional($transaction->transaction_date)->format('Y-m-d') }}</div>
+                                <div class="ctx-cell-sub">{{ optional($transaction->transaction_date)->format('h:i A') }}</div>
+                            </td>
+                            <td class="ctx-cell-main">{{ $transaction->deceased_name }}</td>
+                            <td class="ctx-cell-main">{{ $transaction->plot_reference }}</td>
+                            <td>
+                                <div>{{ $transaction->site?->site_name ?: '-' }}</div>
+                                <div class="ctx-cell-sub">{{ $transaction->category?->category_name ?: '-' }}</div>
+                            </td>
                             <td>{{ $transaction->transactionType?->type_name ?: '-' }}</td>
                             <td>
                                 @if ($transaction->occupant_record_id)
                                     <span class="ctx-badge ctx-badge-paid">OCCUPANT</span>
-                                    <div class="csl-muted">{{ $transaction->occupantRecord?->record_no ?: '' }}</div>
-                                @elseif ($transaction->service_log_id)
-                                    <span class="ctx-badge ctx-badge-partial">SERVICE</span>
-                                    <div class="csl-muted">{{ $transaction->serviceLog?->log_no ?: '' }}</div>
+                                    <div class="csl-muted">{{ $transaction->occupantRecord?->record_no ?: '-' }}</div>
                                 @else
-                                    <span class="csl-muted">MANUAL</span>
+                                    <span class="csl-muted">-</span>
                                 @endif
                             </td>
-                            <td>{{ $transaction->quantity !== null ? number_format((float) $transaction->quantity, 2) : '-' }}</td>
-                            <td><strong>PHP {{ number_format((float) $transaction->amount_due, 2) }}</strong></td>
-                            <td>
-                                <div style="font-size:0.78rem; line-height:1.45;">
-                                    <div>Base: <strong>PHP {{ number_format((float) ($transaction->base_fee ?? 0), 2) }}</strong></div>
-                                    <div>Maint: <strong>PHP {{ number_format((float) ($transaction->maintenance_fee ?? 0), 2) }}</strong></div>
-                                    <div>Permit: <strong>PHP {{ number_format((float) ($transaction->burial_permit_fee ?? 0), 2) }}</strong></div>
-                                    <div>Other: <strong>PHP {{ number_format((float) ($transaction->other_applicable_fee ?? 0), 2) }}</strong></div>
-                                </div>
-                            </td>
-                            <td>{{ $transaction->remarks ?: '-' }}</td>
+                            <td><strong>PHP {{ number_format($amountDue, 2) }}</strong></td>
+                            <td>PHP {{ number_format($totalPaid, 2) }}</td>
+                            <td><strong>PHP {{ number_format($balance, 2) }}</strong></td>
                             <td><span class="ctx-badge ctx-badge-{{ $transaction->status }}">{{ $statusOptions[$transaction->status] ?? strtoupper($transaction->status) }}</span></td>
                             <td>
                                 <div class="ctx-actions">
-                                    <a
-                                        href="{{ route('cemetery.payments', ['q' => $transaction->transaction_no]) }}"
-                                        class="ctx-icon-btn"
-                                        title="Open payment collection">
+                                    <button
+                                        type="button"
+                                        class="ctx-icon-btn js-open-view-transaction-btn"
+                                        data-transaction-no="{{ $transaction->transaction_no }}"
+                                        data-transaction-date="{{ optional($transaction->transaction_date)->format('Y-m-d h:i A') }}"
+                                        data-cemetery-name="{{ $transaction->site?->site_name ?: '-' }}"
+                                        data-category-name="{{ $transaction->category?->category_name ?: '-' }}"
+                                        data-deceased-name="{{ $transaction->deceased_name }}"
+                                        data-plot-reference="{{ $transaction->plot_reference }}"
+                                        data-transaction-type-name="{{ $transaction->transactionType?->type_name ?: '-' }}"
+                                        data-source-type="Occupant Record"
+                                        data-source-reference="{{ $transaction->occupantRecord?->record_no ?: '-' }}"
+                                        data-quantity="{{ $transaction->quantity !== null ? number_format((float) $transaction->quantity, 2) : '-' }}"
+                                        data-status="{{ $statusOptions[$transaction->status] ?? strtoupper($transaction->status) }}"
+                                        data-amount-due="{{ number_format((float) $transaction->amount_due, 2) }}"
+                                        data-base-fee="{{ number_format((float) ($transaction->base_fee ?? 0), 2) }}"
+                                        data-maintenance-fee="{{ number_format((float) ($transaction->maintenance_fee ?? 0), 2) }}"
+                                        data-burial-permit-fee="{{ number_format((float) ($transaction->burial_permit_fee ?? 0), 2) }}"
+                                        data-other-applicable-fee="{{ number_format((float) ($transaction->other_applicable_fee ?? 0), 2) }}"
+                                        data-remarks="{{ $transaction->remarks ?: '-' }}"
+                                        title="View full transaction">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="ctx-icon-btn js-open-quick-pay-btn"
+                                        data-quick-pay-action="{{ route('cemetery.payments.quick_pay', $transaction) }}"
+                                        data-quick-transaction-id="{{ $transaction->id }}"
+                                        data-quick-transaction-no="{{ $transaction->transaction_no }}"
+                                        data-quick-deceased-name="{{ $transaction->deceased_name }}"
+                                        data-quick-amount-due="{{ number_format($amountDue, 2, '.', '') }}"
+                                        data-quick-total-paid="{{ number_format($totalPaid, 2, '.', '') }}"
+                                        data-quick-balance="{{ number_format($balance, 2, '.', '') }}"
+                                        data-quick-pay-enabled="{{ $isQuickPayAllowed ? '1' : '0' }}"
+                                        title="{{ $isQuickPayAllowed ? 'Collect payment' : 'Already fully paid or cancelled' }}"
+                                        @disabled(! $isQuickPayAllowed)>
                                         <i class="fa-solid fa-cash-register"></i>
-                                    </a>
+                                    </button>
+                                    @if($hasPaymentRecord && ! empty($transaction->latest_payment_id))
+                                        <a
+                                            href="{{ route('cemetery.payments.receipt', (int) $transaction->latest_payment_id) }}"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="ctx-icon-btn"
+                                            title="Open latest receipt">
+                                            <i class="fa-solid fa-receipt"></i>
+                                        </a>
+                                    @endif
                                     <button
                                         type="button"
                                         class="ctx-icon-btn js-open-edit-transaction-btn"
                                         data-transaction-id="{{ $transaction->id }}"
                                         data-transaction-no="{{ $transaction->transaction_no }}"
-                                        data-transaction-date="{{ optional($transaction->transaction_date)->format('Y-m-d') }}"
+                                        data-transaction-date="{{ optional($transaction->transaction_date)->format('Y-m-d\\TH:i') }}"
                                         data-site-id="{{ $transaction->cemetery_site_id }}"
                                         data-category-id="{{ $transaction->cemetery_category_id }}"
                                         data-transaction-type-id="{{ $transaction->cemetery_transaction_type_id }}"
                                         data-occupant-record-id="{{ $transaction->occupant_record_id }}"
-                                        data-service-log-id="{{ $transaction->service_log_id }}"
                                         data-deceased-name="{{ $transaction->deceased_name }}"
                                         data-plot-reference="{{ $transaction->plot_reference }}"
                                         data-quantity="{{ $transaction->quantity !== null ? number_format((float) $transaction->quantity, 2, '.', '') : '' }}"
@@ -482,16 +613,22 @@
                                         title="Edit transaction">
                                         <i class="fa-solid fa-pen"></i>
                                     </button>
-                                    <form method="POST" action="{{ route('cemetery.transactions.destroy', $transaction) }}" class="js-delete-transaction-form" data-transaction-no="{{ $transaction->transaction_no }}" data-deceased="{{ $transaction->deceased_name }}">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="ctx-icon-btn ctx-icon-btn-danger" title="Delete transaction"><i class="fa-solid fa-trash"></i></button>
-                                    </form>
+                                    @if($hasPaymentRecord)
+                                        <button type="button" class="ctx-icon-btn ctx-icon-btn-danger" title="Cannot delete: transaction has payment collection record" disabled>
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    @else
+                                        <form method="POST" action="{{ route('cemetery.transactions.destroy', $transaction) }}" class="js-delete-transaction-form" data-transaction-no="{{ $transaction->transaction_no }}" data-deceased="{{ $transaction->deceased_name }}">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="ctx-icon-btn ctx-icon-btn-danger" title="Delete transaction"><i class="fa-solid fa-trash"></i></button>
+                                        </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="13" style="text-align:center; padding:1.4rem;">No transactions found.</td></tr>
+                        <tr><td colspan="12" style="text-align:center; padding:1.4rem;">No transactions found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -530,8 +667,6 @@
                     'categories' => $categories,
                     'transactionTypes' => $transactionTypes,
                     'occupantRecords' => $occupantRecords,
-                    'serviceLogs' => $serviceLogs,
-                    'serviceLinkMap' => $serviceLinkMap,
                     'prefillData' => $prefillData,
                     'statusOptions' => $statusOptions,
                     'transactionNoValue' => $nextTransactionNo,
@@ -540,6 +675,96 @@
             <div class="ctx-modal-foot">
                 <button type="button" class="ctx-btn ctx-btn-secondary" data-close-modal="createTransactionModal">Cancel</button>
                 <button type="submit" class="ctx-btn ctx-btn-primary">Save Transaction</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="viewTransactionModal" class="ctx-modal" aria-hidden="true">
+    <div class="ctx-modal-card ctx-modal-card-view">
+        <div class="ctx-modal-head">
+            <h4>Transaction Details</h4>
+            <button type="button" class="ctx-modal-close" data-close-modal="viewTransactionModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="ctx-modal-body">
+            <div class="ctx-view-grid">
+                <div class="ctx-view-item"><strong>Transaction No.</strong><span id="viewTxnNo">-</span></div>
+                <div class="ctx-view-item"><strong>Date & Time</strong><span id="viewTxnDate">-</span></div>
+                <div class="ctx-view-item"><strong>Status</strong><span id="viewTxnStatus">-</span></div>
+                <div class="ctx-view-item"><strong>Deceased Name</strong><span id="viewTxnDeceased">-</span></div>
+                <div class="ctx-view-item"><strong>Niche / Lot</strong><span id="viewTxnPlot">-</span></div>
+                <div class="ctx-view-item"><strong>Transaction Type</strong><span id="viewTxnType">-</span></div>
+                <div class="ctx-view-item"><strong>Cemetery Name</strong><span id="viewTxnCemetery">-</span></div>
+                <div class="ctx-view-item"><strong>Cemetery Category</strong><span id="viewTxnCategory">-</span></div>
+                <div class="ctx-view-item"><strong>Source</strong><span id="viewTxnSource">-</span></div>
+                <div class="ctx-view-item"><strong>Quantity</strong><span id="viewTxnQuantity">-</span></div>
+                <div class="ctx-view-item"><strong>Amount Due</strong><span id="viewTxnAmountDue">-</span></div>
+                <div class="ctx-view-item"><strong>Base Fee</strong><span id="viewTxnBaseFee">-</span></div>
+                <div class="ctx-view-item"><strong>Maintenance Fee</strong><span id="viewTxnMaintenanceFee">-</span></div>
+                <div class="ctx-view-item"><strong>Burial Permit Fee</strong><span id="viewTxnPermitFee">-</span></div>
+                <div class="ctx-view-item"><strong>Other Applicable Fee</strong><span id="viewTxnOtherFee">-</span></div>
+                <div class="ctx-view-item ctx-view-item-wide"><strong>Remarks</strong><span id="viewTxnRemarks">-</span></div>
+            </div>
+        </div>
+        <div class="ctx-modal-foot">
+            <button type="button" class="ctx-btn ctx-btn-secondary" data-close-modal="viewTransactionModal">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="quickPayModal" class="ctx-modal" aria-hidden="true">
+    <div class="ctx-modal-card" style="width:min(780px,96vw);">
+        <div class="ctx-modal-head">
+            <h4>Collect Payment</h4>
+            <button type="button" class="ctx-modal-close" data-close-modal="quickPayModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="quickPayForm" method="POST" action="">
+            @csrf
+            <input type="hidden" name="form_mode" value="quick_pay">
+            <input type="hidden" name="quick_transaction_id" id="quickPayTransactionId" value="{{ old('quick_transaction_id') }}">
+            <div class="ctx-modal-body">
+                <div class="ctx-form-grid">
+                    <div class="ctx-field">
+                        <label><i class="fa-solid fa-hashtag"></i>Transaction No.</label>
+                        <input id="quickPayTransactionNo" type="text" class="ctx-control" readonly>
+                    </div>
+                    <div class="ctx-field">
+                        <label><i class="fa-solid fa-cross"></i>Deceased Name</label>
+                        <input id="quickPayDeceasedName" type="text" class="ctx-control" readonly>
+                    </div>
+                    <div class="ctx-field">
+                        <label><i class="fa-solid fa-peso-sign"></i>Amount Due</label>
+                        <input id="quickPayAmountDue" type="text" class="ctx-control" readonly>
+                    </div>
+                    <div class="ctx-field">
+                        <label><i class="fa-solid fa-money-bills"></i>Paid To Date</label>
+                        <input id="quickPayTotalPaid" type="text" class="ctx-control" readonly>
+                    </div>
+                    <div class="ctx-field">
+                        <label><i class="fa-solid fa-scale-balanced"></i>Current Balance</label>
+                        <input id="quickPayCurrentBalance" type="text" class="ctx-control" readonly>
+                    </div>
+                    <div class="ctx-field">
+                        <label><i class="fa-solid fa-scale-unbalanced"></i>Balance After Payment</label>
+                        <input id="quickPayBalanceAfter" type="text" class="ctx-control" readonly>
+                    </div>
+                    <div class="ctx-field">
+                        <label for="quickPayAmountPaid"><i class="fa-solid fa-cash-register"></i>Amount To Pay (Deduct Today)</label>
+                        <input id="quickPayAmountPaid" name="amount_paid" type="number" step="0.01" min="0.01" class="ctx-control" value="{{ old('amount_paid') }}" required>
+                    </div>
+                    <div class="ctx-field">
+                        <label for="quickPayDate"><i class="fa-regular fa-calendar-days"></i>Payment Date</label>
+                        <input id="quickPayDate" name="payment_date" type="date" class="ctx-control" value="{{ old('payment_date', now()->toDateString()) }}" required>
+                    </div>
+                    <div class="ctx-field ctx-field-full">
+                        <label for="quickPayRemarks"><i class="fa-solid fa-comment-dots"></i>Remarks</label>
+                        <textarea id="quickPayRemarks" name="remarks" class="ctx-control ctx-control-textarea">{{ old('remarks') }}</textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="ctx-modal-foot">
+                <button type="button" class="ctx-btn ctx-btn-secondary" data-close-modal="quickPayModal">Cancel</button>
+                <button type="submit" class="ctx-btn ctx-btn-primary">Save Payment</button>
             </div>
         </form>
     </div>
@@ -563,8 +788,6 @@
                     'categories' => $categories,
                     'transactionTypes' => $transactionTypes,
                     'occupantRecords' => $occupantRecords,
-                    'serviceLogs' => $serviceLogs,
-                    'serviceLinkMap' => $serviceLinkMap,
                     'prefillData' => null,
                     'statusOptions' => $statusOptions,
                     'transactionNoValue' => old('transaction_no'),
@@ -600,22 +823,37 @@
 
 <script>
 (() => {
+    const page = document.querySelector('.ctx-page[data-server-rendered-page="cemetery_transactions"]');
     const createModal = document.getElementById('createTransactionModal');
+    const viewModal = document.getElementById('viewTransactionModal');
+    const quickPayModal = document.getElementById('quickPayModal');
     const editModal = document.getElementById('editTransactionModal');
     const deleteModal = document.getElementById('deleteTransactionModal');
     const openCreateButton = document.getElementById('openCreateTransactionBtn');
     const closeButtons = Array.from(document.querySelectorAll('[data-close-modal]'));
     const editForm = document.getElementById('editTransactionForm');
+    const quickPayForm = document.getElementById('quickPayForm');
     const editActionTemplate = editForm ? (editForm.dataset.actionTemplate || '') : '';
+    const quickPayTransactionIdInput = document.getElementById('quickPayTransactionId');
+    const quickPayTransactionNoField = document.getElementById('quickPayTransactionNo');
+    const quickPayDeceasedNameField = document.getElementById('quickPayDeceasedName');
+    const quickPayAmountDueField = document.getElementById('quickPayAmountDue');
+    const quickPayTotalPaidField = document.getElementById('quickPayTotalPaid');
+    const quickPayCurrentBalanceField = document.getElementById('quickPayCurrentBalance');
+    const quickPayBalanceAfterField = document.getElementById('quickPayBalanceAfter');
+    const quickPayAmountPaidInput = document.getElementById('quickPayAmountPaid');
     const confirmDeleteButton = document.getElementById('confirmDeleteTransactionBtn');
     const deleteTransactionNo = document.getElementById('deleteTransactionNo');
     const deleteTransactionDeceased = document.getElementById('deleteTransactionDeceased');
-    const oldFormMode = "{{ old('form_mode') }}";
-    const oldFormTransactionId = "{{ old('form_transaction_id') }}";
-    const hasErrors = {{ $errors->any() ? 'true' : 'false' }};
+    const oldFormMode = page?.dataset.oldFormMode || '';
+    const oldFormTransactionId = page?.dataset.oldFormTransactionId || '';
+    const oldQuickTransactionId = page?.dataset.oldQuickTransactionId || '';
+    const quickPayActionTemplate = page?.dataset.quickPayTemplate || '';
+    const hasErrors = (page?.dataset.hasErrors || '0') === '1';
+    const openCreateModal = (page?.dataset.openCreateModal || '0') === '1';
     let pendingDeleteForm = null;
 
-    const allModals = [createModal, editModal, deleteModal].filter(Boolean);
+    const allModals = [createModal, viewModal, quickPayModal, editModal, deleteModal].filter(Boolean);
 
     const lockBody = () => {
         const hasOpenModal = allModals.some((modal) => modal.classList.contains('is-open'));
@@ -644,14 +882,87 @@
         field.value = value || '';
     };
 
+    const setText = (id, value) => {
+        const field = document.getElementById(id);
+        if (!field) return;
+        field.textContent = value || '-';
+    };
+
+    const currentDatetimeLocal = () => {
+        const now = new Date();
+        const pad = (value) => String(value).padStart(2, '0');
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    };
+
+    const setNowTransactionDateIfEmpty = (prefix) => {
+        const field = document.getElementById(`${prefix}TransactionDate`);
+        if (!field) return;
+        if (String(field.value || '').trim() !== '') return;
+        field.value = currentDatetimeLocal();
+    };
+
     const toMoneyLabel = (value) => {
         const amount = Number(value || 0);
         return `PHP ${Number.isFinite(amount) ? amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}`;
     };
 
+    const parseMoney = (value) => {
+        const normalized = String(value ?? '').replace(/[^0-9.-]/g, '');
+        const parsed = Number.parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const setQuickPaySummary = (amountDue, totalPaid, inputAmount) => {
+        const due = Math.max(parseMoney(amountDue), 0);
+        const paid = Math.max(parseMoney(totalPaid), 0);
+        const currentBalance = Math.max(due - paid, 0);
+        const entered = Math.max(parseMoney(inputAmount), 0);
+        const balanceAfter = Math.max(currentBalance - entered, 0);
+
+        if (quickPayAmountDueField) quickPayAmountDueField.value = toMoneyLabel(due);
+        if (quickPayTotalPaidField) quickPayTotalPaidField.value = toMoneyLabel(paid);
+        if (quickPayCurrentBalanceField) quickPayCurrentBalanceField.value = toMoneyLabel(currentBalance);
+        if (quickPayBalanceAfterField) quickPayBalanceAfterField.value = toMoneyLabel(balanceAfter);
+    };
+
+    const openQuickPayFromButton = (button) => {
+        if (!quickPayForm || !quickPayModal) return;
+
+        const canPay = String(button.dataset.quickPayEnabled || '0') === '1';
+        if (!canPay) {
+            return;
+        }
+
+        const action = button.dataset.quickPayAction || '';
+        if (action !== '') {
+            quickPayForm.action = action;
+        }
+
+        const transactionId = String(button.dataset.quickTransactionId || '');
+        const transactionNo = String(button.dataset.quickTransactionNo || '');
+        const deceasedName = String(button.dataset.quickDeceasedName || '');
+        const amountDue = String(button.dataset.quickAmountDue || '0');
+        const totalPaid = String(button.dataset.quickTotalPaid || '0');
+        const currentBalance = String(button.dataset.quickBalance || '0');
+
+        if (quickPayTransactionIdInput) quickPayTransactionIdInput.value = transactionId;
+        if (quickPayTransactionNoField) quickPayTransactionNoField.value = transactionNo;
+        if (quickPayDeceasedNameField) quickPayDeceasedNameField.value = deceasedName;
+
+        const suggestedPayment = parseMoney(currentBalance);
+        if (quickPayAmountPaidInput) {
+            quickPayAmountPaidInput.max = suggestedPayment.toFixed(2);
+            if (!quickPayAmountPaidInput.value || parseMoney(quickPayAmountPaidInput.value) <= 0) {
+                quickPayAmountPaidInput.value = suggestedPayment > 0 ? suggestedPayment.toFixed(2) : '';
+            }
+        }
+
+        setQuickPaySummary(amountDue, totalPaid, quickPayAmountPaidInput?.value || '0');
+        openModal(quickPayModal);
+    };
+
     const computeFees = (prefix) => {
-        const siteSelect = document.getElementById(`${prefix}Site`);
-        const categorySelect = document.getElementById(`${prefix}Category`);
+        const occupantSelect = document.getElementById(`${prefix}OccupantRecord`);
         const typeSelect = document.getElementById(`${prefix}TransactionType`);
         const maintenanceTypeSelect = document.getElementById(`${prefix}MaintenanceType`);
         const maintenanceYearsInput = document.getElementById(`${prefix}MaintenanceYears`);
@@ -662,23 +973,23 @@
         const permitFeeOutput = document.getElementById(`${prefix}BurialPermitFee`);
         const amountDueInput = document.getElementById(`${prefix}AmountDue`);
 
-        if (!siteSelect || !categorySelect || !typeSelect || !amountDueInput) return;
+        if (!occupantSelect || !typeSelect || !amountDueInput) return;
 
-        const selectedSite = siteSelect.options[siteSelect.selectedIndex];
-        const selectedCategory = categorySelect.options[categorySelect.selectedIndex];
+        const selectedOccupant = occupantSelect.options[occupantSelect.selectedIndex];
         const selectedType = typeSelect.options[typeSelect.selectedIndex];
 
-        const siteCode = (selectedSite?.dataset.siteCode || '').toUpperCase();
-        const categoryCode = (selectedCategory?.dataset.categoryCode || '').toUpperCase();
+        const siteCode = (selectedOccupant?.dataset.siteCode || '').toUpperCase();
+        const categoryCode = (selectedOccupant?.dataset.categoryCode || '').toUpperCase();
         const typeCode = (selectedType?.dataset.typeCode || '').toUpperCase();
         const maintenanceType = String(maintenanceTypeSelect?.value || 'none').toLowerCase();
         const maintenanceYears = Math.max(parseInt(String(maintenanceYearsInput?.value || '0'), 10) || 0, 0);
         const hasPermit = Boolean(permitToggle?.checked);
-        const otherFee = Math.max(parseFloat(String(otherFeeInput?.value || '0')) || 0, 0);
+        let otherFee = Math.max(parseFloat(String(otherFeeInput?.value || '0')) || 0, 0);
 
         let baseFee = 0;
         let maintenanceFee = 0;
         let burialPermitFee = hasPermit ? 300 : 0;
+        let forceBurialPermitFee = false;
 
         if (typeCode === 'SINGLE_NICHE_PURCHASE') {
             if (siteCode === 'SJM') {
@@ -693,20 +1004,43 @@
         } else if (typeCode === 'ADDITIONAL_BURIAL') {
             if (['OMC', 'NMC', 'SPMC'].includes(siteCode)) {
                 baseFee = 5000;
+                forceBurialPermitFee = true;
             }
         } else if (typeCode === 'LOT_PURCHASE') {
             if (siteCode === 'SPMC') {
                 baseFee = 10000;
+                forceBurialPermitFee = true;
             }
         } else if (typeCode === 'BURIAL_PERMIT') {
             baseFee = 300;
             burialPermitFee = 0;
+        } else if (typeCode === 'EXHUMATION') {
+            baseFee = 200;
+            burialPermitFee = 0;
+        } else if (['TRANSFER', 'OTHER'].includes(typeCode)) {
+            baseFee = 300;
+            maintenanceFee = 0;
+            burialPermitFee = 0;
+            if (otherFee > 200) {
+                otherFee = 200;
+                if (otherFeeInput) {
+                    otherFeeInput.value = '200';
+                }
+            }
         }
 
         if (maintenanceType === 'five_year_fixed') {
             maintenanceFee = 1500;
         } else if (maintenanceType === 'yearly' && maintenanceYears > 0) {
             maintenanceFee = maintenanceYears * 300;
+        }
+
+        if (['TRANSFER', 'OTHER', 'EXHUMATION'].includes(typeCode)) {
+            maintenanceFee = 0;
+        }
+
+        if (forceBurialPermitFee) {
+            burialPermitFee = 300;
         }
 
         const total = Number((baseFee + maintenanceFee + burialPermitFee + otherFee).toFixed(2));
@@ -717,64 +1051,41 @@
         if (permitFeeOutput) permitFeeOutput.value = toMoneyLabel(burialPermitFee);
     };
 
-    const applyLinkedSource = (prefix, source) => {
+    const syncSourceDetails = (prefix) => {
         const occupantSelect = document.getElementById(`${prefix}OccupantRecord`);
-        const serviceSelect = document.getElementById(`${prefix}ServiceLog`);
-        const siteSelect = document.getElementById(`${prefix}Site`);
-        const categorySelect = document.getElementById(`${prefix}Category`);
-        const deceasedField = document.getElementById(`${prefix}DeceasedName`);
-        const plotField = document.getElementById(`${prefix}PlotReference`);
+        if (!occupantSelect) return;
 
-        if (!siteSelect || !categorySelect || !deceasedField || !plotField) return;
+        const selected = occupantSelect.options[occupantSelect.selectedIndex];
+        const siteId = selected?.dataset.siteId || '';
+        const siteName = selected?.dataset.siteName || '';
+        const categoryId = selected?.dataset.categoryId || '';
+        const categoryName = selected?.dataset.categoryName || '';
+        const deceasedName = selected?.dataset.deceasedName || '';
+        const plotReference = selected?.dataset.plotReference || '';
 
-        if (source === 'occupant' && occupantSelect) {
-            const selected = occupantSelect.options[occupantSelect.selectedIndex];
-            if (!selected || !selected.value) return;
-            if (serviceSelect && serviceSelect.value !== '') {
-                serviceSelect.value = '';
-            }
-            siteSelect.value = selected.dataset.siteId || siteSelect.value;
-            categorySelect.value = selected.dataset.categoryId || categorySelect.value;
-            deceasedField.value = selected.dataset.deceasedName || deceasedField.value;
-            plotField.value = selected.dataset.plotReference || plotField.value;
-        }
-
-        if (source === 'service' && serviceSelect) {
-            const selected = serviceSelect.options[serviceSelect.selectedIndex];
-            if (!selected || !selected.value) return;
-            siteSelect.value = selected.dataset.siteId || siteSelect.value;
-            if (selected.dataset.categoryId) {
-                categorySelect.value = selected.dataset.categoryId;
-            }
-            deceasedField.value = selected.dataset.deceasedName || deceasedField.value;
-            plotField.value = selected.dataset.plotReference || plotField.value;
-
-            const linkedOccupantId = selected.dataset.occupantRecordId || '';
-            if (occupantSelect) {
-                occupantSelect.value = linkedOccupantId || '';
-            }
-        }
-
-        computeFees(prefix);
+        setValue(`${prefix}Site`, siteId);
+        setValue(`${prefix}Category`, categoryId);
+        setValue(`${prefix}DeceasedName`, deceasedName);
+        setValue(`${prefix}PlotReference`, plotReference);
+        setValue(`${prefix}SiteName`, siteName);
+        setValue(`${prefix}CategoryName`, categoryName);
+        setValue(`${prefix}DeceasedNameDisplay`, deceasedName);
+        setValue(`${prefix}PlotReferenceDisplay`, plotReference);
     };
 
-    const bindSourceLinks = (prefix) => {
+    const bindOccupantSource = (prefix) => {
         const occupantSelect = document.getElementById(`${prefix}OccupantRecord`);
-        const serviceSelect = document.getElementById(`${prefix}ServiceLog`);
+        if (!occupantSelect) return;
 
-        if (occupantSelect) {
-            occupantSelect.addEventListener('change', () => applyLinkedSource(prefix, 'occupant'));
-        }
-
-        if (serviceSelect) {
-            serviceSelect.addEventListener('change', () => applyLinkedSource(prefix, 'service'));
-        }
+        occupantSelect.addEventListener('change', () => {
+            syncSourceDetails(prefix);
+            computeFees(prefix);
+        });
+        syncSourceDetails(prefix);
     };
 
     const bindFeeComputation = (prefix) => {
         const ids = [
-            `${prefix}Site`,
-            `${prefix}Category`,
             `${prefix}TransactionType`,
             `${prefix}MaintenanceType`,
             `${prefix}MaintenanceYears`,
@@ -804,11 +1115,8 @@
 
         setValue('editTxnTransactionNo', button.dataset.transactionNo);
         setValue('editTxnTransactionDate', button.dataset.transactionDate);
-        setValue('editTxnSite', button.dataset.siteId);
-        setValue('editTxnCategory', button.dataset.categoryId);
         setValue('editTxnTransactionType', button.dataset.transactionTypeId);
         setValue('editTxnOccupantRecord', button.dataset.occupantRecordId || '');
-        setValue('editTxnServiceLog', button.dataset.serviceLogId || '');
         setValue('editTxnDeceasedName', button.dataset.deceasedName);
         setValue('editTxnPlotReference', button.dataset.plotReference);
         setValue('editTxnQuantity', button.dataset.quantity);
@@ -822,18 +1130,52 @@
         setValue('editTxnAmountDue', button.dataset.amountDue);
         setValue('editTxnRemarks', button.dataset.remarks);
         setValue('editTxnStatus', button.dataset.status);
+        syncSourceDetails('editTxn');
         computeFees('editTxn');
 
         openModal(editModal);
     };
 
-    bindSourceLinks('newTxn');
-    bindSourceLinks('editTxn');
+    const openViewFromButton = (button) => {
+        setText('viewTxnNo', button.dataset.transactionNo);
+        setText('viewTxnDate', button.dataset.transactionDate);
+        setText('viewTxnStatus', button.dataset.status);
+        setText('viewTxnDeceased', button.dataset.deceasedName);
+        setText('viewTxnPlot', button.dataset.plotReference);
+        setText('viewTxnType', button.dataset.transactionTypeName);
+        setText('viewTxnCemetery', button.dataset.cemeteryName);
+        setText('viewTxnCategory', button.dataset.categoryName);
+        setText('viewTxnSource', `${button.dataset.sourceType || '-'} (${button.dataset.sourceReference || '-'})`);
+        setText('viewTxnQuantity', button.dataset.quantity);
+        setText('viewTxnAmountDue', `PHP ${button.dataset.amountDue || '0.00'}`);
+        setText('viewTxnBaseFee', `PHP ${button.dataset.baseFee || '0.00'}`);
+        setText('viewTxnMaintenanceFee', `PHP ${button.dataset.maintenanceFee || '0.00'}`);
+        setText('viewTxnPermitFee', `PHP ${button.dataset.burialPermitFee || '0.00'}`);
+        setText('viewTxnOtherFee', `PHP ${button.dataset.otherApplicableFee || '0.00'}`);
+        setText('viewTxnRemarks', button.dataset.remarks || '-');
+        openModal(viewModal);
+    };
+
+    bindOccupantSource('newTxn');
+    bindOccupantSource('editTxn');
     bindFeeComputation('newTxn');
     bindFeeComputation('editTxn');
 
+    if (quickPayAmountPaidInput) {
+        const recalcQuickPay = () => {
+            const dueRaw = quickPayAmountDueField?.value || '0';
+            const paidRaw = quickPayTotalPaidField?.value || '0';
+            setQuickPaySummary(dueRaw, paidRaw, quickPayAmountPaidInput.value || '0');
+        };
+        quickPayAmountPaidInput.addEventListener('input', recalcQuickPay);
+        quickPayAmountPaidInput.addEventListener('change', recalcQuickPay);
+    }
+
     if (openCreateButton) {
-        openCreateButton.addEventListener('click', () => openModal(createModal));
+        openCreateButton.addEventListener('click', () => {
+            setNowTransactionDateIfEmpty('newTxn');
+            openModal(createModal);
+        });
     }
 
     closeButtons.forEach((button) => {
@@ -847,10 +1189,24 @@
     });
 
     document.addEventListener('click', (event) => {
+        const viewButton = event.target.closest('.js-open-view-transaction-btn');
+        if (viewButton) {
+            event.preventDefault();
+            openViewFromButton(viewButton);
+            return;
+        }
+
         const editButton = event.target.closest('.js-open-edit-transaction-btn');
         if (editButton) {
             event.preventDefault();
             openEditFromButton(editButton);
+            return;
+        }
+
+        const quickPayButton = event.target.closest('.js-open-quick-pay-btn');
+        if (quickPayButton) {
+            event.preventDefault();
+            openQuickPayFromButton(quickPayButton);
             return;
         }
 
@@ -889,12 +1245,29 @@
         if (event.key !== 'Escape') return;
         pendingDeleteForm = null;
         closeModal(createModal);
+        closeModal(viewModal);
+        closeModal(quickPayModal);
         closeModal(editModal);
         closeModal(deleteModal);
     });
 
     if (hasErrors) {
-        if (oldFormMode === 'edit' && editForm) {
+        if (oldFormMode === 'quick_pay' && quickPayModal && quickPayForm) {
+            const quickTransactionId = String(oldQuickTransactionId || '').trim();
+            const quickPayButton = quickTransactionId !== ''
+                ? document.querySelector(`.js-open-quick-pay-btn[data-quick-transaction-id="${quickTransactionId}"]`)
+                : null;
+
+            if (quickPayButton) {
+                openQuickPayFromButton(quickPayButton);
+            } else {
+                if (quickPayActionTemplate !== '' && quickTransactionId !== '') {
+                    quickPayForm.action = quickPayActionTemplate.replace('__ID__', quickTransactionId);
+                    if (quickPayTransactionIdInput) quickPayTransactionIdInput.value = quickTransactionId;
+                }
+                openModal(quickPayModal);
+            }
+        } else if (oldFormMode === 'edit' && editForm) {
             const transactionId = String(oldFormTransactionId || '').trim();
             if (transactionId !== '') {
                 editForm.action = editActionTemplate.replace('__ID__', transactionId);
@@ -903,16 +1276,14 @@
             computeFees('editTxn');
             openModal(editModal);
         } else {
-            @if($prefillData)
-                applyLinkedSource('newTxn', "{{ !empty($prefillData['service_log_id']) ? 'service' : 'occupant' }}");
-            @endif
+            setNowTransactionDateIfEmpty('newTxn');
+            syncSourceDetails('newTxn');
             computeFees('newTxn');
             openModal(createModal);
         }
-    } else if ({{ $openCreateModal ? 'true' : 'false' }}) {
-        @if($prefillData)
-            applyLinkedSource('newTxn', "{{ !empty($prefillData['service_log_id']) ? 'service' : 'occupant' }}");
-        @endif
+    } else if (openCreateModal) {
+        setNowTransactionDateIfEmpty('newTxn');
+        syncSourceDetails('newTxn');
         computeFees('newTxn');
         openModal(createModal);
     }

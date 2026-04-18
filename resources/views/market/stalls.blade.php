@@ -491,6 +491,58 @@
             resize: vertical;
         }
 
+        .msr-rate-type-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .msr-rate-type-item {
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: #fff;
+            padding: .6rem .68rem;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: border-color .18s ease, box-shadow .18s ease;
+        }
+
+        .msr-rate-type-item:has(input:checked) {
+            border-color: #155f8f;
+            box-shadow: 0 0 0 2px rgba(21, 95, 143, .12) inset;
+            background: #f7fbff;
+        }
+
+        .msr-rate-type-item input {
+            width: 16px;
+            height: 16px;
+            margin: 0;
+        }
+
+        .msr-rate-type-name {
+            color: #0f172a;
+            font-size: .86rem;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .msr-rate-type-rate {
+            color: #0f5fa8;
+            font-size: .79rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .msr-help {
+            display: inline-block;
+            color: #64748b;
+            font-size: .78rem;
+            margin-top: 2px;
+        }
+
         .msr-form-field--full {
             grid-column: 1 / -1;
         }
@@ -584,6 +636,10 @@
             .msr-summary-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
+
+            .msr-rate-type-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
 
         @media (max-width:640px) {
@@ -592,6 +648,10 @@
             }
 
             .msr-summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .msr-rate-type-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -613,7 +673,7 @@
         <section class="msr-hero">
             <div>
                 <h2>Master Stall Registry</h2>
-                <p>Manage all market stalls with location-based rates and clean lease records.</p>
+                <p>Manage all market stalls with type-based rates and clean lease records.</p>
                 <div class="msr-stats">
                     <span class="msr-pill"><i class="fa-solid fa-store"></i> Total: {{ $summary['total'] }}</span>
                     <span class="msr-pill"><i class="fa-solid fa-circle-check"></i> Occupied:
@@ -661,8 +721,13 @@
                                 $lease = $stall->activeLease;
                                 $tenant = $lease?->tenant;
                                 $location = $stall->location;
-                                $rateAmount = $lease?->rate?->rate_amount ?? $location?->activeRate?->rate_amount ?? 0;
+                                $rateAmount = $lease?->computed_rate_amount ?? $lease?->rate?->rate_amount ?? $location?->activeRate?->rate_amount ?? 0;
                                 $tenantName = $tenant ? $tenant->fullName() : 'Vacant';
+                                $selectedTypeIds = collect($lease?->selected_type_rates ?? [])->pluck('id')->filter()->map(fn ($id) => (string) $id);
+                                if ($selectedTypeIds->isEmpty() && $stall->market_stall_type_id) {
+                                    $selectedTypeIds = collect([(string) $stall->market_stall_type_id]);
+                                }
+                                $selectedTypeIdsCsv = $selectedTypeIds->implode(',');
                             @endphp
                             <tr>
                                 <td><strong>{{ $stall->stall_no }}</strong></td>
@@ -693,6 +758,9 @@
                                             data-dimension="{{ $stall->dimension_sq_m ? number_format((float) $stall->dimension_sq_m, 2) . ' sq.m' : '-' }}"
                                             data-rate="{{ number_format((float) $rateAmount, 2, '.', '') }}"
                                             data-status="{{ $statusOptions[$stall->stall_status] ?? strtoupper($stall->stall_status) }}"
+                                            data-billing-period="{{ $lease?->billing_period ?: 'monthly' }}"
+                                            data-billing-cycles="{{ $lease?->billing_cycles ?: 1 }}"
+                                            data-rate-multiplier="{{ number_format((float) ($lease?->rate_multiplier ?? 1), 2, '.', '') }}"
                                             data-contract-number="{{ $lease?->contract_number }}"
                                             data-start-date="{{ optional($lease?->start_date)->format('Y-m-d') }}"
                                             data-end-date="{{ optional($lease?->end_date)->format('Y-m-d') }}"
@@ -710,6 +778,10 @@
                                             data-status="{{ $stall->stall_status }}"
                                             data-billable="{{ $stall->is_billable ? '1' : '0' }}"
                                             data-rate="{{ number_format((float) $rateAmount, 2, '.', '') }}"
+                                            data-rate-type-ids="{{ $selectedTypeIdsCsv }}"
+                                            data-billing-period="{{ $lease?->billing_period ?: 'monthly' }}"
+                                            data-billing-cycles="{{ $lease?->billing_cycles ?: 1 }}"
+                                            data-rate-multiplier="{{ number_format((float) ($lease?->rate_multiplier ?? 1), 2, '.', '') }}"
                                             data-start-date="{{ optional($lease?->start_date)->format('Y-m-d') }}"
                                             data-end-date="{{ optional($lease?->end_date)->format('Y-m-d') }}"
                                             data-contract-number="{{ $lease?->contract_number }}"
@@ -790,8 +862,7 @@
     </div>
 
 
-    <div id="editStallModal" class="msr-modal" aria-hidden="
-    t           rue">
+    <div id="editStallModal" class="msr-modal" aria-hidden="true">
         <div class="msr-modal-card">
             <div class="msr-modal-head">
                 <h4>Edit Stall</h4>
@@ -956,19 +1027,84 @@
     };
 
     const initStallFormBehavior = (form) => {
-        if (!form) return { syncRate: () => {}, syncTenant: () => {} };
-        const locationSelect = form.querySelector('select[name="market_stall_location_id"]');
+        if (!form) {
+            return {
+                syncRate: () => {},
+                syncTenant: () => {},
+                syncRateTypeRequired: () => {},
+            };
+        }
+
+        const PERIOD_MULTIPLIERS = {
+            daily: 1,
+            weekly: 7,
+            monthly: 30,
+        };
+        const primaryTypeSelect = form.querySelector('select[name="market_stall_type_id"]');
+        const rateTypeFields = Array.from(form.querySelectorAll('[data-rate-type]'));
+        const billingPeriodField = form.querySelector('[data-billing-period]');
+        const billingCyclesField = form.querySelector('[data-billing-cycles]');
+        const rateMultiplierField = form.querySelector('[data-rate-multiplier]');
+        const rateFormulaHint = form.querySelector('[data-rate-formula-hint]');
         const rateInput = form.querySelector('[data-rate-input]');
         const statusSelect = form.querySelector('[data-stall-status]');
         const tenantBox = form.querySelector('[data-tenant-box]');
         const tenantFields = Array.from(form.querySelectorAll('[data-tenant-field]'));
 
-        const syncRate = () => {
-            if (!locationSelect || !rateInput) return;
-            const selectedOption = locationSelect.selectedOptions[0];
-            if (!selectedOption || !selectedOption.dataset.rate) return;
-            if (rateInput.value.trim() === '' || rateInput.dataset.manual !== '1') {
-                rateInput.value = Number(selectedOption.dataset.rate).toFixed(2);
+        const toNumber = (value, fallback = 0) => {
+            const parsed = Number.parseFloat(String(value ?? '').trim());
+            return Number.isFinite(parsed) ? parsed : fallback;
+        };
+
+        const selectedRateTypeCount = () => rateTypeFields.filter((field) => field.checked).length;
+
+        const ensurePrimaryRateTypeChecked = () => {
+            if (!primaryTypeSelect || rateTypeFields.length === 0 || selectedRateTypeCount() > 0) return;
+            const primaryId = String(primaryTypeSelect.value || '').trim();
+            if (primaryId === '') return;
+            const primaryRateType = rateTypeFields.find((field) => field.value === primaryId);
+            if (primaryRateType) {
+                primaryRateType.checked = true;
+            }
+        };
+
+        const syncRateTypeRequired = () => {
+            const isOccupied = statusSelect && statusSelect.value === 'occupied';
+            rateTypeFields.forEach((field) => {
+                field.required = false;
+            });
+            if (!isOccupied || selectedRateTypeCount() > 0) return;
+            if (rateTypeFields[0]) {
+                rateTypeFields[0].required = true;
+            }
+        };
+
+        const syncRate = (force = false) => {
+            if (!rateInput) return;
+
+            ensurePrimaryRateTypeChecked();
+            const selectedRateTypes = rateTypeFields.filter((field) => field.checked);
+            const baseTotal = selectedRateTypes.reduce((sum, field) => sum + toNumber(field.dataset.baseRate, 0), 0);
+
+            const period = String((billingPeriodField && billingPeriodField.value) || 'monthly').toLowerCase();
+            const periodMultiplier = Object.prototype.hasOwnProperty.call(PERIOD_MULTIPLIERS, period)
+                ? PERIOD_MULTIPLIERS[period]
+                : PERIOD_MULTIPLIERS.monthly;
+
+            const billingCycles = Math.max(1, Math.trunc(toNumber(billingCyclesField && billingCyclesField.value, 1)));
+            const rateMultiplier = Math.max(0.01, toNumber(rateMultiplierField && rateMultiplierField.value, 1));
+            const computedRate = baseTotal * periodMultiplier * billingCycles * rateMultiplier;
+
+            if (rateFormulaHint) {
+                if (selectedRateTypes.length === 0) {
+                    rateFormulaHint.textContent = 'Select one or more stall types to compute the lease rate.';
+                } else {
+                    rateFormulaHint.textContent = `Base ${baseTotal.toFixed(2)} x ${periodMultiplier} (${period}) x ${billingCycles} cycle(s) x ${rateMultiplier.toFixed(2)} = PHP ${computedRate.toFixed(2)}`;
+                }
+            }
+
+            if (force || rateInput.dataset.manual !== '1') {
+                rateInput.value = computedRate.toFixed(2);
             }
         };
 
@@ -980,6 +1116,8 @@
                     field.required = occupied;
                 }
             });
+            tenantBox.classList.toggle('is-disabled', !occupied);
+            syncRateTypeRequired();
         };
 
         if (rateInput) {
@@ -987,21 +1125,64 @@
                 rateInput.dataset.manual = '1';
             });
         }
-        if (locationSelect) {
-            locationSelect.addEventListener('change', () => {
+
+        if (primaryTypeSelect) {
+            primaryTypeSelect.addEventListener('change', () => {
                 if (rateInput) {
                     delete rateInput.dataset.manual;
                 }
                 syncRate();
             });
         }
-        if (statusSelect) {
-            statusSelect.addEventListener('change', syncTenant);
+
+        if (billingPeriodField) {
+            billingPeriodField.addEventListener('change', () => {
+                if (rateInput) {
+                    delete rateInput.dataset.manual;
+                }
+                syncRate();
+            });
         }
 
-        syncRate();
+        if (billingCyclesField) {
+            billingCyclesField.addEventListener('input', () => {
+                if (rateInput) {
+                    delete rateInput.dataset.manual;
+                }
+                syncRate();
+            });
+        }
+
+        if (rateMultiplierField) {
+            rateMultiplierField.addEventListener('input', () => {
+                if (rateInput) {
+                    delete rateInput.dataset.manual;
+                }
+                syncRate();
+            });
+        }
+
+        rateTypeFields.forEach((field) => {
+            field.addEventListener('change', () => {
+                if (rateInput) {
+                    delete rateInput.dataset.manual;
+                }
+                syncRate();
+                syncRateTypeRequired();
+            });
+        });
+
+        if (statusSelect) {
+            statusSelect.addEventListener('change', () => {
+                syncTenant();
+                syncRate();
+            });
+        }
+
+        syncRateTypeRequired();
+        syncRate(true);
         syncTenant();
-        return { syncRate, syncTenant };
+        return { syncRate, syncTenant, syncRateTypeRequired };
     };
 
     const registerHelpers = initStallFormBehavior(registerStallForm);
@@ -1064,6 +1245,9 @@
         setValue('editStatus', button.dataset.status);
         setChecked('editBillable', button.dataset.billable === '1');
         setValue('editRate', button.dataset.rate);
+        setValue('editBillingPeriod', button.dataset.billingPeriod || 'monthly');
+        setValue('editBillingCycles', button.dataset.billingCycles || 1);
+        setValue('editRateMultiplier', button.dataset.rateMultiplier || 1);
         setValue('editStartDate', button.dataset.startDate);
         setValue('editEndDate', button.dataset.endDate);
         setValue('editContractNo', button.dataset.contractNumber);
@@ -1076,6 +1260,27 @@
         setValue('editBusinessName', button.dataset.businessName);
         setValue('editBusinessType', button.dataset.businessType);
         setValue('editMpoControlNo', button.dataset.mpoControlNo);
+        const selectedRateTypeIds = String(button.dataset.rateTypeIds || '')
+            .split(',')
+            .map((value) => value.trim())
+            .filter((value) => value !== '');
+        const selectedRateTypeSet = new Set(selectedRateTypeIds);
+        const editRateTypeFields = Array.from(editStallForm.querySelectorAll('[data-rate-type]'));
+        editRateTypeFields.forEach((field) => {
+            field.checked = selectedRateTypeSet.has(field.value);
+        });
+        if (selectedRateTypeSet.size === 0 && button.dataset.typeId) {
+            const fallbackRateType = editRateTypeFields.find((field) => field.value === button.dataset.typeId);
+            if (fallbackRateType) {
+                fallbackRateType.checked = true;
+            }
+        }
+        const editRateField = editStallForm.querySelector('[data-rate-input]');
+        if (editRateField) {
+            delete editRateField.dataset.manual;
+        }
+        editHelpers.syncRate(true);
+        editHelpers.syncRateTypeRequired();
         editHelpers.syncTenant();
         openModal(editModal);
     };

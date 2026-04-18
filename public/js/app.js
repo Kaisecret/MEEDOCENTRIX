@@ -38,7 +38,7 @@ const ROLES = {
         user: 'Maria Santos',
         nav: [
             { id: 'dashboard', icon: 'fas fa-chart-pie', label: 'Dashboard' },
-            { id: 'vendors', icon: 'fas fa-users', label: 'Vendor Directory' },
+            { id: 'vendors', icon: 'fas fa-users', label: 'Tenant Directory' },
             { id: 'stalls', icon: 'fas fa-store', label: 'Stall Management' },
             { id: 'market_records', icon: 'fas fa-receipt', label: 'Market Transactions' },
             { id: 'send_payment', icon: 'fas fa-file-invoice-dollar', label: 'Send for Payment' }
@@ -138,7 +138,8 @@ const ROLE_PAGE_ROUTES = {
         cemetery_services: '/cemetery/services',
         cemetery_transactions: '/cemetery/transactions',
         cemetery_payments: '/cemetery/payments',
-        cemetery_reports: '/cemetery/reports'
+        cemetery_reports: '/cemetery/reports',
+        profile: '/cemetery/profile'
     },
     terminal: {
         dashboard: '/terminal/dashboard',
@@ -718,7 +719,7 @@ function renderPage(pageId) {
             renderTablePage('Market Collections', ['Stall No.', 'Vendor', 'Type', 'Amount', 'Status', 'Date']);
             break;
         case 'vendors':
-            title = 'Vendor Directory';
+            title = 'Tenant Directory';
             renderVendorDirectoryPage();
             break;
         case 'stalls':

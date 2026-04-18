@@ -23,6 +23,8 @@
                     data-plot-reference="{{ $transaction->plot_reference }}"
                     data-amount-due="{{ number_format((float) $transaction->amount_due, 2, '.', '') }}"
                     data-default-contact-id="{{ $contactByTransactionId[$transaction->id] ?? '' }}"
+                    data-contact-name="{{ $transaction->occupantRecord?->contact?->contact_person ?? '' }}"
+                    data-contact-number="{{ $transaction->occupantRecord?->contact?->contact_number ?? '' }}"
                     @selected((string) old('cemetery_transaction_id') === (string) $transaction->id)
                 >
                     {{ $transaction->transaction_no }} - {{ $transaction->deceased_name }}
@@ -53,14 +55,8 @@
 
     <div class="cpc-field">
         <label for="{{ $prefix }}Contact"><i class="fa-solid fa-user"></i>Contact Person</label>
-        <select id="{{ $prefix }}Contact" name="cemetery_contact_id" class="cpc-control" required>
-            <option value="">Select contact person...</option>
-            @foreach($contacts as $contact)
-                <option value="{{ $contact->id }}" @selected((string) old('cemetery_contact_id') === (string) $contact->id)>
-                    {{ $contact->contact_person }}{{ $contact->contact_number ? ' (' . $contact->contact_number . ')' : '' }}
-                </option>
-            @endforeach
-        </select>
+        <input id="{{ $prefix }}Contact" type="text" class="cpc-control" placeholder="Auto from linked occupant record" readonly>
+        <input id="{{ $prefix }}ContactId" name="cemetery_contact_id" type="hidden" value="{{ old('cemetery_contact_id') }}">
     </div>
 
     <div class="cpc-field">
@@ -71,11 +67,6 @@
     <div class="cpc-field">
         <label for="{{ $prefix }}AmountPaid"><i class="fa-solid fa-money-bill-wave"></i>Amount Paid</label>
         <input id="{{ $prefix }}AmountPaid" name="amount_paid" type="number" step="0.01" min="0" class="cpc-control" value="{{ old('amount_paid') }}" required>
-    </div>
-
-    <div class="cpc-field">
-        <label for="{{ $prefix }}OrNo"><i class="fa-solid fa-receipt"></i>Official Receipt No.</label>
-        <input id="{{ $prefix }}OrNo" name="official_receipt_no" type="text" class="cpc-control" value="{{ old('official_receipt_no') }}">
     </div>
 
     <div class="cpc-field">
@@ -95,11 +86,8 @@
 
     <div class="cpc-field">
         <label for="{{ $prefix }}PaymentStatus"><i class="fa-solid fa-circle-info"></i>Payment Status</label>
-        <select id="{{ $prefix }}PaymentStatus" name="payment_status" class="cpc-control" required>
-            @foreach($statusOptions as $statusKey => $statusLabel)
-                <option value="{{ $statusKey }}" @selected($defaultStatus === $statusKey)>{{ $statusLabel }}</option>
-            @endforeach
-        </select>
+        <input id="{{ $prefix }}PaymentStatusLabel" type="text" class="cpc-control" readonly>
+        <input id="{{ $prefix }}PaymentStatus" name="payment_status" type="hidden" value="{{ $defaultStatus }}">
     </div>
 
     <div class="cpc-field cpc-field-full">

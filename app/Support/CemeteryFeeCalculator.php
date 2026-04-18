@@ -31,6 +31,7 @@ class CemeteryFeeCalculator
         $baseFee = 0.00;
         $maintenanceFee = self::maintenanceFee($maintenanceType, $maintenanceYears);
         $burialPermitFee = $hasBurialPermit ? 300.00 : 0.00;
+        $forceBurialPermitFee = false;
 
         if ($transactionTypeCode === 'SINGLE_NICHE_PURCHASE') {
             if ($siteCode === 'SJM') {
@@ -45,16 +46,31 @@ class CemeteryFeeCalculator
         } elseif ($transactionTypeCode === 'ADDITIONAL_BURIAL') {
             if (in_array($siteCode, ['OMC', 'NMC', 'SPMC'], true)) {
                 $baseFee = 5000.00;
+                $forceBurialPermitFee = true;
             }
         } elseif ($transactionTypeCode === 'LOT_PURCHASE') {
             if ($siteCode === 'SPMC') {
                 $baseFee = 10000.00;
+                $forceBurialPermitFee = true;
             }
         } elseif ($transactionTypeCode === 'BURIAL_PERMIT') {
             $baseFee = 300.00;
             $burialPermitFee = 0.00;
         } elseif ($transactionTypeCode === 'MAINTENANCE_FEE') {
             $baseFee = 0.00;
+        } elseif ($transactionTypeCode === 'EXHUMATION') {
+            // Kalkal fee after allowed period.
+            $baseFee = 200.00;
+            $burialPermitFee = 0.00;
+        } elseif (in_array($transactionTypeCode, ['TRANSFER', 'OTHER'], true)) {
+            // Office flexible service band: 300 to 500 total.
+            $baseFee = 300.00;
+            $burialPermitFee = 0.00;
+            $maintenanceFee = 0.00;
+        }
+
+        if ($forceBurialPermitFee) {
+            $burialPermitFee = 300.00;
         }
 
         $amountDue = round($baseFee + $maintenanceFee + $burialPermitFee + $otherApplicableFee, 2);

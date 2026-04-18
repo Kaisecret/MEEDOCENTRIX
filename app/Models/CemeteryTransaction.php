@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class CemeteryTransaction extends Model
@@ -23,6 +24,8 @@ class CemeteryTransaction extends Model
         'plot_reference',
         'quantity',
         'amount_due',
+        'total_paid',
+        'remaining_balance',
         'maintenance_type',
         'maintenance_years',
         'has_burial_permit',
@@ -38,9 +41,11 @@ class CemeteryTransaction extends Model
     protected function casts(): array
     {
         return [
-            'transaction_date' => 'date',
+            'transaction_date' => 'datetime',
             'quantity' => 'decimal:2',
             'amount_due' => 'decimal:2',
+            'total_paid' => 'decimal:2',
+            'remaining_balance' => 'decimal:2',
             'maintenance_years' => 'integer',
             'has_burial_permit' => 'boolean',
             'base_fee' => 'decimal:2',
@@ -83,5 +88,10 @@ class CemeteryTransaction extends Model
     public function paymentCollection(): HasOne
     {
         return $this->hasOne(CemeteryPaymentCollection::class, 'cemetery_transaction_id');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(CemeteryPaymentCollection::class, 'cemetery_transaction_id');
     }
 }

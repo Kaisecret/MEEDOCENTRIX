@@ -29,6 +29,15 @@ class MarketStallController extends Controller
         'inactive' => 'Inactive',
     ];
 
+    /**
+     * @var array<string, float>
+     */
+    private const BILLING_PERIOD_MULTIPLIERS = [
+        'daily' => 1.0,
+        'weekly' => 7.0,
+        'monthly' => 30.0,
+    ];
+
     public function index(Request $request): View
     {
         $search = trim((string) $request->query('q', ''));
@@ -253,7 +262,12 @@ class MarketStallController extends Controller
             'description' => ['nullable', 'string', 'max:1000'],
             'stall_status' => ['required', Rule::in(array_keys(self::STALL_STATUSES))],
             'is_billable' => ['nullable', 'boolean'],
-            'rate_amount' => ['required', 'numeric', 'min:0'],
+            'rate_type_ids' => [Rule::requiredIf($isOccupied), 'nullable', 'array', 'min:1'],
+            'rate_type_ids.*' => ['integer', Rule::exists('market_stall_types', 'id')],
+            'billing_period' => ['nullable', Rule::in(array_keys(self::BILLING_PERIOD_MULTIPLIERS))],
+            'billing_cycles' => ['nullable', 'integer', 'min:1', 'max:3650'],
+            'rate_multiplier' => ['nullable', 'numeric', 'min:0.01', 'max:100000'],
+            'rate_amount' => ['nullable', 'numeric', 'min:0'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'contract_number' => ['nullable', 'string', 'max:90'],
@@ -291,9 +305,41 @@ class MarketStallController extends Controller
         }
 
         $startDate = $validated['start_date'] ?? now()->toDateString();
-        $rate = $this->activateLocationRate(
+        $billingPeriod = $this->normalizeBillingPeriod((string) ($validated['billing_period'] ?? 'monthly'));
+        $billingCycles = max(1, (int) ($validated['billing_cycles'] ?? 1));
+        $rateMultiplier = round(max((float) ($validated['rate_multiplier'] ?? 1), 0.01), 2);
+
+        $selectedTypeIds = collect($validated['rate_type_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($selectedTypeIds->isEmpty() && isset($validated['market_stall_type_id'])) {
+            $selectedTypeIds = collect([(int) $validated['market_stall_type_id']]);
+        }
+
+        $selectedTypes = MarketStallType::query()
+            ->whereIn('id', $selectedTypeIds->all())
+            ->get(['id', 'type_name', 'default_rate', 'rate_notes']);
+
+        $baseRateTotal = round((float) $selectedTypes->sum(fn (MarketStallType $type) => (float) ($type->default_rate ?? 0)), 2);
+        $computedRate = round($baseRateTotal * $this->periodMultiplier($billingPeriod) * $billingCycles * $rateMultiplier, 2);
+        $manualRate = round((float) ($validated['rate_amount'] ?? 0), 2);
+        $finalRate = $manualRate > 0 ? $manualRate : $computedRate;
+
+        $selectedTypeRates = $selectedTypes->map(static function (MarketStallType $type): array {
+            return [
+                'id' => $type->id,
+                'name' => $type->type_name,
+                'base_rate' => round((float) ($type->default_rate ?? 0), 2),
+                'notes' => $type->rate_notes,
+            ];
+        })->values()->all();
+
+        $rate = $this->resolveReferenceRate(
             (int) $validated['market_stall_location_id'],
-            (float) $validated['rate_amount'],
+            max($finalRate, 0),
             $startDate
         );
 
@@ -303,6 +349,11 @@ class MarketStallController extends Controller
             $activeLease->update([
                 'market_tenant_id' => $tenant->id,
                 'market_stall_rate_id' => $rate->id,
+                'selected_type_rates' => $selectedTypeRates,
+                'billing_period' => $billingPeriod,
+                'billing_cycles' => $billingCycles,
+                'rate_multiplier' => $rateMultiplier,
+                'computed_rate_amount' => $finalRate,
                 'contract_number' => $validated['contract_number'] ? trim((string) $validated['contract_number']) : null,
                 'start_date' => $startDate,
                 'end_date' => $validated['end_date'] ?? null,
@@ -317,11 +368,51 @@ class MarketStallController extends Controller
             'market_stall_id' => $stall->id,
             'market_tenant_id' => $tenant->id,
             'market_stall_rate_id' => $rate->id,
+            'selected_type_rates' => $selectedTypeRates,
+            'billing_period' => $billingPeriod,
+            'billing_cycles' => $billingCycles,
+            'rate_multiplier' => $rateMultiplier,
+            'computed_rate_amount' => $finalRate,
             'contract_number' => $validated['contract_number'] ? trim((string) $validated['contract_number']) : null,
             'start_date' => $startDate,
             'end_date' => $validated['end_date'] ?? null,
             'lease_status' => 'active',
             'remarks' => $validated['lease_remarks'] ? trim((string) $validated['lease_remarks']) : null,
+            'created_by_user_id' => Auth::id(),
+        ]);
+    }
+
+    private function normalizeBillingPeriod(string $period): string
+    {
+        $normalized = strtolower(trim($period));
+        return array_key_exists($normalized, self::BILLING_PERIOD_MULTIPLIERS)
+            ? $normalized
+            : 'monthly';
+    }
+
+    private function periodMultiplier(string $period): float
+    {
+        return self::BILLING_PERIOD_MULTIPLIERS[$this->normalizeBillingPeriod($period)] ?? self::BILLING_PERIOD_MULTIPLIERS['monthly'];
+    }
+
+    private function resolveReferenceRate(int $locationId, float $fallbackRate, string $effectiveStartDate): MarketStallRate
+    {
+        $activeRate = MarketStallRate::query()
+            ->where('market_stall_location_id', $locationId)
+            ->where('is_active', true)
+            ->orderByDesc('effective_start_date')
+            ->first();
+
+        if ($activeRate) {
+            return $activeRate;
+        }
+
+        return MarketStallRate::query()->create([
+            'market_stall_location_id' => $locationId,
+            'rate_amount' => round($fallbackRate, 2),
+            'effective_start_date' => Carbon::parse($effectiveStartDate)->toDateString(),
+            'effective_end_date' => null,
+            'is_active' => true,
             'created_by_user_id' => Auth::id(),
         ]);
     }

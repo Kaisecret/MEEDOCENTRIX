@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Cemetery;
 
 use App\Http\Controllers\Controller;
 use App\Models\CemeteryContact;
-use App\Models\CemeteryOccupantRecord;
 use App\Models\CemeteryPaymentCollection;
 use App\Models\CemeterySite;
 use App\Models\CemeteryTransaction;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -85,7 +86,12 @@ class CemeteryPaymentCollectionController extends Controller
             ->get();
 
         $transactions = CemeteryTransaction::query()
-            ->with(['site:id,site_name', 'category:id,category_name'])
+            ->with([
+                'site:id,site_name',
+                'category:id,category_name',
+                'occupantRecord:id,cemetery_contact_id',
+                'occupantRecord.contact:id,contact_person,contact_number',
+            ])
             ->orderByDesc('transaction_date')
             ->orderByDesc('id')
             ->get();
@@ -94,37 +100,33 @@ class CemeteryPaymentCollectionController extends Controller
             ->pluck('cemetery_transaction_id')
             ->all();
 
-        $availableTransactions = $transactions
+        $unrecordedTransactions = $transactions
             ->filter(fn (CemeteryTransaction $transaction): bool => ! in_array($transaction->id, $usedTransactionIds, true))
+            ->values();
+
+        $availableTransactions = $transactions
+            ->filter(function (CemeteryTransaction $transaction) use ($usedTransactionIds): bool {
+                if (in_array($transaction->id, $usedTransactionIds, true)) {
+                    return false;
+                }
+
+                if ((int) ($transaction->occupant_record_id ?? 0) <= 0) {
+                    return false;
+                }
+
+                return (int) ($transaction->occupantRecord?->cemetery_contact_id ?? 0) > 0;
+            })
             ->values();
         $hasTransactions = $transactions->isNotEmpty();
         $hasAvailableTransactions = $availableTransactions->isNotEmpty();
+        $allTransactionsAlreadyRecorded = $hasTransactions && $unrecordedTransactions->isEmpty();
+        $hasUnrecordedWithoutContact = $unrecordedTransactions->isNotEmpty() && ! $hasAvailableTransactions;
 
         $contactByTransactionId = [];
-        $occupantByKey = [];
-        $occupantRecords = CemeteryOccupantRecord::query()
-            ->with(['plot:id,plot_reference', 'contact:id'])
-            ->get();
-
-        foreach ($occupantRecords as $occupantRecord) {
-            $plotReference = strtoupper(trim((string) ($occupantRecord->plot?->plot_reference ?? '')));
-            $deceasedName = strtoupper(trim((string) $occupantRecord->deceased_name));
-            if ($plotReference === '' || $deceasedName === '' || $occupantRecord->cemetery_contact_id === null) {
-                continue;
-            }
-
-            $occupantByKey[$this->occupantKey((int) $occupantRecord->cemetery_site_id, $deceasedName, $plotReference)] = (int) $occupantRecord->cemetery_contact_id;
-        }
-
         foreach ($transactions as $transaction) {
-            $key = $this->occupantKey(
-                (int) $transaction->cemetery_site_id,
-                strtoupper(trim((string) $transaction->deceased_name)),
-                strtoupper(trim((string) $transaction->plot_reference))
-            );
-
-            if (isset($occupantByKey[$key])) {
-                $contactByTransactionId[$transaction->id] = $occupantByKey[$key];
+            $contactId = (int) ($transaction->occupantRecord?->cemetery_contact_id ?? 0);
+            if ($contactId > 0) {
+                $contactByTransactionId[$transaction->id] = $contactId;
             }
         }
 
@@ -141,7 +143,8 @@ class CemeteryPaymentCollectionController extends Controller
             'availableTransactions' => $availableTransactions,
             'hasTransactions' => $hasTransactions,
             'hasAvailableTransactions' => $hasAvailableTransactions,
-            'allTransactionsAlreadyRecorded' => $hasTransactions && ! $hasAvailableTransactions,
+            'allTransactionsAlreadyRecorded' => $allTransactionsAlreadyRecorded,
+            'hasUnrecordedWithoutContact' => $hasUnrecordedWithoutContact,
             'contactByTransactionId' => $contactByTransactionId,
             'statusOptions' => self::STATUS_OPTIONS,
             'search' => $search,
@@ -166,13 +169,14 @@ class CemeteryPaymentCollectionController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate($this->rules($request));
-        $amountDue = $this->transactionAmountDue((int) $validated['cemetery_transaction_id']);
+        $transactionId = (int) $validated['cemetery_transaction_id'];
+        $remainingBalance = $this->remainingBalance($transactionId);
         $resolvedStatus = $this->resolvePaymentStatus(
             (string) ($validated['payment_status'] ?? ''),
             (float) ($validated['amount_paid'] ?? 0),
-            $amountDue
+            $remainingBalance
         );
-        $this->validatePaymentConsistency($validated, $amountDue, $resolvedStatus);
+        $this->validatePaymentConsistency($validated, $remainingBalance, $resolvedStatus);
 
         $paymentCollection = CemeteryPaymentCollection::query()->create($this->payload($validated, $resolvedStatus) + [
             'created_by_user_id' => Auth::id(),
@@ -181,19 +185,21 @@ class CemeteryPaymentCollectionController extends Controller
 
         return redirect()
             ->route('cemetery.payments')
-            ->with('status', 'Payment collection record added successfully.');
+            ->with('status', 'Payment collection record added successfully.')
+            ->with('last_payment_id', $paymentCollection->id);
     }
 
     public function update(Request $request, CemeteryPaymentCollection $paymentCollection): RedirectResponse
     {
         $validated = $request->validate($this->rules($request, $paymentCollection));
-        $amountDue = $this->transactionAmountDue((int) $validated['cemetery_transaction_id']);
+        $transactionId = (int) $validated['cemetery_transaction_id'];
+        $remainingBalance = $this->remainingBalance($transactionId, $paymentCollection->id);
         $resolvedStatus = $this->resolvePaymentStatus(
             (string) ($validated['payment_status'] ?? ''),
             (float) ($validated['amount_paid'] ?? 0),
-            $amountDue
+            $remainingBalance
         );
-        $this->validatePaymentConsistency($validated, $amountDue, $resolvedStatus);
+        $this->validatePaymentConsistency($validated, $remainingBalance, $resolvedStatus);
 
         $paymentCollection->update($this->payload($validated, $resolvedStatus));
         $paymentCollection->refresh();
@@ -204,14 +210,216 @@ class CemeteryPaymentCollectionController extends Controller
             ->with('status', "Payment record {$paymentCollection->payment_no} updated.");
     }
 
+    public function quickPay(Request $request, CemeteryTransaction $transaction): RedirectResponse
+    {
+        $rawPaymentDate = trim((string) $request->input('payment_date', ''));
+        if ($rawPaymentDate !== '') {
+            if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $rawPaymentDate) === 1) {
+                $request->merge([
+                    'payment_date' => Carbon::createFromFormat('d/m/Y', $rawPaymentDate)->format('Y-m-d'),
+                ]);
+            } elseif (preg_match('/^\d{2}\-\d{2}\-\d{4}$/', $rawPaymentDate) === 1) {
+                $request->merge([
+                    'payment_date' => Carbon::createFromFormat('d-m-Y', $rawPaymentDate)->format('Y-m-d'),
+                ]);
+            }
+        }
+
+        $existingPayment = CemeteryPaymentCollection::query()
+            ->where('cemetery_transaction_id', (int) $transaction->id)
+            ->first();
+
+        $validated = $request->validate([
+            'form_mode' => ['nullable', 'string', Rule::in(['quick_pay'])],
+            'quick_transaction_id' => ['nullable', 'integer'],
+            'amount_paid' => ['required', 'numeric', 'min:0.01'],
+            'official_receipt_no' => ['nullable', 'string', 'max:60'],
+            'payment_date' => ['required', 'date'],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $quickTransactionId = (int) ($validated['quick_transaction_id'] ?? 0);
+        if ($quickTransactionId > 0 && $quickTransactionId !== (int) $transaction->id) {
+            throw ValidationException::withMessages([
+                'amount_paid' => 'Invalid transaction selection for quick payment.',
+            ]);
+        }
+
+        $amountDue = $this->transactionAmountDue($transaction->id);
+        $totalPaid = $this->totalPaid($transaction->id);
+        $remainingBalance = round(max($amountDue - $totalPaid, 0), 2);
+        $amountPaid = round((float) $validated['amount_paid'], 2);
+
+        if ($remainingBalance <= 0) {
+            throw ValidationException::withMessages([
+                'amount_paid' => 'This transaction is already fully paid.',
+            ]);
+        }
+
+        if ($amountPaid > $remainingBalance) {
+            throw ValidationException::withMessages([
+                'amount_paid' => 'Payment amount exceeds remaining balance of PHP ' . number_format($remainingBalance, 2) . '.',
+            ]);
+        }
+
+        $receiptNo = $this->nullableTrimmedUpper($validated['official_receipt_no'] ?? null);
+        if ($receiptNo !== null) {
+            $existsQuery = CemeteryPaymentCollection::query()
+                ->where('official_receipt_no', $receiptNo);
+
+            if ($existingPayment) {
+                $existsQuery->where('id', '!=', $existingPayment->id);
+            }
+
+            $exists = $existsQuery->exists();
+            if ($exists) {
+                throw ValidationException::withMessages([
+                    'official_receipt_no' => 'Official receipt number already used.',
+                ]);
+            }
+        }
+
+        $contactId = $this->resolveOptionalContactIdForTransaction($transaction->id);
+        $paymentDate = (string) $validated['payment_date'];
+        $existingRecordedAmount = $existingPayment ? round((float) $existingPayment->amount_paid, 2) : 0.0;
+        $otherPaid = $existingPayment
+            ? round(max($totalPaid - $existingRecordedAmount, 0), 2)
+            : $totalPaid;
+        $newTotalPaid = round(min($totalPaid + $amountPaid, $amountDue), 2);
+        $resolvedStatus = $newTotalPaid >= $amountDue ? 'paid' : 'partial';
+
+        $payment = DB::transaction(function () use ($existingPayment, $transaction, $validated, $amountPaid, $receiptNo, $contactId, $paymentDate, $resolvedStatus, $newTotalPaid, $otherPaid, $amountDue): CemeteryPaymentCollection {
+            if ($existingPayment) {
+                $updatedAmountPaid = round(min(max($newTotalPaid - $otherPaid, 0), $amountDue), 2);
+                $existingPayment->fill([
+                    'cemetery_contact_id' => $contactId ?? $existingPayment->cemetery_contact_id,
+                    'amount_paid' => $updatedAmountPaid,
+                    'official_receipt_no' => $receiptNo,
+                    'payment_date' => $paymentDate,
+                    'payment_status' => $resolvedStatus,
+                    'remarks' => $this->nullableTrimmed($validated['remarks'] ?? null),
+                ]);
+                $existingPayment->save();
+
+                return $existingPayment->fresh();
+            }
+
+            return CemeteryPaymentCollection::query()->create([
+                'payment_no' => $this->nextPaymentNo(),
+                'cemetery_transaction_id' => $transaction->id,
+                'cemetery_contact_id' => $contactId,
+                'amount_paid' => $amountPaid,
+                'official_receipt_no' => $receiptNo,
+                'payment_date' => $paymentDate,
+                'coverage_start_date' => null,
+                'coverage_end_date' => null,
+                'payment_status' => $resolvedStatus,
+                'remarks' => $this->nullableTrimmed($validated['remarks'] ?? null),
+                'created_by_user_id' => Auth::id(),
+            ]);
+        });
+
+        $this->syncTransactionStatus($payment);
+
+        return redirect()
+            ->route('cemetery.payments')
+            ->with('status', "Payment {$payment->payment_no} recorded for {$transaction->transaction_no}. Balance left: PHP " . number_format(max($amountDue - $newTotalPaid, 0), 2) . '.')
+            ->with('last_payment_id', $payment->id);
+    }
+
+    public function receipt(CemeteryPaymentCollection $paymentCollection): View
+    {
+        $paymentCollection->load([
+            'transaction.site',
+            'transaction.category',
+            'transaction.transactionType',
+            'contact',
+            'creator',
+        ]);
+
+        $transaction = $paymentCollection->transaction;
+        $amountDue = $transaction ? round((float) $transaction->amount_due, 2) : 0.0;
+        $totalPaid = $transaction ? $this->totalPaid($transaction->id) : 0.0;
+        $balance = round(max($amountDue - $totalPaid, 0), 2);
+        $amountPaidThis = round((float) $paymentCollection->amount_paid, 2);
+        $paidBeforeThis = round(max($totalPaid - $amountPaidThis, 0), 2);
+        $balanceBeforeThis = round(max($amountDue - $paidBeforeThis, 0), 2);
+
+        $charges = [];
+        if ($transaction) {
+            if ((float) $transaction->base_fee > 0) {
+                $charges[] = ['item' => 'Base Fee', 'qty' => 1, 'total' => (float) $transaction->base_fee];
+            }
+            if ((float) $transaction->maintenance_fee > 0) {
+                $charges[] = ['item' => 'Maintenance Fee', 'qty' => 1, 'total' => (float) $transaction->maintenance_fee];
+            }
+            if ((float) $transaction->burial_permit_fee > 0) {
+                $charges[] = ['item' => 'Burial Permit Fee', 'qty' => 1, 'total' => (float) $transaction->burial_permit_fee];
+            }
+            if ((float) $transaction->other_applicable_fee > 0) {
+                $charges[] = ['item' => 'Other Applicable Fee', 'qty' => 1, 'total' => (float) $transaction->other_applicable_fee];
+            }
+            if (empty($charges)) {
+                $charges[] = ['item' => $transaction->transactionType?->type_name ?: 'Cemetery Service', 'qty' => 1, 'total' => $amountDue];
+            }
+        }
+
+        $receipt = [
+            'business_name' => 'Meedocentrix Cemetery Services',
+            'address' => 'San Jose, Antique',
+            'tin' => 'N/A',
+            'payment_number' => $paymentCollection->payment_no,
+            'transaction_number' => $transaction?->transaction_no ?? '-',
+            'date' => optional($paymentCollection->payment_date)->format('Y-m-d') ?? now()->format('Y-m-d'),
+            'cashier' => $paymentCollection->creator?->name ?? '-',
+            'payer_name' => $paymentCollection->contact?->contact_person ?? '-',
+            'deceased' => $transaction?->deceased_name ?? '-',
+            'plot_reference' => $transaction?->plot_reference ?? '-',
+            'cemetery' => $transaction?->site?->site_name ?? '-',
+            'category' => $transaction?->category?->category_name ?? '-',
+            'service_type' => $transaction?->transactionType?->type_name ?? '-',
+            'charges' => $charges,
+            'amount_due' => $amountDue,
+            'amount_paid_this' => $amountPaidThis,
+            'paid_before_this' => $paidBeforeThis,
+            'balance_before_payment' => $balanceBeforeThis,
+            'balance_after_payment' => $balance,
+            'total_paid' => $totalPaid,
+            'balance' => $balance,
+            'status' => $paymentCollection->payment_status,
+        ];
+
+        return view('cemetery.receipt', [
+            'receipt' => $receipt,
+        ]);
+    }
+
+    private function totalPaid(int $transactionId, ?int $excludePaymentId = null): float
+    {
+        $query = CemeteryPaymentCollection::query()
+            ->where('cemetery_transaction_id', $transactionId);
+
+        if ($excludePaymentId !== null) {
+            $query->where('id', '!=', $excludePaymentId);
+        }
+
+        return round((float) $query->sum('amount_paid'), 2);
+    }
+
+    private function remainingBalance(int $transactionId, ?int $excludePaymentId = null): float
+    {
+        $amountDue = $this->transactionAmountDue($transactionId);
+        $totalPaid = $this->totalPaid($transactionId, $excludePaymentId);
+        return round(max($amountDue - $totalPaid, 0), 2);
+    }
+
     public function destroy(CemeteryPaymentCollection $paymentCollection): RedirectResponse
     {
         $paymentNo = $paymentCollection->payment_no;
         $transaction = $paymentCollection->transaction;
         $paymentCollection->delete();
-        if ($transaction && $transaction->status !== 'cancelled') {
-            $transaction->status = 'pending';
-            $transaction->save();
+        if ($transaction) {
+            $this->syncTransactionByModel($transaction);
         }
 
         return redirect()
@@ -228,24 +436,20 @@ class CemeteryPaymentCollectionController extends Controller
             ? Rule::unique('cemetery_payment_collections', 'payment_no')->ignore($paymentCollection->id)
             : Rule::unique('cemetery_payment_collections', 'payment_no');
 
-        $transactionRule = $paymentCollection
-            ? Rule::unique('cemetery_payment_collections', 'cemetery_transaction_id')->ignore($paymentCollection->id)
-            : Rule::unique('cemetery_payment_collections', 'cemetery_transaction_id');
-
         $receiptRule = $paymentCollection
             ? Rule::unique('cemetery_payment_collections', 'official_receipt_no')->ignore($paymentCollection->id)
             : Rule::unique('cemetery_payment_collections', 'official_receipt_no');
 
         return [
             'payment_no' => ['required', 'string', 'max:40', $paymentNoRule],
-            'cemetery_transaction_id' => ['required', 'integer', Rule::exists('cemetery_transactions', 'id'), $transactionRule],
-            'cemetery_contact_id' => ['required', 'integer', Rule::exists('cemetery_contacts', 'id')],
+            'cemetery_transaction_id' => ['required', 'integer', Rule::exists('cemetery_transactions', 'id')],
+            'cemetery_contact_id' => ['nullable', 'integer', Rule::exists('cemetery_contacts', 'id')],
             'amount_paid' => ['required', 'numeric', 'min:0'],
             'official_receipt_no' => ['nullable', 'string', 'max:60', $receiptRule],
             'payment_date' => ['nullable', 'date'],
             'coverage_start_date' => ['nullable', 'date'],
             'coverage_end_date' => ['nullable', 'date', 'after_or_equal:coverage_start_date'],
-            'payment_status' => ['required', Rule::in(array_keys(self::STATUS_OPTIONS))],
+            'payment_status' => ['nullable', Rule::in(array_keys(self::STATUS_OPTIONS))],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'form_mode' => ['nullable', 'string', Rule::in(['create', 'edit'])],
             'form_payment_id' => ['nullable', 'integer'],
@@ -258,10 +462,16 @@ class CemeteryPaymentCollectionController extends Controller
      */
     private function payload(array $validated, string $resolvedStatus): array
     {
+        $transactionId = (int) $validated['cemetery_transaction_id'];
+        $contactId = $this->resolveContactIdForTransaction(
+            $transactionId,
+            isset($validated['cemetery_contact_id']) ? (int) $validated['cemetery_contact_id'] : null
+        );
+
         return [
             'payment_no' => strtoupper(trim((string) $validated['payment_no'])),
-            'cemetery_transaction_id' => (int) $validated['cemetery_transaction_id'],
-            'cemetery_contact_id' => (int) $validated['cemetery_contact_id'],
+            'cemetery_transaction_id' => $transactionId,
+            'cemetery_contact_id' => $contactId,
             'amount_paid' => round((float) $validated['amount_paid'], 2),
             'official_receipt_no' => $this->nullableTrimmedUpper($validated['official_receipt_no'] ?? null),
             'payment_date' => $validated['payment_date'] ?? null,
@@ -275,32 +485,27 @@ class CemeteryPaymentCollectionController extends Controller
     /**
      * @param array<string, mixed> $validated
      */
-    private function validatePaymentConsistency(array $validated, float $amountDue, string $resolvedStatus): void
+    private function validatePaymentConsistency(array $validated, float $remainingBalance, string $resolvedStatus): void
     {
         $amountPaid = round((float) ($validated['amount_paid'] ?? 0), 2);
-        $receiptNo = trim((string) ($validated['official_receipt_no'] ?? ''));
         $paymentDate = trim((string) ($validated['payment_date'] ?? ''));
         $errors = [];
 
         if (in_array($resolvedStatus, ['paid', 'partial'], true)) {
-            if ($receiptNo === '') {
-                $errors['official_receipt_no'] = 'Official receipt number is required for paid or partial payment.';
-            }
-
             if ($paymentDate === '') {
                 $errors['payment_date'] = 'Payment date is required for paid or partial payment.';
             }
         }
 
-        if ($resolvedStatus === 'paid' && $amountPaid < $amountDue) {
-            $errors['amount_paid'] = 'Paid status requires amount paid to fully cover amount due.';
+        if ($resolvedStatus === 'paid' && $amountPaid < $remainingBalance) {
+            $errors['amount_paid'] = 'Paid status requires amount paid to fully cover the remaining balance.';
         }
 
-        if ($resolvedStatus === 'partial' && ($amountPaid <= 0 || $amountPaid >= $amountDue)) {
-            $errors['amount_paid'] = 'Partial status requires amount paid greater than 0 and less than amount due.';
+        if ($resolvedStatus === 'partial' && ($amountPaid <= 0 || $amountPaid >= $remainingBalance)) {
+            $errors['amount_paid'] = 'Partial status requires amount paid greater than 0 and less than remaining balance.';
         }
 
-        if ($resolvedStatus === 'overdue' && $amountPaid >= $amountDue && $amountDue > 0) {
+        if ($resolvedStatus === 'overdue' && $amountPaid >= $remainingBalance && $remainingBalance > 0) {
             $errors['payment_status'] = 'Overdue status applies only when balance is still unpaid.';
         }
 
@@ -335,11 +540,6 @@ class CemeteryPaymentCollectionController extends Controller
         return $trimmed === '' ? null : strtoupper($trimmed);
     }
 
-    private function occupantKey(int $siteId, string $deceasedName, string $plotReference): string
-    {
-        return $siteId . '|' . $deceasedName . '|' . $plotReference;
-    }
-
     private function syncOverduePaymentStatuses(): void
     {
         CemeteryPaymentCollection::query()
@@ -352,19 +552,30 @@ class CemeteryPaymentCollectionController extends Controller
     private function syncTransactionStatus(CemeteryPaymentCollection $paymentCollection): void
     {
         $transaction = $paymentCollection->transaction;
-        if (! $transaction || $transaction->status === 'cancelled') {
+        if (! $transaction) {
             return;
         }
 
-        $amountDue = round((float) $transaction->amount_due, 2);
-        $amountPaid = round((float) $paymentCollection->amount_paid, 2);
+        $this->syncTransactionByModel($transaction);
+    }
 
-        if ($amountDue <= 0 || $amountPaid >= $amountDue) {
-            $transaction->status = 'paid';
-        } elseif ($amountPaid > 0) {
-            $transaction->status = 'partial';
-        } else {
-            $transaction->status = 'pending';
+    private function syncTransactionByModel(CemeteryTransaction $transaction): void
+    {
+        $amountDue = round((float) $transaction->amount_due, 2);
+        $totalPaid = $this->totalPaid($transaction->id);
+        $remaining = round(max($amountDue - $totalPaid, 0), 2);
+
+        $transaction->total_paid = $totalPaid;
+        $transaction->remaining_balance = $remaining;
+
+        if ($transaction->status !== 'cancelled') {
+            if ($amountDue <= 0 || $totalPaid >= $amountDue) {
+                $transaction->status = 'paid';
+            } elseif ($totalPaid > 0) {
+                $transaction->status = 'partial';
+            } else {
+                $transaction->status = 'pending';
+            }
         }
 
         $transaction->save();
@@ -377,6 +588,35 @@ class CemeteryPaymentCollectionController extends Controller
             ->value('amount_due') ?? 0);
 
         return round($amountDue, 2);
+    }
+
+    private function resolveContactIdForTransaction(int $transactionId, ?int $fallbackContactId = null): int
+    {
+        $transaction = CemeteryTransaction::query()
+            ->with('occupantRecord:id,cemetery_contact_id')
+            ->find($transactionId);
+
+        $contactId = (int) ($transaction?->occupantRecord?->cemetery_contact_id ?? 0);
+        if ($contactId > 0) {
+            return $contactId;
+        }
+
+        if ($fallbackContactId !== null && $fallbackContactId > 0) {
+            return $fallbackContactId;
+        }
+
+        throw ValidationException::withMessages([
+            'cemetery_transaction_id' => 'Selected transaction has no linked occupant contact. Update occupant record contact first.',
+        ]);
+    }
+
+    private function resolveOptionalContactIdForTransaction(int $transactionId): ?int
+    {
+        $contactId = (int) (CemeteryTransaction::query()
+            ->with('occupantRecord:id,cemetery_contact_id')
+            ->find($transactionId)?->occupantRecord?->cemetery_contact_id ?? 0);
+
+        return $contactId > 0 ? $contactId : null;
     }
 
     private function resolvePaymentStatus(string $requestedStatus, float $amountPaid, float $amountDue): string

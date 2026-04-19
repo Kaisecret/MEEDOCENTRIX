@@ -75,28 +75,26 @@ class MarketSendPaymentController extends Controller
             }
         }
 
-        $leases = $query
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->get();
-
-        $openItems = CollectionDispatchItem::query()
-            ->select(['id', 'market_stall_lease_id', 'status'])
+        $openLeaseIds = CollectionDispatchItem::query()
             ->whereIn('status', ['sent', 'collected_pending_confirmation'])
             ->whereNotNull('market_stall_lease_id')
             ->whereHas('dispatch', static function ($dispatchQuery): void {
                 $dispatchQuery->where('department_code', 'market');
             })
-            ->get();
+            ->pluck('market_stall_lease_id')
+            ->filter(static fn ($id) => $id !== null)
+            ->map(static fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
 
-        $openDispatchByLeaseId = $openItems
-            ->mapWithKeys(static fn (CollectionDispatchItem $item) => [
-                (int) $item->market_stall_lease_id => [
-                    'item_id' => (int) $item->id,
-                    'status' => (string) $item->status,
-                ],
-            ])
-            ->all();
+        if ($openLeaseIds->isNotEmpty()) {
+            $query->whereNotIn('id', $openLeaseIds->all());
+        }
+
+        $leases = $query
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->get();
 
         $collectors = CollectorDepartmentAssignment::query()
             ->with(['collector:id,name,is_active', 'department:id,code,name'])
@@ -128,7 +126,6 @@ class MarketSendPaymentController extends Controller
         return view('market.send_payment', [
             'leases' => $leases,
             'collectors' => $collectors,
-            'openDispatchByLeaseId' => $openDispatchByLeaseId,
             'awaitingConfirmationItems' => $awaitingConfirmationItems,
             'period' => $period,
             'search' => $search,
@@ -396,4 +393,3 @@ class MarketSendPaymentController extends Controller
         ]);
     }
 }
-

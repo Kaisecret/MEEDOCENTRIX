@@ -134,6 +134,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Session Cookie Base Name
+    |--------------------------------------------------------------------------
+    |
+    | This base cookie name is used by custom middleware to scope session
+    | cookies per system area (market, collector, fishport, etc.).
+    |
+    */
+
+    'cookie_base' => env(
+        'SESSION_COOKIE_BASE',
+        env('SESSION_COOKIE', Str::slug((string) env('APP_NAME', 'laravel')).'-session')
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Cookie Scope Separator
+    |--------------------------------------------------------------------------
+    |
+    | Separator used when building scoped cookie names. Example output:
+    | meedocentrix-session__market
+    |
+    */
+
+    'cookie_scope_separator' => env('SESSION_COOKIE_SCOPE_SEPARATOR', '__'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Session Cookie Path
     |--------------------------------------------------------------------------
     |

@@ -2,6 +2,11 @@
 
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\FishportRateController;
+use App\Http\Controllers\Atrium\AtriumBookingController;
+use App\Http\Controllers\Atrium\AtriumDashboardController;
+use App\Http\Controllers\Atrium\AtriumPaymentController;
+use App\Http\Controllers\Atrium\AtriumReportController;
+use App\Http\Controllers\Atrium\AtriumSuppliesController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Collector\CollectorCollectionController;
 use App\Http\Controllers\Collector\CollectorReportController;
@@ -19,7 +24,9 @@ use App\Http\Controllers\Fishport\FishportProfileController;
 use App\Http\Controllers\Fishport\FishportReportController;
 use App\Http\Controllers\Fishport\FishportSendPaymentController;
 use App\Http\Controllers\Fishport\FishportVesselRegistryController;
+use App\Http\Controllers\Market\MarketDashboardController;
 use App\Http\Controllers\Market\MarketProfileController;
+use App\Http\Controllers\Market\MarketReportController;
 use App\Http\Controllers\Market\MarketSendPaymentController;
 use App\Http\Controllers\Market\MarketStallController;
 use App\Http\Controllers\Market\MarketTenantController;
@@ -82,8 +89,10 @@ Route::middleware('auth')->group(function () {
 
     // Market
     Route::prefix('market')->middleware('area:market')->group(function () {
-        Route::view('/dashboard', 'market.dashboard')->name('market.dashboard');
+        Route::get('/dashboard', [MarketDashboardController::class, 'index'])->name('market.dashboard');
         Route::get('/vendors', [MarketTenantController::class, 'index'])->name('market.vendors');
+        Route::get('/vendors/{marketTenant}', [MarketTenantController::class, 'edit'])->name('market.vendors.edit');
+        Route::put('/vendors/{marketTenant}', [MarketTenantController::class, 'update'])->name('market.vendors.update');
         Route::get('/stalls', [MarketStallController::class, 'index'])->name('market.stalls');
         Route::post('/stalls', [MarketStallController::class, 'store'])->name('market.stalls.store');
         Route::put('/stalls/{marketStall}', [MarketStallController::class, 'update'])->name('market.stalls.update');
@@ -98,6 +107,9 @@ Route::middleware('auth')->group(function () {
         Route::patch('/send-payment/items/{dispatchItem}/approve', [MarketSendPaymentController::class, 'approve'])->name('market.send_payment.items.approve');
         Route::patch('/send-payment/items/{dispatchItem}/reject', [MarketSendPaymentController::class, 'reject'])->name('market.send_payment.items.reject');
         Route::get('/records', [MarketTransactionController::class, 'index'])->name('market.records');
+        Route::get('/reports', [MarketReportController::class, 'index'])->name('market.reports');
+        Route::get('/reports/preview', [MarketReportController::class, 'preview'])->name('market.reports.preview');
+        Route::get('/reports/pdf', [MarketReportController::class, 'pdf'])->name('market.reports.pdf');
     });
 
     // Cemetery
@@ -122,6 +134,8 @@ Route::middleware('auth')->group(function () {
         Route::put('/payments/{paymentCollection}', [CemeteryPaymentCollectionController::class, 'update'])->name('cemetery.payments.update');
         Route::delete('/payments/{paymentCollection}', [CemeteryPaymentCollectionController::class, 'destroy'])->name('cemetery.payments.destroy');
         Route::get('/reports', [CemeteryReportController::class, 'index'])->name('cemetery.reports');
+        Route::get('/reports/preview', [CemeteryReportController::class, 'preview'])->name('cemetery.reports.preview');
+        Route::get('/reports/pdf', [CemeteryReportController::class, 'pdf'])->name('cemetery.reports.pdf');
         Route::get('/profile', [CemeteryProfileController::class, 'show'])->name('cemetery.profile');
         Route::put('/profile', [CemeteryProfileController::class, 'update'])->name('cemetery.profile.update');
     });
@@ -136,10 +150,41 @@ Route::middleware('auth')->group(function () {
 
     // Atrium
     Route::prefix('atrium')->middleware('area:atrium')->group(function () {
-        Route::view('/dashboard', 'atrium.dashboard')->name('atrium.dashboard');
-        Route::view('/booking', 'atrium.booking')->name('atrium.booking');
-        Route::view('/records', 'atrium.records')->name('atrium.records');
-        Route::view('/calendar', 'atrium.calendar')->name('atrium.calendar');
+        Route::get('/dashboard', [AtriumDashboardController::class, 'index'])->name('atrium.dashboard');
+
+        Route::get('/records', [AtriumBookingController::class, 'index'])->name('atrium.records');
+        Route::redirect('/booking', '/atrium/bookings');
+        Route::redirect('/calendar', '/atrium/bookings');
+
+        Route::get('/bookings', [AtriumBookingController::class, 'index'])->name('atrium.bookings');
+        Route::get('/bookings/create', [AtriumBookingController::class, 'create'])->name('atrium.bookings.create');
+        Route::post('/bookings', [AtriumBookingController::class, 'store'])->name('atrium.bookings.store');
+        Route::get('/bookings/{event}', [AtriumBookingController::class, 'show'])->name('atrium.bookings.show');
+        Route::get('/bookings/{event}/edit', [AtriumBookingController::class, 'edit'])->name('atrium.bookings.edit');
+        Route::put('/bookings/{event}', [AtriumBookingController::class, 'update'])->name('atrium.bookings.update');
+        Route::delete('/bookings/{event}', [AtriumBookingController::class, 'destroy'])->name('atrium.bookings.destroy');
+        Route::patch('/bookings/{event}/cancel', [AtriumBookingController::class, 'cancel'])->name('atrium.bookings.cancel');
+        Route::patch('/bookings/{event}/complete', [AtriumBookingController::class, 'complete'])->name('atrium.bookings.complete');
+
+        Route::get('/payments', [AtriumPaymentController::class, 'index'])->name('atrium.payments');
+        Route::get('/payments/create', [AtriumPaymentController::class, 'create'])->name('atrium.payments.create');
+        Route::post('/payments', [AtriumPaymentController::class, 'store'])->name('atrium.payments.store');
+        Route::get('/payments/{payment}', [AtriumPaymentController::class, 'show'])->name('atrium.payments.show');
+        Route::get('/payments/{payment}/edit', [AtriumPaymentController::class, 'edit'])->name('atrium.payments.edit');
+        Route::put('/payments/{payment}', [AtriumPaymentController::class, 'update'])->name('atrium.payments.update');
+        Route::delete('/payments/{payment}', [AtriumPaymentController::class, 'destroy'])->name('atrium.payments.destroy');
+
+        Route::get('/supplies', [AtriumSuppliesController::class, 'index'])->name('atrium.supplies');
+        Route::get('/supplies/create', [AtriumSuppliesController::class, 'create'])->name('atrium.supplies.create');
+        Route::post('/supplies', [AtriumSuppliesController::class, 'store'])->name('atrium.supplies.store');
+        Route::get('/supplies/{order}/edit', [AtriumSuppliesController::class, 'edit'])->name('atrium.supplies.edit');
+        Route::put('/supplies/{order}', [AtriumSuppliesController::class, 'update'])->name('atrium.supplies.update');
+        Route::delete('/supplies/{order}', [AtriumSuppliesController::class, 'destroy'])->name('atrium.supplies.destroy');
+        Route::patch('/supplies/{order}/approve', [AtriumSuppliesController::class, 'approve'])->name('atrium.supplies.approve');
+        Route::patch('/supplies/{order}/fulfill', [AtriumSuppliesController::class, 'fulfill'])->name('atrium.supplies.fulfill');
+        Route::patch('/supplies/{order}/reject', [AtriumSuppliesController::class, 'reject'])->name('atrium.supplies.reject');
+
+        Route::get('/reports', [AtriumReportController::class, 'index'])->name('atrium.reports');
     });
 
     // Collector
@@ -147,6 +192,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/dashboard', [CollectorCollectionController::class, 'dashboard'])->name('collector.dashboard');
         Route::get('/pending-collections', [CollectorCollectionController::class, 'pendingCollections'])->name('collector.pending_collections');
         Route::post('/pending-collections/{dispatchItem}/collect', [CollectorCollectionController::class, 'collect'])->name('collector.pending_collections.collect');
+        Route::post('/payments/{dispatchItem}/cancel', [CollectorCollectionController::class, 'cancelAwaiting'])->name('collector.payments.cancel');
         Route::get('/payments', [CollectorCollectionController::class, 'payments'])->name('collector.payments');
         Route::get('/reports', [CollectorReportController::class, 'index'])->name('collector.reports');
         Route::get('/reports/preview', [CollectorReportController::class, 'preview'])->name('collector.reports.preview');

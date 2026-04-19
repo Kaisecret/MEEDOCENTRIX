@@ -4,7 +4,6 @@
 @php
     /** @var \Illuminate\Support\Collection<int, \App\Models\MarketStallLease> $leases */
     /** @var \Illuminate\Support\Collection<int, array{user_id:int,name:string,department:string}> $collectors */
-    /** @var array<int, array{item_id:int,status:string}> $openDispatchByLeaseId */
     /** @var \Illuminate\Support\Collection<int, \App\Models\CollectionDispatchItem> $awaitingConfirmationItems */
 @endphp
 
@@ -96,10 +95,6 @@
                     <tbody>
                         @forelse ($leases as $lease)
                             @php
-                                $queueMeta = $openDispatchByLeaseId[(int) $lease->id] ?? null;
-                                $queueStatus = (string) ($queueMeta['status'] ?? 'ready');
-                                $queueItemId = (int) ($queueMeta['item_id'] ?? 0);
-                                $isQueueLocked = in_array($queueStatus, ['sent', 'collected_pending_confirmation'], true);
                                 $stall = $lease->stall;
                                 $tenant = $lease->tenant;
                                 $amount = round((float) ($lease->computed_rate_amount ?? 0), 2);
@@ -112,7 +107,6 @@
                                         value="{{ $lease->id }}"
                                         class="lease-checkbox"
                                         data-amount="{{ number_format($amount, 2, '.', '') }}"
-                                        {{ $isQueueLocked ? 'disabled' : '' }}
                                     >
                                 </td>
                                 <td>
@@ -125,31 +119,9 @@
                                 <td>{{ ucfirst((string) ($lease->billing_period ?? 'monthly')) }} x {{ (int) ($lease->billing_cycles ?? 1) }}</td>
                                 <td>PHP {{ number_format($amount, 2) }}</td>
                                 <td>
-                                    @if ($queueStatus === 'sent')
-                                        <span class="sp-pill sp-pill-blue">Sent to collector</span>
-                                    @elseif ($queueStatus === 'collected_pending_confirmation')
-                                        <span class="sp-pill sp-pill-orange">Awaiting approval</span>
-                                    @else
-                                        <span class="sp-pill sp-pill-green">Ready</span>
-                                    @endif
+                                    <span class="sp-pill sp-pill-green">Ready</span>
                                 </td>
-                                <td>
-                                    @if ($queueStatus === 'sent' && $queueItemId > 0)
-                                        <button
-                                            type="button"
-                                            class="sp-btn-outline js-cancel-send-btn"
-                                            data-item-id="{{ $queueItemId }}"
-                                            data-stall-no="{{ $stall?->stall_no ?? '-' }}"
-                                            data-tenant-name="{{ $tenant?->fullName() ?: '-' }}"
-                                        >
-                                            <i class="fas fa-ban"></i> Cancel
-                                        </button>
-                                    @elseif ($queueStatus === 'collected_pending_confirmation')
-                                        <span class="sp-sub">Waiting approval</span>
-                                    @else
-                                        <span class="sp-sub">-</span>
-                                    @endif
-                                </td>
+                                <td><span class="sp-sub">-</span></td>
                             </tr>
                         @empty
                             <tr><td colspan="9" class="sp-empty"><span class="sp-empty-icon"><i class="fa-solid fa-magnifying-glass"></i></span>No billable lease transactions for this filter.</td></tr>
@@ -231,11 +203,6 @@
     </section>
 </div>
 
-<form method="POST" id="cancelSendForm" style="display:none;">
-    @csrf
-    @method('PATCH')
-</form>
-
 <div class="sp-modal-backdrop" id="confirmSendModal">
     <div class="sp-modal">
         <div class="sp-modal-head">
@@ -256,29 +223,6 @@
         <div class="sp-modal-foot">
             <button type="button" class="btn btn-secondary" data-close-modal="confirmSendModal">Cancel</button>
             <button type="button" class="btn btn-success" id="confirmSendBtn"><i class="fas fa-check"></i> Yes, Send Now</button>
-        </div>
-    </div>
-</div>
-
-<div class="sp-modal-backdrop" id="confirmCancelModal">
-    <div class="sp-modal">
-        <div class="sp-modal-head">
-            <h3>Confirm Cancel Send</h3>
-            <button type="button" class="sp-modal-close" data-close-modal="confirmCancelModal"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="sp-modal-body">
-            <div class="sp-modal-icon sp-modal-icon-warn"><i class="fas fa-ban"></i></div>
-            <div>
-                <p id="confirmCancelText"></p>
-                <div class="sp-modal-meta">
-                    <span id="confirmCancelStall"></span>
-                    <span id="confirmCancelTenant"></span>
-                </div>
-            </div>
-        </div>
-        <div class="sp-modal-foot">
-            <button type="button" class="btn btn-secondary" data-close-modal="confirmCancelModal">Keep Sent</button>
-            <button type="button" class="btn btn-danger" id="confirmCancelBtn"><i class="fas fa-trash"></i> Yes, Cancel Send</button>
         </div>
     </div>
 </div>
@@ -348,13 +292,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const sendBatchForm = document.getElementById('sendBatchForm');
     const collectorSelect = document.getElementById('collectorSelect');
     const confirmSendModal = document.getElementById('confirmSendModal');
-    const confirmCancelModal = document.getElementById('confirmCancelModal');
     const confirmSendBtn = document.getElementById('confirmSendBtn');
-    const confirmCancelBtn = document.getElementById('confirmCancelBtn');
-    const cancelSendForm = document.getElementById('cancelSendForm');
-    const cancelSendRouteTemplate = @json(route('market.send_payment.items.cancel', ['dispatchItem' => '__ID__']));
     let allowSendSubmit = false;
-    let cancelItemId = null;
 
     function submitFilterForm() { if (filterForm) filterForm.submit(); }
     function debounce(callback, delay) { let timer = null; return function () { if (timer) clearTimeout(timer); timer = setTimeout(callback, delay); }; }
@@ -366,7 +305,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function openModal(modal) { if (!modal) return; modal.classList.add('is-open'); document.body.style.overflow = 'hidden'; }
     function closeModal(modal) { if (!modal) return; modal.classList.remove('is-open'); if (!document.querySelector('.sp-modal-backdrop.is-open')) document.body.style.overflow = ''; }
     document.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', () => closeModal(document.getElementById(button.getAttribute('data-close-modal')))));
-    [confirmSendModal, confirmCancelModal].forEach((modal) => modal?.addEventListener('click', (event) => { if (event.target === modal) closeModal(modal); }));
+    [confirmSendModal].forEach((modal) => modal?.addEventListener('click', (event) => { if (event.target === modal) closeModal(modal); }));
 
     function refreshSelectionSummary() {
         const selected = checkboxes.filter((checkbox) => checkbox.checked);
@@ -412,34 +351,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    document.querySelectorAll('.js-cancel-send-btn').forEach((button) => {
-        button.addEventListener('click', function () {
-            cancelItemId = button.getAttribute('data-item-id');
-            const stallNo = button.getAttribute('data-stall-no') || '-';
-            const tenantName = button.getAttribute('data-tenant-name') || '-';
-            const cancelText = document.getElementById('confirmCancelText');
-            const cancelStall = document.getElementById('confirmCancelStall');
-            const cancelTenant = document.getElementById('confirmCancelTenant');
-            if (cancelText) cancelText.textContent = 'Are you sure you want to cancel this sent transaction from collector queue?';
-            if (cancelStall) cancelStall.textContent = 'Stall: ' + stallNo;
-            if (cancelTenant) cancelTenant.textContent = 'Tenant: ' + tenantName;
-            openModal(confirmCancelModal);
-        });
-    });
-
-    if (confirmCancelBtn && cancelSendForm) {
-        confirmCancelBtn.addEventListener('click', function () {
-            if (!cancelItemId) return;
-            cancelSendForm.action = cancelSendRouteTemplate.replace('__ID__', String(cancelItemId));
-            closeModal(confirmCancelModal);
-            cancelSendForm.submit();
-        });
-    }
-
     document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {
             closeModal(confirmSendModal);
-            closeModal(confirmCancelModal);
         }
     });
 
@@ -452,4 +366,3 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endsection
-

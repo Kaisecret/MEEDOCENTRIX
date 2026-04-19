@@ -137,10 +137,10 @@ class CemeteryDashboardController extends Controller
         $paymentsByMonth = CemeteryPaymentCollection::query()
             ->whereNotNull('payment_date')
             ->where($paymentRangeQuery)
-            ->selectRaw("DATE_FORMAT(payment_date, '%Y-%m') as year_month")
+            ->selectRaw("DATE_FORMAT(payment_date, '%Y-%m') as activity_month")
             ->selectRaw('COALESCE(SUM(amount_paid), 0) as total_amount')
-            ->groupBy('year_month')
-            ->pluck('total_amount', 'year_month')
+            ->groupBy('activity_month')
+            ->pluck('total_amount', 'activity_month')
             ->map(fn ($value) => round((float) $value, 2));
 
         $monthlyCollections = collect();

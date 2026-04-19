@@ -304,6 +304,86 @@
             transform: translateY(-1px);
         }
 
+        .cpm-cancel-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #fff1f2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: .4rem .85rem;
+            font-size: .8rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background .15s, transform .1s, border-color .15s;
+            white-space: nowrap;
+        }
+        .cpm-cancel-trigger:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            transform: translateY(-1px);
+        }
+
+        /* Cancel Confirm Modal */
+        .cpm-confirm-overlay {
+            position: fixed; inset: 0; background: rgba(15, 23, 42, .55);
+            display: none; align-items: center; justify-content: center;
+            z-index: 9999; padding: 1rem;
+            opacity: 0; transition: opacity .18s ease;
+        }
+        .cpm-confirm-overlay.is-open { display: flex; opacity: 1; }
+        .cpm-confirm-card {
+            background: #fff; border-radius: 16px; width: 100%; max-width: 440px;
+            box-shadow: 0 20px 60px rgba(15, 23, 42, .25);
+            overflow: hidden; transform: translateY(14px) scale(.98);
+            transition: transform .22s ease;
+        }
+        .cpm-confirm-overlay.is-open .cpm-confirm-card { transform: translateY(0) scale(1); }
+        .cpm-confirm-head {
+            padding: 20px 24px 12px;
+            display: flex; align-items: center; gap: 14px;
+            border-bottom: 1px solid #fee2e2;
+            background: linear-gradient(180deg, #fff5f5 0%, #fff 100%);
+        }
+        .cpm-confirm-icon {
+            width: 46px; height: 46px; border-radius: 50%;
+            background: #fee2e2; color: #b91c1c;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; flex-shrink: 0;
+        }
+        .cpm-confirm-title { margin: 0; font-size: 1.05rem; font-weight: 800; color: #0f172a; }
+        .cpm-confirm-sub { margin: 2px 0 0; font-size: .82rem; color: #64748b; }
+        .cpm-confirm-body { padding: 18px 24px 6px; color: #334155; font-size: .9rem; }
+        .cpm-confirm-meta {
+            margin-top: 12px;
+            background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+            padding: 10px 14px; display: grid; gap: 4px;
+        }
+        .cpm-confirm-meta-row { display: flex; justify-content: space-between; gap: 10px; font-size: .82rem; }
+        .cpm-confirm-meta-row span:first-child { color: #64748b; font-weight: 600; }
+        .cpm-confirm-meta-row span:last-child { color: #0f172a; font-weight: 700; text-align: right; }
+        .cpm-confirm-foot {
+            padding: 16px 24px 20px;
+            display: flex; gap: 10px; justify-content: flex-end;
+        }
+        .cpm-confirm-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            border-radius: 10px; padding: .55rem 1rem;
+            font-weight: 700; font-size: .85rem; cursor: pointer;
+            font-family: inherit; border: 1px solid transparent;
+            transition: background .15s, transform .1s, border-color .15s;
+        }
+        .cpm-confirm-btn-ghost {
+            background: #fff; color: #334155; border-color: #cbd5e1;
+        }
+        .cpm-confirm-btn-ghost:hover { background: #f1f5f9; }
+        .cpm-confirm-btn-danger {
+            background: #dc2626; color: #fff; border-color: #dc2626;
+        }
+        .cpm-confirm-btn-danger:hover { background: #b91c1c; border-color: #b91c1c; transform: translateY(-1px); }
+
         /* Empty State */
         .cpm-empty {
             text-align: center;
@@ -866,6 +946,15 @@
                                             data-items="{{ json_encode(($item->fishportLog?->payments ?? collect())->map(fn($p) => ['name' => $p->paymentType?->name ?? 'Charge', 'qty' => number_format((float) $p->quantity, 2), 'total' => number_format((float) $p->total, 2)])->values()->toArray()) }}">
                                             <i class="fa-solid fa-rotate-right"></i> Edit & Resend
                                         </button>
+                                    @elseif($status === 'collected_pending_confirmation')
+                                        <button type="button" class="cpm-cancel-trigger js-cpm-cancel-btn"
+                                            data-action="{{ route('collector.payments.cancel', $item) }}"
+                                            data-log-no="{{ $item->fishportLog?->log_number ?? '-' }}"
+                                            data-payment-no="{{ $item->paymentRecord?->payment_number ?? '-' }}"
+                                            data-vessel="{{ $item->fishportLog?->vessel?->name ?? '-' }}"
+                                            data-amount="{{ number_format((float) $item->amount_snapshot, 2) }}">
+                                            <i class="fa-solid fa-ban"></i> Cancel
+                                        </button>
                                     @else
                                         <span class="cpm-sub">—</span>
                                     @endif
@@ -1126,6 +1215,80 @@
             modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+            });
+        })();
+    </script>
+
+    {{-- Cancel Awaiting Confirmation Modal --}}
+    <div id="cpmCancelOverlay" class="cpm-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="cpmCancelTitle">
+        <div class="cpm-confirm-card">
+            <div class="cpm-confirm-head">
+                <div class="cpm-confirm-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div>
+                    <h3 id="cpmCancelTitle" class="cpm-confirm-title">Cancel Awaiting Submission?</h3>
+                    <p class="cpm-confirm-sub">This will send the record back to Pending Collections.</p>
+                </div>
+            </div>
+            <div class="cpm-confirm-body">
+                The department will no longer see this proof in their approval inbox. Your proof photo will be removed and you can re-collect and resubmit the payment.
+                <div class="cpm-confirm-meta" id="cpmCancelMeta"></div>
+            </div>
+            <form id="cpmCancelForm" method="POST" action="">
+                @csrf
+                <div class="cpm-confirm-foot">
+                    <button type="button" class="cpm-confirm-btn cpm-confirm-btn-ghost" id="cpmCancelKeep">
+                        <i class="fa-solid fa-xmark"></i> Keep Awaiting
+                    </button>
+                    <button type="submit" class="cpm-confirm-btn cpm-confirm-btn-danger" id="cpmCancelConfirm">
+                        <i class="fa-solid fa-ban"></i> Yes, Cancel It
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const overlay = document.getElementById('cpmCancelOverlay');
+            const form = document.getElementById('cpmCancelForm');
+            const meta = document.getElementById('cpmCancelMeta');
+            const keepBtn = document.getElementById('cpmCancelKeep');
+            if (!overlay || !form) return;
+
+            function openModal() {
+                overlay.classList.add('is-open');
+                document.body.style.overflow = 'hidden';
+            }
+            function closeModal() {
+                overlay.classList.remove('is-open');
+                document.body.style.overflow = '';
+            }
+
+            function buildMeta(trigger) {
+                const rows = [
+                    ['Log No.', trigger.dataset.logNo],
+                    ['Payment No.', trigger.dataset.paymentNo],
+                    ['Vessel', trigger.dataset.vessel],
+                    ['Amount', trigger.dataset.amount ? ('PHP ' + trigger.dataset.amount) : null],
+                ].filter(r => r[1] && r[1] !== '-');
+
+                meta.innerHTML = rows.map(r =>
+                    `<div class="cpm-confirm-meta-row"><span>${r[0]}</span><span>${r[1]}</span></div>`
+                ).join('');
+            }
+
+            document.querySelectorAll('.js-cpm-cancel-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    form.setAttribute('action', btn.dataset.action || '');
+                    buildMeta(btn);
+                    openModal();
+                });
+            });
+
+            keepBtn?.addEventListener('click', closeModal);
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && overlay.classList.contains('is-open')) closeModal();
             });
         })();
     </script>

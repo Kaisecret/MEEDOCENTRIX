@@ -8,12 +8,53 @@ use App\Models\CemeteryPaymentCollection;
 use App\Models\CemeteryServiceLog;
 use App\Models\CemeterySite;
 use App\Models\CemeteryTransaction;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class CemeteryReportController extends Controller
 {
+    private const PAGE_MAX_ROWS = 150;
+    private const PDF_MAX_ROWS = 100;
+
     public function index(Request $request): View
+    {
+        return view('cemetery.reports', $this->buildReportPayload($request, self::PAGE_MAX_ROWS));
+    }
+
+    public function preview(Request $request): View
+    {
+        $payload = $this->buildReportPayload($request, self::PDF_MAX_ROWS);
+
+        return view('cemetery.reports_pdf', [
+            ...$payload,
+            'generatedAt' => now(),
+            'pdfMaxRows' => self::PDF_MAX_ROWS,
+        ]);
+    }
+
+    public function pdf(Request $request)
+    {
+        $payload = $this->buildReportPayload($request, self::PDF_MAX_ROWS);
+        $from = trim((string) ($payload['dateFrom'] ?? ''));
+        $to = trim((string) ($payload['dateTo'] ?? ''));
+        $siteId = (int) ($payload['selectedSiteId'] ?? 0);
+        $sitePart = $siteId > 0 ? 'site-' . $siteId : 'all-sites';
+        $fromPart = $from !== '' ? str_replace('-', '', $from) : 'all';
+        $toPart = $to !== '' ? str_replace('-', '', $to) : 'all';
+        $filename = "cemetery-report-{$sitePart}-{$fromPart}-{$toPart}.pdf";
+
+        return Pdf::loadView('cemetery.reports_pdf', [
+            ...$payload,
+            'generatedAt' => now(),
+            'pdfMaxRows' => self::PDF_MAX_ROWS,
+        ])->download($filename);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function buildReportPayload(Request $request, int $rowLimit): array
     {
         $dateFrom = trim((string) $request->query('date_from', ''));
         $dateTo = trim((string) $request->query('date_to', ''));
@@ -50,16 +91,17 @@ class CemeteryReportController extends Controller
             ->when($dateFrom !== '', fn ($query) => $query->whereDate('payment_date', '>=', $dateFrom))
             ->when($dateTo !== '', fn ($query) => $query->whereDate('payment_date', '<=', $dateTo));
 
-        $occupants = (clone $occupantQuery)->orderByDesc('date_of_interment')->limit(150)->get();
-        $services = (clone $serviceQuery)->orderByDesc('service_date')->limit(150)->get();
-        $transactions = (clone $transactionQuery)->orderByDesc('transaction_date')->limit(150)->get();
-        $payments = (clone $paymentQuery)->orderByDesc('payment_date')->limit(150)->get();
+        $occupants = (clone $occupantQuery)->orderByDesc('date_of_interment')->limit($rowLimit)->get();
+        $services = (clone $serviceQuery)->orderByDesc('service_date')->limit($rowLimit)->get();
+        $transactions = (clone $transactionQuery)->orderByDesc('transaction_date')->limit($rowLimit)->get();
+        $payments = (clone $paymentQuery)->orderByDesc('payment_date')->limit($rowLimit)->get();
 
-        return view('cemetery.reports', [
+        return [
             'sites' => $sites,
             'selectedSiteId' => $siteId,
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
+            'rowLimit' => $rowLimit,
             'summary' => [
                 'occupant_total' => (clone $occupantQuery)->count(),
                 'service_total' => (clone $serviceQuery)->count(),
@@ -74,6 +116,6 @@ class CemeteryReportController extends Controller
             'services' => $services,
             'transactions' => $transactions,
             'payments' => $payments,
-        ]);
+        ];
     }
 }

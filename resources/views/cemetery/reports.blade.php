@@ -2,7 +2,7 @@
 
 @section('content')
 <style>
-    .crp-page { display:grid; gap:16px; font-family:'Inter',system-ui,sans-serif; color:#334155; }
+    .crp-page, .crp-modal { display:grid; gap:16px; font-family:'Inter',system-ui,sans-serif; color:#334155; }
     .crp-hero {
         border:1px solid #dbe6f0; border-radius:12px; padding:1.1rem 1.3rem;
         background:linear-gradient(120deg,#0f5f8f,#1f86ba); color:#fff;
@@ -45,6 +45,20 @@
     .crp-badge-unpaid { border-color:#fecaca; background:#fff1f2; color:#b91c1c; }
     .crp-badge-partial { border-color:#bfdbfe; background:#eff6ff; color:#1d4ed8; }
     .crp-badge-overdue { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+    .crp-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(10,25,45,.65); z-index:2400; backdrop-filter:blur(6px); }
+    .crp-modal.is-open { display:flex; animation:crp-fade-in .2s ease-out forwards; }
+    .crp-modal-card { width:min(1000px,100%); max-height:calc(100vh - 36px); background:#fff; border-radius:20px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 25px 60px rgba(0,0,0,.3); animation:crp-slide-up .3s ease-out forwards; }
+    .crp-modal-head { display:flex; justify-content:space-between; align-items:center; padding:1rem 1.4rem; background:#fff; border-bottom:1px solid #e2e8f0; position:sticky; top:0; z-index:2; }
+    .crp-modal-head h4 { margin:0; font-size:1.15rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:10px; }
+    .crp-modal-actions { display:flex; gap:10px; }
+    .crp-modal-btn { border-radius:10px; border:1.5px solid #cbd5e1; background:#fff; color:#334155; padding:.5rem 1.1rem; font-size:.85rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all .15s; }
+    .crp-modal-btn:hover { background:#f1f5f9; border-color:#94a3b8; transform:translateY(-1px); }
+    .crp-modal-btn-primary { background:#155f8f; border-color:#155f8f; color:#fff; }
+    .crp-modal-btn-primary:hover { background:#0f4b73; border-color:#0f4b73; color:#fff; }
+    .crp-modal-body { flex:1; overflow:auto; background:#f8fafc; padding:1rem; }
+    .crp-preview-frame { width:100%; height:75vh; border:1px solid #e2e8f0; border-radius:12px; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,.03); display:block; }
+    @keyframes crp-fade-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes crp-slide-up { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
     @media (max-width:1100px) {
         .crp-hero { grid-template-columns:1fr; }
         .crp-filter-grid { grid-template-columns:1fr 1fr; }
@@ -68,7 +82,7 @@
             <h2>Cemetery Reports</h2>
             <p>Generate print-ready official summaries for occupants, services, transactions, and payments.</p>
         </div>
-        <button type="button" class="crp-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Report</button>
+        <button type="button" class="crp-btn" id="crpOpenPreview"><i class="fa-solid fa-file-pdf"></i> Preview & Save</button>
     </section>
 
     <section class="crp-card">
@@ -174,4 +188,73 @@
         </div>
     </section>
 </div>
+
+<div class="crp-modal" id="crpPreviewModal" aria-hidden="true">
+    <div class="crp-modal-card" role="dialog" aria-modal="true" aria-labelledby="crpPreviewTitle">
+        <div class="crp-modal-head">
+            <h4 id="crpPreviewTitle"><i class="fa-solid fa-file-pdf" style="color:#155f8f;"></i> Cemetery Report Preview</h4>
+            <div class="crp-modal-actions">
+                <button class="crp-modal-btn" type="button" id="crpPrintPreview"><i class="fa-solid fa-print"></i> Print</button>
+                <button class="crp-modal-btn crp-modal-btn-primary" type="button" id="crpDownloadPreview"><i class="fa-solid fa-file-arrow-down"></i> Save PDF</button>
+                <button class="crp-modal-btn" type="button" id="crpClosePreview"><i class="fa-solid fa-xmark"></i> Close</button>
+            </div>
+        </div>
+        <div class="crp-modal-body">
+            <iframe class="crp-preview-frame" id="crpPreviewFrame" title="Cemetery Report Preview"></iframe>
+        </div>
+    </div>
+</div>
+
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+    const previewBtn = document.getElementById('crpOpenPreview');
+    const previewModal = document.getElementById('crpPreviewModal');
+    const previewFrame = document.getElementById('crpPreviewFrame');
+    const closePreview = document.getElementById('crpClosePreview');
+    const printPreview = document.getElementById('crpPrintPreview');
+    const downloadPreview = document.getElementById('crpDownloadPreview');
+
+    const queryString = window.location.search || '';
+    const previewUrl = "{{ route('cemetery.reports.preview') }}" + queryString;
+    const downloadUrl = "{{ route('cemetery.reports.pdf') }}" + queryString;
+
+    const openPreview = () => {
+        if (!previewModal || !previewFrame) return;
+        previewFrame.src = previewUrl;
+        previewModal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+    };
+
+    const closePreviewModal = () => {
+        if (!previewModal) return;
+        previewModal.classList.remove('is-open');
+        document.body.style.overflow = '';
+    };
+
+    if (previewBtn) {
+        previewBtn.addEventListener('click', openPreview);
+    }
+    if (closePreview) {
+        closePreview.addEventListener('click', closePreviewModal);
+    }
+    if (previewModal) {
+        previewModal.addEventListener('click', (event) => {
+            if (event.target === previewModal) closePreviewModal();
+        });
+    }
+    if (printPreview) {
+        printPreview.addEventListener('click', () => {
+            if (previewFrame && previewFrame.contentWindow) {
+                previewFrame.contentWindow.focus();
+                previewFrame.contentWindow.print();
+            }
+        });
+    }
+    if (downloadPreview) {
+        downloadPreview.addEventListener('click', () => {
+            window.location.href = downloadUrl;
+        });
+    }
+});
+</script>
 @endsection

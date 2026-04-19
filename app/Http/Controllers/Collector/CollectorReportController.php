@@ -24,9 +24,11 @@ class CollectorReportController extends Controller
         }
 
         [$period, $rangeStart, $rangeEnd, $dateFrom, $dateTo, $rangeLabel] = $this->resolveRange($request);
-        $payload = $this->buildReportPayload($request, $rangeStart, $rangeEnd);
+        $payload = $this->buildReportPayload($request, $rangeStart, $rangeEnd, $departmentCode);
 
-        return view('collector.reports', [
+        $viewName = $departmentCode === 'market' ? 'collector.reports_market' : 'collector.reports';
+
+        return view($viewName, [
             'period' => $period,
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
@@ -48,10 +50,12 @@ class CollectorReportController extends Controller
         }
 
         [$period, $rangeStart, $rangeEnd, $dateFrom, $dateTo, $rangeLabel] = $this->resolveRange($request);
-        $payload = $this->buildReportPayload($request, $rangeStart, $rangeEnd);
+        $payload = $this->buildReportPayload($request, $rangeStart, $rangeEnd, $departmentCode);
         $previewRows = $payload['transactions']->take(self::PDF_MAX_ROWS)->values();
 
-        return view('collector.reports_pdf', [
+        $viewName = $departmentCode === 'market' ? 'collector.reports_pdf_market' : 'collector.reports_pdf';
+
+        return view($viewName, [
             'period' => $period,
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
@@ -78,12 +82,14 @@ class CollectorReportController extends Controller
         }
 
         [$period, $rangeStart, $rangeEnd, $dateFrom, $dateTo, $rangeLabel] = $this->resolveRange($request);
-        $payload = $this->buildReportPayload($request, $rangeStart, $rangeEnd);
+        $payload = $this->buildReportPayload($request, $rangeStart, $rangeEnd, $departmentCode);
         $pdfRows = $payload['transactions']->take(self::PDF_MAX_ROWS)->values();
 
-        $filename = 'collector-report-' . $rangeStart->format('Ymd') . '-' . $rangeEnd->format('Ymd') . '.pdf';
+        $prefix = $departmentCode === 'market' ? 'market-collector-report-' : 'collector-report-';
+        $filename = $prefix . $rangeStart->format('Ymd') . '-' . $rangeEnd->format('Ymd') . '.pdf';
+        $viewName = $departmentCode === 'market' ? 'collector.reports_pdf_market' : 'collector.reports_pdf';
 
-        return Pdf::loadView('collector.reports_pdf', [
+        return Pdf::loadView($viewName, [
             'period' => $period,
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
@@ -160,54 +166,97 @@ class CollectorReportController extends Controller
     /**
      * @return array<string,mixed>
      */
-    private function buildReportPayload(Request $request, Carbon $rangeStart, Carbon $rangeEnd): array
+    private function buildReportPayload(Request $request, Carbon $rangeStart, Carbon $rangeEnd, string $departmentCode = ''): array
     {
-        $assignment = $this->collectorAssignment($request);
-        $departmentCode = (string) ($assignment?->department?->code ?? '');
-
-        $items = CollectionDispatchItem::query()
-            ->with([
-                'dispatch:id,collector_user_id,department_code,created_at',
-                'fishportLog:id,log_number,log_date,log_time,arr_dep,fishport_vessel_id,fishport_origin_id',
-                'fishportLog.vessel:id,name',
-                'fishportLog.origin:id,name',
-                'paymentRecord:id,fishport_log_id,payment_number',
-                'collectedBy:id,name',
-            ])
-            ->whereHas('dispatch', static function ($query) use ($request, $departmentCode): void {
-                $query->where('collector_user_id', (int) $request->user()?->id);
-                if ($departmentCode !== '') {
+        if ($departmentCode === 'market') {
+            $items = CollectionDispatchItem::query()
+                ->with([
+                    'dispatch:id,collector_user_id,department_code,created_at',
+                    'marketStallLease:id,market_stall_id,market_tenant_id',
+                    'marketStallLease.stall:id,stall_no,market_stall_location_id',
+                    'marketStallLease.stall.location:id,location_code,location_name',
+                    'marketStallLease.tenant:id,first_name,middle_name,last_name,business_name',
+                    'marketPaymentCollection:id,payment_number',
+                    'collectedBy:id,name',
+                ])
+                ->whereHas('dispatch', static function ($query) use ($request, $departmentCode): void {
+                    $query->where('collector_user_id', (int) $request->user()?->id);
                     $query->where('department_code', $departmentCode);
-                }
-            })
-            ->whereDate('created_at', '>=', $rangeStart->toDateString())
-            ->whereDate('created_at', '<=', $rangeEnd->toDateString())
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get();
+                })
+                ->whereDate('created_at', '>=', $rangeStart->toDateString())
+                ->whereDate('created_at', '<=', $rangeEnd->toDateString())
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->get();
 
-        $transactions = $items->map(function (CollectionDispatchItem $item): array {
-            $log = $item->fishportLog;
-            $logDate = $log?->log_date ? Carbon::parse($log->log_date) : null;
-            $logTime = trim((string) $log?->log_time);
+            $transactions = $items->map(function (CollectionDispatchItem $item): array {
+                $lease = $item->marketStallLease;
+                $stall = $lease?->stall;
+                $tenant = $lease?->tenant;
+                $createdAt = $item->created_at;
 
-            return [
-                'log_id' => (string) ($log?->log_number ?: ($log ? ('FP-' . str_pad((string) $log->id, 6, '0', STR_PAD_LEFT)) : '-')),
-                'payment_no' => (string) ($item->paymentRecord?->payment_number ?? '-'),
-                'vessel' => (string) ($log?->vessel?->name ?? '-'),
-                'arr_dep' => (string) ($log?->arr_dep ?? '-'),
-                'origin' => (string) ($log?->origin?->name ?? '-'),
-                'date' => $logDate?->format('m/d/Y') ?? '-',
-                'time' => $logTime !== '' ? substr($logTime, 0, 5) : '-',
-                'collector' => (string) ($item->collectedBy?->name ?? '-'),
-                'payer_name' => (string) ($item->payer_name ?? '-'),
-                'status' => $this->statusLabel((string) $item->status),
-                'status_key' => (string) $item->status,
-                'amount' => round((float) $item->amount_snapshot, 2),
-                'week_key' => $item->created_at?->copy()->startOfWeek()->toDateString() ?? 'n/a',
-                'month_key' => $item->created_at?->format('Y-m') ?? 'n/a',
-            ];
-        })->values();
+                return [
+                    'stall_no' => (string) ($stall?->stall_no ?: '-'),
+                    'location' => (string) ($stall?->location?->location_code ?: ($stall?->location?->location_name ?: '-')),
+                    'tenant_name' => (string) ($tenant ? $tenant->fullName() : '-'),
+                    'business_name' => (string) ($tenant?->business_name ?: '-'),
+                    'payment_no' => (string) ($item->marketPaymentCollection?->payment_number ?? '-'),
+                    'date' => $createdAt?->format('m/d/Y') ?? '-',
+                    'time' => $createdAt?->format('h:i A') ?? '-',
+                    'collector' => (string) ($item->collectedBy?->name ?? '-'),
+                    'payer_name' => (string) ($item->payer_name ?? '-'),
+                    'status' => $this->statusLabel((string) $item->status),
+                    'status_key' => (string) $item->status,
+                    'amount' => round((float) $item->amount_snapshot, 2),
+                    'week_key' => $createdAt?->copy()->startOfWeek()->toDateString() ?? 'n/a',
+                    'month_key' => $createdAt?->format('Y-m') ?? 'n/a',
+                ];
+            })->values();
+        } else {
+            $items = CollectionDispatchItem::query()
+                ->with([
+                    'dispatch:id,collector_user_id,department_code,created_at',
+                    'fishportLog:id,log_number,log_date,log_time,arr_dep,fishport_vessel_id,fishport_origin_id',
+                    'fishportLog.vessel:id,name',
+                    'fishportLog.origin:id,name',
+                    'paymentRecord:id,fishport_log_id,payment_number',
+                    'collectedBy:id,name',
+                ])
+                ->whereHas('dispatch', static function ($query) use ($request, $departmentCode): void {
+                    $query->where('collector_user_id', (int) $request->user()?->id);
+                    if ($departmentCode !== '') {
+                        $query->where('department_code', $departmentCode);
+                    }
+                })
+                ->whereDate('created_at', '>=', $rangeStart->toDateString())
+                ->whereDate('created_at', '<=', $rangeEnd->toDateString())
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->get();
+
+            $transactions = $items->map(function (CollectionDispatchItem $item): array {
+                $log = $item->fishportLog;
+                $logDate = $log?->log_date ? Carbon::parse($log->log_date) : null;
+                $logTime = trim((string) $log?->log_time);
+
+                return [
+                    'log_id' => (string) ($log?->log_number ?: ($log ? ('FP-' . str_pad((string) $log->id, 6, '0', STR_PAD_LEFT)) : '-')),
+                    'payment_no' => (string) ($item->paymentRecord?->payment_number ?? '-'),
+                    'vessel' => (string) ($log?->vessel?->name ?? '-'),
+                    'arr_dep' => (string) ($log?->arr_dep ?? '-'),
+                    'origin' => (string) ($log?->origin?->name ?? '-'),
+                    'date' => $logDate?->format('m/d/Y') ?? '-',
+                    'time' => $logTime !== '' ? substr($logTime, 0, 5) : '-',
+                    'collector' => (string) ($item->collectedBy?->name ?? '-'),
+                    'payer_name' => (string) ($item->payer_name ?? '-'),
+                    'status' => $this->statusLabel((string) $item->status),
+                    'status_key' => (string) $item->status,
+                    'amount' => round((float) $item->amount_snapshot, 2),
+                    'week_key' => $item->created_at?->copy()->startOfWeek()->toDateString() ?? 'n/a',
+                    'month_key' => $item->created_at?->format('Y-m') ?? 'n/a',
+                ];
+            })->values();
+        }
 
         $totalTransactions = $transactions->count();
         $pendingTransactions = $transactions->whereIn('status_key', ['sent', 'rejected'])->count();

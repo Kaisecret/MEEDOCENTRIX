@@ -120,19 +120,13 @@
                             </td>
                             <td>{{ optional($tenant->updated_at)->format('Y-m-d H:i') }}</td>
                             <td>
-                                @if ($stall)
-                                    <a
-                                        class="mkt-icon-btn"
-                                        href="{{ route('market.stalls', ['q' => $stall->stall_no]) }}"
-                                        title="View in Stall Management"
-                                    >
-                                        <i class="fa-solid fa-eye"></i>
-                                    </a>
-                                @else
-                                    <span class="mkt-icon-btn" style="opacity:.5;cursor:default;">
-                                        <i class="fa-solid fa-eye"></i>
-                                    </span>
-                                @endif
+                                <a
+                                    class="mkt-icon-btn"
+                                    href="{{ route('market.vendors.edit', $tenant) }}"
+                                    title="View and edit tenant record"
+                                >
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
                             </td>
                         </tr>
                     @empty
@@ -163,4 +157,3 @@
     </section>
 </div>
 @endsection
-

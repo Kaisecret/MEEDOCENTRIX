@@ -463,9 +463,9 @@
         }
 
         .msr-form-field label {
-            color: #334155;
+            color: #1f334d;
             font-size: .85rem;
-            font-weight: 600;
+            font-weight: 700;
         }
 
         .msr-control {
@@ -559,10 +559,11 @@
         .msr-tenant-box {
             border: 1px dashed #cbd5e1;
             border-radius: 10px;
-            background: #f8fafc;
+            background: #fbfdff;
             padding: 14px;
             display: grid;
             gap: 12px;
+            transition: background .2s ease, border-color .2s ease;
         }
 
         .msr-tenant-box h6 {
@@ -573,7 +574,28 @@
         }
 
         .msr-tenant-box.is-disabled {
-            opacity: .58;
+            border-style: solid;
+            border-color: #dbe5f2;
+            background: #f8fafc;
+        }
+
+        .msr-tenant-box.is-disabled h6 {
+            color: #334155;
+        }
+
+        .msr-tenant-box.is-disabled .msr-form-field label {
+            color: #475569;
+        }
+
+        .msr-tenant-box.is-disabled .msr-control {
+            background: #f8fafc;
+            border-color: #dbe5f2;
+            color: #475569;
+            box-shadow: none;
+        }
+
+        .msr-tenant-box.is-disabled .msr-control::placeholder {
+            color: #94a3b8;
         }
 
         body.msr-lock-scroll {

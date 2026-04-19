@@ -400,10 +400,10 @@
                         <form id="adminLoginForm" action="{{ route('admin.login.store') }}" method="POST">
                         @csrf
                         <div class="mb-4">
-                            <label for="emailInput" class="form-label-custom">Administrator Email</label>
+                            <label for="emailInput" class="form-label-custom">Administrator Email / Username</label>
                             <div class="input-wrapper">
                                 <i class="fas fa-user input-icon"></i>
-                                <input type="email" id="emailInput" name="email" value="{{ old('email') }}" class="form-control form-control-custom" placeholder="Please enter your administrator email" required autocomplete="email">
+                                <input type="text" id="emailInput" name="email" value="{{ old('email') }}" class="form-control form-control-custom" placeholder="Enter administrator email or username" required autocomplete="username">
                             </div>
                         </div>
 

@@ -34,6 +34,21 @@
             ['id' => 'send_payment', 'icon' => 'fas fa-file-invoice-dollar', 'label' => 'Send for Payment'],
             ['id' => 'reports', 'icon' => 'fas fa-file-lines', 'label' => 'Reports'],
         ],
+        'market' => [
+            ['id' => 'dashboard', 'icon' => 'fas fa-chart-pie', 'label' => 'Dashboard'],
+            ['id' => 'vendors', 'icon' => 'fas fa-users', 'label' => 'Tenant Directory'],
+            ['id' => 'stalls', 'icon' => 'fas fa-store', 'label' => 'Stall Management'],
+            ['id' => 'market_records', 'icon' => 'fas fa-receipt', 'label' => 'Market Transactions'],
+            ['id' => 'send_payment', 'icon' => 'fas fa-file-invoice-dollar', 'label' => 'Send for Payment'],
+            ['id' => 'market_reports', 'icon' => 'fas fa-file-lines', 'label' => 'Reports'],
+        ],
+        'atrium' => [
+            ['id' => 'dashboard', 'icon' => 'fas fa-chart-pie', 'label' => 'Dashboard'],
+            ['id' => 'atrium_bookings', 'icon' => 'fas fa-calendar-check', 'label' => 'Bookings'],
+            ['id' => 'atrium_payments', 'icon' => 'fas fa-money-check-dollar', 'label' => 'Payments'],
+            ['id' => 'atrium_supplies', 'icon' => 'fas fa-boxes-stacked', 'label' => 'Supplies'],
+            ['id' => 'atrium_reports', 'icon' => 'fas fa-chart-pie', 'label' => 'Reports'],
+        ],
         'collector' => [
             ['id' => 'dashboard', 'icon' => 'fas fa-chart-pie', 'label' => 'Dashboard'],
             ['id' => 'pending_collections', 'icon' => 'fas fa-clock', 'label' => 'Pending Collections'],
@@ -120,9 +135,20 @@
         <!-- Navigation -->
         <nav class="sidebar-nav" id="sidebarNav">
             @foreach($initialNavItems as $navItem)
-                <button type="button" class="nav-item" id="nav-{{ $navItem['id'] }}" onclick="navigateTo('{{ $navItem['id'] }}')">
-                    <i class="{{ $navItem['icon'] }}"></i>
-                    <span>{{ $navItem['label'] }}</span>
+                @php
+                    $navId = (string) ($navItem['id'] ?? '');
+                    $navIcon = (string) ($navItem['icon'] ?? 'fas fa-circle');
+                    $navLabel = (string) ($navItem['label'] ?? 'Menu');
+                @endphp
+                <button
+                    type="button"
+                    class="nav-item"
+                    id="nav-{{ $navId }}"
+                    data-nav-id="{{ $navId }}"
+                    onclick="navigateTo(this.dataset.navId)"
+                >
+                    <i class="{{ $navIcon }}"></i>
+                    <span>{{ $navLabel }}</span>
                 </button>
             @endforeach
         </nav>
@@ -152,9 +178,6 @@
                 <button class="topbar-btn" onclick="toggleNotifications()" id="notifBtn">
                     <i class="fas fa-bell"></i>
                     <span class="badge">5</span>
-                </button>
-                <button class="topbar-btn" onclick="toggleFullscreen()">
-                    <i class="fas fa-expand"></i>
                 </button>
                 <div class="topbar-profile" onclick="toggleProfileMenu()">
                     <div class="topbar-avatar" style="overflow:hidden;display:flex;align-items:center;justify-content:center;background:transparent;padding:0;">
@@ -283,8 +306,17 @@
     </div>
 </div>
 
-<form id="logoutForm" action="{{ route('logout') }}" method="POST" style="display:none;">
+<form
+    id="logoutForm"
+    action="{{ route('logout', ['session_scope' => $authRoleKey === 'administrator' ? 'admin' : $authRoleKey] + (request('s') ? ['s' => request('s')] : [])) }}"
+    method="POST"
+    style="display:none;"
+>
     @csrf
+    <input type="hidden" name="session_scope" value="{{ $authRoleKey === 'administrator' ? 'admin' : $authRoleKey }}">
+    @if(request('s'))
+        <input type="hidden" name="s" value="{{ request('s') }}">
+    @endif
 </form>
 
 <div id="modalOverlay" class="modal-overlay" style="display:none;" onclick="closeModal(event)">
@@ -307,5 +339,161 @@
 <!-- Modals -->
 @yield('modals')
 <script src="{{ asset('js/app.js') }}"></script>
+
+@if($authRoleKey === 'collector')
+<script>
+(function () {
+    var SS_KEY = 'collector_tab_token';
+    function clean(t) { return (t || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 16); }
+
+    var urlToken = clean(new URLSearchParams(window.location.search).get('s'));
+    var storedToken = '';
+    try { storedToken = clean(window.sessionStorage.getItem(SS_KEY) || ''); } catch (e) {}
+
+    var tabToken = urlToken || storedToken;
+    if (!tabToken) return;
+
+    // Persist token in this tab's sessionStorage so future navigations can recover it.
+    try { window.sessionStorage.setItem(SS_KEY, tabToken); } catch (e) {}
+
+    // If the URL is missing the token but we recovered one from sessionStorage,
+    // rewrite the URL in place without triggering a reload so subsequent requests
+    // include it (via rewritten links/forms) and the referer carries it too.
+    if (!urlToken && storedToken) {
+        try {
+            var u = new URL(window.location.href);
+            u.searchParams.set('s', storedToken);
+            window.history.replaceState(window.history.state, '', u.pathname + u.search + u.hash);
+        } catch (e) {}
+    }
+
+    function shouldScope(url) {
+        if (!url) return false;
+        // Skip absolute externals, anchors, mailto, tel, javascript
+        if (/^(https?:)?\/\//i.test(url)) {
+            try {
+                var u = new URL(url, window.location.origin);
+                if (u.origin !== window.location.origin) return false;
+                return /^\/collector(\/|$)/i.test(u.pathname) || /^\/logout(\/|$|\?)/i.test(u.pathname);
+            } catch (e) { return false; }
+        }
+        if (url.charAt(0) === '#' || /^(mailto:|tel:|javascript:)/i.test(url)) return false;
+        return /^\/collector(\/|$)/i.test(url) || /^\/logout(\/|$|\?)/i.test(url);
+    }
+
+    function appendToken(url) {
+        try {
+            var u = new URL(url, window.location.origin);
+            if (!u.searchParams.get('s')) {
+                u.searchParams.set('s', tabToken);
+            }
+            // Preserve relative form when input was relative
+            if (/^(https?:)?\/\//i.test(url)) return u.toString();
+            return u.pathname + (u.search || '') + (u.hash || '');
+        } catch (e) { return url; }
+    }
+
+    function rewriteAnchors(root) {
+        var anchors = (root || document).querySelectorAll('a[href]');
+        for (var i = 0; i < anchors.length; i++) {
+            var a = anchors[i];
+            var href = a.getAttribute('href');
+            if (shouldScope(href)) a.setAttribute('href', appendToken(href));
+        }
+    }
+
+    function rewriteForms(root) {
+        var forms = (root || document).querySelectorAll('form');
+        for (var i = 0; i < forms.length; i++) {
+            var f = forms[i];
+            var action = f.getAttribute('action') || window.location.pathname;
+            if (!shouldScope(action)) continue;
+            f.setAttribute('action', appendToken(action));
+            if (!f.querySelector('input[name="s"]')) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 's';
+                input.value = tabToken;
+                f.appendChild(input);
+            }
+        }
+    }
+
+    function rewriteAll(root) {
+        rewriteAnchors(root);
+        rewriteForms(root);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { rewriteAll(document); });
+    } else {
+        rewriteAll(document);
+    }
+
+    // Catch clicks on anchors that may not have been rewritten yet (e.g. added right
+    // before click, or rewritten by other scripts after us).
+    document.addEventListener('click', function (e) {
+        var el = e.target;
+        while (el && el !== document && el.tagName !== 'A') el = el.parentNode;
+        if (!el || el.tagName !== 'A') return;
+        var href = el.getAttribute('href');
+        if (shouldScope(href)) el.setAttribute('href', appendToken(href));
+    }, true);
+
+    // Catch form submits similarly.
+    document.addEventListener('submit', function (e) {
+        var f = e.target;
+        if (!f || f.tagName !== 'FORM') return;
+        var action = f.getAttribute('action') || window.location.pathname;
+        if (!shouldScope(action)) return;
+        f.setAttribute('action', appendToken(action));
+        if (!f.querySelector('input[name="s"]')) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 's';
+            input.value = tabToken;
+            f.appendChild(input);
+        }
+    }, true);
+
+    // Patch fetch + XHR to carry the token automatically on same-origin collector calls.
+    var origFetch = window.fetch;
+    if (typeof origFetch === 'function') {
+        window.fetch = function (input, init) {
+            try {
+                var url = typeof input === 'string' ? input : (input && input.url);
+                if (shouldScope(url)) {
+                    var scoped = appendToken(url);
+                    if (typeof input === 'string') input = scoped;
+                    else input = new Request(scoped, input);
+                }
+            } catch (e) {}
+            return origFetch.call(this, input, init);
+        };
+    }
+
+    var origOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (method, url) {
+        if (shouldScope(url)) {
+            arguments[1] = appendToken(url);
+        }
+        return origOpen.apply(this, arguments);
+    };
+
+    // Watch for dynamically added links/forms.
+    var observer = new MutationObserver(function (mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+            var added = mutations[i].addedNodes;
+            for (var j = 0; j < added.length; j++) {
+                var node = added[j];
+                if (node.nodeType !== 1) continue;
+                rewriteAll(node);
+            }
+        }
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>
+@endif
 </body>
 </html>

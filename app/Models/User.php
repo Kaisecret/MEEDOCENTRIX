@@ -70,7 +70,9 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return strtolower(trim((string) $this->role)) === 'admin';
+        $role = strtolower(trim((string) $this->role));
+
+        return $role === 'admin' || $role === 'administrator';
     }
 
     public function isCollector(): bool

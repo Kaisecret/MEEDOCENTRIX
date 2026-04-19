@@ -41,7 +41,8 @@ const ROLES = {
             { id: 'vendors', icon: 'fas fa-users', label: 'Tenant Directory' },
             { id: 'stalls', icon: 'fas fa-store', label: 'Stall Management' },
             { id: 'market_records', icon: 'fas fa-receipt', label: 'Market Transactions' },
-            { id: 'send_payment', icon: 'fas fa-file-invoice-dollar', label: 'Send for Payment' }
+            { id: 'send_payment', icon: 'fas fa-file-invoice-dollar', label: 'Send for Payment' },
+            { id: 'market_reports', icon: 'fas fa-file-lines', label: 'Reports' }
         ]
     },
     cemetery: {
@@ -71,9 +72,10 @@ const ROLES = {
         user: 'Clara Recto',
         nav: [
             { id: 'dashboard', icon: 'fas fa-chart-pie', label: 'Dashboard' },
-            { id: 'calendar', icon: 'fas fa-calendar-alt', label: 'Booking Calendar' },
-            { id: 'atrium_records', icon: 'fas fa-building', label: 'Reservation Records' },
-            { id: 'direct_payment', icon: 'fas fa-cash-register', label: 'Collect Payment' }
+            { id: 'atrium_bookings', icon: 'fas fa-calendar-check', label: 'Bookings' },
+            { id: 'atrium_payments', icon: 'fas fa-money-check-dollar', label: 'Payments' },
+            { id: 'atrium_supplies', icon: 'fas fa-boxes-stacked', label: 'Supplies' },
+            { id: 'atrium_reports', icon: 'fas fa-chart-pie', label: 'Reports' }
         ]
     },
     collector: {
@@ -130,6 +132,7 @@ const ROLE_PAGE_ROUTES = {
         stalls: '/market/stalls',
         market_records: '/market/records',
         send_payment: '/market/send-payment',
+        market_reports: '/market/reports',
         profile: '/market/profile'
     },
     cemetery: {
@@ -149,9 +152,11 @@ const ROLE_PAGE_ROUTES = {
     },
     atrium: {
         dashboard: '/atrium/dashboard',
-        booking: '/atrium/booking',
-        calendar: '/atrium/calendar',
-        atrium_records: '/atrium/records'
+        atrium_records: '/atrium/records',
+        atrium_bookings: '/atrium/bookings',
+        atrium_payments: '/atrium/payments',
+        atrium_supplies: '/atrium/supplies',
+        atrium_reports: '/atrium/reports'
     },
     collector: {
         dashboard: '/collector/dashboard',
@@ -475,25 +480,29 @@ function buildSidebar(navItems) {
 }
 
 function navigateTo(pageId) {
-    if (isServerRenderedApp) {
-        const targetPath = getRoutesForRole(currentUserRole)[pageId];
-        if (!targetPath) return;
+    const proceedNavigation = () => {
+        if (isServerRenderedApp) {
+            const targetPath = getRoutesForRole(currentUserRole)[pageId];
+            if (!targetPath) return;
 
+            currentPage = pageId;
+            closeDropdowns();
+            setActiveNavigation(pageId);
+
+            const normalizedTargetPath = normalizePath(targetPath);
+            if (normalizePath(window.location.pathname) !== normalizedTargetPath) {
+                window.location.href = normalizedTargetPath;
+            }
+            return;
+        }
+
+        setActiveNavigation(pageId);
         currentPage = pageId;
         closeDropdowns();
-        setActiveNavigation(pageId);
+        renderPage(pageId);
+    };
 
-        const normalizedTargetPath = normalizePath(targetPath);
-        if (normalizePath(window.location.pathname) !== normalizedTargetPath) {
-            window.location.href = normalizedTargetPath;
-        }
-        return;
-    }
-
-    setActiveNavigation(pageId);
-    currentPage = pageId;
-    closeDropdowns();
-    renderPage(pageId);
+    proceedNavigation();
 }
 
 // ======================= LIVE AUTO-SYNC (SERVER RENDERED) =======================
@@ -616,6 +625,15 @@ function renderPage(pageId) {
             'send_payment': '/fishport/send-payment',
             'reports': '/fishport/reports',
         },
+        'market': {
+            'dashboard': '/market/dashboard',
+            'vendors': '/market/vendors',
+            'stalls': '/market/stalls',
+            'market_records': '/market/records',
+            'send_payment': '/market/send-payment',
+            'market_reports': '/market/reports',
+            'profile': '/market/profile',
+        },
         'collector': {
             'dashboard': '/collector/dashboard',
             'pending_collections': '/collector/pending-collections',
@@ -637,6 +655,15 @@ function renderPage(pageId) {
                     fishport_records: 'Fishport Transactions',
                     send_payment: 'Send for Payment',
                     reports: 'Fishport Reports',
+                    profile: 'My Profile',
+                },
+                market: {
+                    dashboard: 'Market Dashboard',
+                    vendors: 'Tenant Directory',
+                    stalls: 'Stall Management',
+                    market_records: 'Market Transactions',
+                    send_payment: 'Send for Payment',
+                    market_reports: 'Market Reports',
                     profile: 'My Profile',
                 },
                 collector: {
@@ -714,6 +741,10 @@ function renderPage(pageId) {
             title = 'Send for Payment';
             renderSendPaymentPage();
             break;
+        case 'market_reports':
+            title = 'Market Reports';
+            window.location.href = '/market/reports';
+            return;
         case 'market_records':
             title = 'Public Market Transactions';
             renderTablePage('Market Collections', ['Stall No.', 'Vendor', 'Type', 'Amount', 'Status', 'Date']);
@@ -5980,18 +6011,6 @@ window.toggleProfileMenu = function() {
 function closeDropdowns() {
     if(notifDropdown) notifDropdown.style.display = 'none';
     if(profileDropdown) profileDropdown.style.display = 'none';
-}
-
-window.toggleFullscreen = function() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => {
-            console.log(`Error attempting to enable full-screen mode: ${err.message}`);
-        });
-    } else {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        }
-    }
 }
 
 // Close dropdowns when clicking outside

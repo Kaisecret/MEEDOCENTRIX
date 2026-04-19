@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Collector;
 
 use App\Http\Controllers\Controller;
+use App\Models\CollectionDispatch;
 use App\Models\CollectionDispatchItem;
 use App\Models\CollectorDepartmentAssignment;
 use Illuminate\Support\Carbon;
@@ -150,6 +151,59 @@ class CollectorCollectionController extends Controller
         }
         $search = trim((string) $request->query('q', ''));
 
+        if ($departmentCode === 'market') {
+            $itemsQuery = CollectionDispatchItem::query()
+                ->with([
+                    'dispatch:id,collector_user_id,department_code',
+                    'marketStallLease:id,market_stall_id,market_tenant_id,contract_number,billing_period,billing_cycles,start_date,end_date',
+                    'marketStallLease.stall:id,stall_no,market_stall_location_id,stall_status',
+                    'marketStallLease.stall.location:id,location_code,location_name',
+                    'marketStallLease.tenant:id,first_name,last_name,middle_name,business_name,contact_number',
+                    'marketPaymentCollection:id,payment_number',
+                ])
+                ->whereIn('status', ['sent', 'rejected'])
+                ->whereHas('dispatch', static function ($query) use ($request, $departmentCode): void {
+                    $query->where('collector_user_id', (int) $request->user()?->id);
+                    if ($departmentCode) {
+                        $query->where('department_code', $departmentCode);
+                    }
+                });
+
+            if ($search !== '') {
+                $likeSearch = '%' . $search . '%';
+                $itemsQuery->where(function ($query) use ($likeSearch): void {
+                    $query->where('payer_name', 'like', $likeSearch)
+                        ->orWhereHas('marketStallLease', function ($leaseQuery) use ($likeSearch): void {
+                            $leaseQuery->where('contract_number', 'like', $likeSearch)
+                                ->orWhereHas('stall', function ($stallQuery) use ($likeSearch): void {
+                                    $stallQuery->where('stall_no', 'like', $likeSearch)
+                                        ->orWhereHas('location', function ($locationQuery) use ($likeSearch): void {
+                                            $locationQuery->where('location_code', 'like', $likeSearch)
+                                                ->orWhere('location_name', 'like', $likeSearch);
+                                        });
+                                })
+                                ->orWhereHas('tenant', function ($tenantQuery) use ($likeSearch): void {
+                                    $tenantQuery->where('first_name', 'like', $likeSearch)
+                                        ->orWhere('last_name', 'like', $likeSearch)
+                                        ->orWhere('business_name', 'like', $likeSearch);
+                                });
+                        })
+                        ->orWhereHas('marketPaymentCollection', static fn ($paymentQuery) => $paymentQuery->where('payment_number', 'like', $likeSearch));
+                });
+            }
+
+            $items = $itemsQuery
+                ->orderByDesc('created_at')
+                ->paginate(12)
+                ->withQueryString();
+
+            return view('collector.pending_collections_market', [
+                'assignment' => $assignment,
+                'items' => $items,
+                'search' => $search,
+            ]);
+        }
+
         $itemsQuery = CollectionDispatchItem::query()
             ->with([
                 'dispatch:id,collector_user_id,department_code',
@@ -198,7 +252,7 @@ class CollectorCollectionController extends Controller
         if (! $departmentCode) {
             return redirect()->back()->with('error', 'No collector department assignment found. Contact admin.');
         }
-        $dispatchItem->loadMissing('dispatch', 'fishportLog');
+        $dispatchItem->loadMissing('dispatch', 'fishportLog', 'marketStallLease.stall', 'marketStallLease.tenant');
 
         if (! $dispatchItem->dispatch || (int) $dispatchItem->dispatch->collector_user_id !== (int) $request->user()?->id) {
             return redirect()->back()->with('error', 'You are not assigned to this collection item.');
@@ -278,6 +332,103 @@ class CollectorCollectionController extends Controller
             ->with('status', 'Collection submitted with proof. Waiting for department confirmation.');
     }
 
+    public function cancelAwaiting(Request $request, CollectionDispatchItem $dispatchItem): RedirectResponse
+    {
+        $assignment = $this->collectorAssignment($request);
+        $departmentCode = $assignment?->department?->code;
+        if (! $departmentCode) {
+            return redirect()->back()->with('error', 'No collector department assignment found. Contact admin.');
+        }
+
+        $dispatchItem->loadMissing('dispatch');
+
+        if (! $dispatchItem->dispatch || (int) $dispatchItem->dispatch->collector_user_id !== (int) $request->user()?->id) {
+            return redirect()->back()->with('error', 'You are not assigned to this collection item.');
+        }
+
+        if ($dispatchItem->dispatch->department_code !== $departmentCode) {
+            return redirect()->back()->with('error', 'This transaction belongs to a different department assignment.');
+        }
+
+        if ((string) $dispatchItem->status !== 'collected_pending_confirmation') {
+            return redirect()->back()->with('error', 'Only awaiting submissions can be cancelled.');
+        }
+
+        DB::transaction(function () use ($dispatchItem): void {
+            /** @var CollectionDispatchItem $item */
+            $item = CollectionDispatchItem::query()
+                ->with('dispatch')
+                ->lockForUpdate()
+                ->findOrFail($dispatchItem->id);
+
+            if ((string) $item->status !== 'collected_pending_confirmation') {
+                return;
+            }
+
+            $previousProof = (string) $item->proof_image_path;
+
+            $item->update([
+                'status' => 'cancelled',
+                'collected_at' => null,
+                'collected_by_user_id' => null,
+                'proof_image_path' => null,
+                'collector_note' => null,
+                'payer_name' => null,
+                'reviewed_at' => null,
+                'reviewed_by_user_id' => null,
+                'review_note' => null,
+            ]);
+
+            if ($previousProof !== '' && Storage::disk('public')->exists($previousProof)) {
+                Storage::disk('public')->delete($previousProof);
+            }
+
+            $this->refreshDispatchStatus((int) $item->collection_dispatch_id);
+        });
+
+        return redirect()
+            ->route('collector.payments')
+            ->with('status', 'Awaiting submission cancelled. The record was returned to Market Send for Payment queue.');
+    }
+
+    private function refreshDispatchStatus(int $dispatchId): void
+    {
+        $dispatch = CollectionDispatch::query()->find($dispatchId);
+        if (! $dispatch) {
+            return;
+        }
+
+        $statusCounts = CollectionDispatchItem::query()
+            ->where('collection_dispatch_id', $dispatchId)
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        $pendingCount = (int) ($statusCounts['sent'] ?? 0);
+        $forApprovalCount = (int) ($statusCounts['collected_pending_confirmation'] ?? 0);
+
+        if ($pendingCount === 0 && $forApprovalCount === 0) {
+            $dispatch->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+            ]);
+            return;
+        }
+
+        if ($forApprovalCount > 0) {
+            $dispatch->update([
+                'status' => 'awaiting_confirmation',
+                'completed_at' => null,
+            ]);
+            return;
+        }
+
+        $dispatch->update([
+            'status' => 'sent',
+            'completed_at' => null,
+        ]);
+    }
+
     public function payments(Request $request): View
     {
         $assignment = $this->collectorAssignment($request);
@@ -298,6 +449,61 @@ class CollectorCollectionController extends Controller
         $statusFilter = (string) $request->query('status', 'all');
         if (! in_array($statusFilter, ['all', 'awaiting', 'accepted', 'rejected'], true)) {
             $statusFilter = 'all';
+        }
+
+        if ($departmentCode === 'market') {
+            $itemsQuery = CollectionDispatchItem::query()
+                ->with([
+                    'dispatch:id,collector_user_id,department_code',
+                    'marketStallLease:id,market_stall_id,market_tenant_id,contract_number,billing_period,billing_cycles,start_date,end_date',
+                    'marketStallLease.stall:id,stall_no,market_stall_location_id,stall_status',
+                    'marketStallLease.stall.location:id,location_code,location_name',
+                    'marketStallLease.tenant:id,first_name,last_name,middle_name,business_name,contact_number',
+                    'marketPaymentCollection:id,payment_number',
+                ])
+                ->whereIn('status', ['collected_pending_confirmation', 'accepted', 'rejected'])
+                ->whereHas('dispatch', static function ($query) use ($request, $departmentCode): void {
+                    $query->where('collector_user_id', (int) $request->user()?->id);
+                    if ($departmentCode) {
+                        $query->where('department_code', $departmentCode);
+                    }
+                });
+
+            if ($statusFilter === 'awaiting') {
+                $itemsQuery->where('status', 'collected_pending_confirmation');
+            } elseif ($statusFilter === 'accepted') {
+                $itemsQuery->where('status', 'accepted');
+            } elseif ($statusFilter === 'rejected') {
+                $itemsQuery->where('status', 'rejected');
+            }
+
+            $items = $itemsQuery
+                ->orderByDesc('updated_at')
+                ->paginate(12)
+                ->withQueryString();
+
+            $baseCountQuery = CollectionDispatchItem::query()
+                ->whereIn('status', ['collected_pending_confirmation', 'accepted', 'rejected'])
+                ->whereHas('dispatch', static function ($query) use ($request, $departmentCode): void {
+                    $query->where('collector_user_id', (int) $request->user()?->id);
+                    if ($departmentCode) {
+                        $query->where('department_code', $departmentCode);
+                    }
+                });
+
+            $counts = [
+                'all' => (clone $baseCountQuery)->count(),
+                'awaiting' => (clone $baseCountQuery)->where('status', 'collected_pending_confirmation')->count(),
+                'accepted' => (clone $baseCountQuery)->where('status', 'accepted')->count(),
+                'rejected' => (clone $baseCountQuery)->where('status', 'rejected')->count(),
+            ];
+
+            return view('collector.payments_market', [
+                'assignment' => $assignment,
+                'items' => $items,
+                'statusFilter' => $statusFilter,
+                'counts' => $counts,
+            ]);
         }
 
         $itemsQuery = CollectionDispatchItem::query()
@@ -375,6 +581,8 @@ class CollectorCollectionController extends Controller
                 && (string) $dispatchItem->dispatch->department_code === (string) $departmentCode;
         } elseif ($roleKey === 'fishport') {
             $canView = (string) $dispatchItem->dispatch->department_code === 'fishport';
+        } elseif ($roleKey === 'market') {
+            $canView = (string) $dispatchItem->dispatch->department_code === 'market';
         }
 
         if (! $canView) {

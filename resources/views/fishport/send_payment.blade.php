@@ -219,7 +219,12 @@
     </section>
 </div>
 
-<form method="POST" id="cancelSendForm" style="display:none;">
+<form
+    method="POST"
+    id="cancelSendForm"
+    data-route-template="{{ route('fishport.send_payment.items.cancel', ['dispatchItem' => '__ID__']) }}"
+    style="display:none;"
+>
     @csrf
     @method('PATCH')
 </form>
@@ -601,7 +606,9 @@
         const confirmSendBtn = document.getElementById('confirmSendBtn');
         const confirmCancelBtn = document.getElementById('confirmCancelBtn');
         const cancelSendForm = document.getElementById('cancelSendForm');
-        const cancelSendRouteTemplate = @json(route('fishport.send_payment.items.cancel', ['dispatchItem' => '__ID__']));
+        const cancelSendRouteTemplate = cancelSendForm
+            ? String(cancelSendForm.dataset.routeTemplate || '')
+            : '';
         let allowSendSubmit = false;
         let cancelItemId = null;
 

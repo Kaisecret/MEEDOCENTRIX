@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\FishportRateController;
 use App\Http\Controllers\Atrium\AtriumBookingController;
 use App\Http\Controllers\Atrium\AtriumDashboardController;
 use App\Http\Controllers\Atrium\AtriumPaymentController;
+use App\Http\Controllers\Atrium\AtriumProfileController;
 use App\Http\Controllers\Atrium\AtriumReportController;
 use App\Http\Controllers\Atrium\AtriumSuppliesController;
 use App\Http\Controllers\Auth\LoginController;
@@ -31,6 +32,9 @@ use App\Http\Controllers\Market\MarketSendPaymentController;
 use App\Http\Controllers\Market\MarketStallController;
 use App\Http\Controllers\Market\MarketTenantController;
 use App\Http\Controllers\Market\MarketTransactionController;
+use App\Http\Controllers\Terminal\TerminalDashboardController;
+use App\Http\Controllers\Terminal\TerminalParkingController;
+use App\Http\Controllers\Terminal\TerminalVehicleController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -142,10 +146,19 @@ Route::middleware('auth')->group(function () {
 
     // Terminal
     Route::prefix('terminal')->middleware('area:terminal')->group(function () {
-        Route::view('/dashboard', 'terminal.dashboard')->name('terminal.dashboard');
-        Route::view('/vehicles', 'terminal.vehicles')->name('terminal.vehicles');
-        Route::view('/send-payment', 'shared.send_payment')->name('terminal.send_payment');
-        Route::view('/records', 'terminal.transactions')->name('terminal.records');
+        Route::get('/dashboard', [TerminalDashboardController::class, 'index'])->name('terminal.dashboard');
+
+        Route::get('/vehicles', [TerminalVehicleController::class, 'index'])->name('terminal.vehicles');
+        Route::post('/vehicles', [TerminalVehicleController::class, 'store'])->name('terminal.vehicles.store');
+        Route::put('/vehicles/{terminalVehicle}', [TerminalVehicleController::class, 'update'])->name('terminal.vehicles.update');
+        Route::patch('/vehicles/{terminalVehicle}/toggle-active', [TerminalVehicleController::class, 'toggleActive'])->name('terminal.vehicles.toggle_active');
+
+        Route::get('/records', [TerminalParkingController::class, 'index'])->name('terminal.records');
+        Route::get('/send-payment', [TerminalParkingController::class, 'sendPayment'])->name('terminal.send_payment');
+        Route::post('/payments/simple', [TerminalParkingController::class, 'storeSimplePayment'])->name('terminal.simple_payments.store');
+        Route::put('/payments/simple/{quickPayment}', [TerminalParkingController::class, 'updateSimplePayment'])->name('terminal.simple_payments.update');
+        Route::delete('/payments/simple/{quickPayment}', [TerminalParkingController::class, 'destroySimplePayment'])->name('terminal.simple_payments.destroy');
+        Route::patch('/payments/simple/{quickPayment}/mark-paid', [TerminalParkingController::class, 'markSimplePaymentPaid'])->name('terminal.simple_payments.mark_paid');
     });
 
     // Atrium
@@ -185,6 +198,10 @@ Route::middleware('auth')->group(function () {
         Route::patch('/supplies/{order}/reject', [AtriumSuppliesController::class, 'reject'])->name('atrium.supplies.reject');
 
         Route::get('/reports', [AtriumReportController::class, 'index'])->name('atrium.reports');
+        Route::get('/reports/preview', [AtriumReportController::class, 'preview'])->name('atrium.reports.preview');
+        Route::get('/reports/pdf', [AtriumReportController::class, 'pdf'])->name('atrium.reports.pdf');
+        Route::get('/profile', [AtriumProfileController::class, 'show'])->name('atrium.profile');
+        Route::put('/profile', [AtriumProfileController::class, 'update'])->name('atrium.profile.update');
     });
 
     // Collector

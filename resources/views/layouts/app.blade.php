@@ -80,16 +80,7 @@
 
         <!-- Logo Section -->
         <div class="sidebar-brand">
-            <div class="sidebar-logo-glow"></div>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" class="sidebar-logo-img">
-                <circle cx="250" cy="250" r="250" fill="#294c7b" />
-                <rect x="130" y="260" width="60" height="110" fill="#cbd5e1" rx="6" />
-                <rect x="220" y="190" width="60" height="180" fill="#94a3b8" rx="6" />
-                <rect x="310" y="120" width="60" height="250" fill="#e2e8f0" rx="6" />
-                <path d="M 120 250 L 210 160 L 270 190 L 360 90" fill="none" stroke="#fbbf24" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
-                <polygon points="330,80 380,70 370,120" fill="#fbbf24" />
-            </svg>
-            <h2 class="sidebar-brand-name">Meedocentrix</h2>
+            <img src="{{ asset('images/logoforsidebar-cropped.png') }}" alt="Meedocentrix" class="sidebar-brand-wordmark">
         </div>
 
         <!-- User Info -->

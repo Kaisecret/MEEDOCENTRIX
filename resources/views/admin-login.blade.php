@@ -78,25 +78,31 @@
 
         /* LEFT PANEL */
         .left-panel {
-            background: linear-gradient(145deg, #1e3a8a 0%, #2563eb 100%);
+            background-color: #2563eb;
             color: white;
             border-top-left-radius: 24px;
             border-bottom-left-radius: 24px;
-            padding: 3.5rem !important; 
-            min-width: 400px; 
+            padding: 3.5rem !important;
+            min-width: 400px;
             /* FIX 4: Use flex-grow instead of height: 100% to fill space naturally */
             flex-grow: 1;
-            width: 100%; 
+            width: 100%;
         }
 
         .premium-logo-badge {
-            width: 200px; 
-            height: 200px; 
-            border-radius: 50%; 
-            border: 4px solid rgba(255, 255, 255, 0.9); 
-            filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.25)); 
+            width: 260px;
+            height: auto;
+            max-width: 80%;
+            border-radius: 0;
+            border: none;
+            filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.25));
             margin-bottom: 1.5rem;
-            background-color: #1e3a8a; 
+            background-color: transparent;
+            display: block;
+            position: relative;
+            z-index: 0;
+            transform: scale(1.35);
+            transform-origin: center;
         }
 
         .btn-learn-more {
@@ -110,7 +116,7 @@
             font-weight: 600;
             transition: all 0.3s ease;
         }
-        
+
         .btn-learn-more:hover {
             background-color: white;
             color: var(--accent-primary);
@@ -328,8 +334,8 @@
             }
 
             .premium-logo-badge {
-                width: 140px; 
-                height: 140px;
+                width: 180px;
+                height: auto;
                 margin-bottom: 1rem !important;
             }
 
@@ -356,17 +362,9 @@
             <div class="transition-col" id="leftCol">
                 <div class="left-panel d-flex flex-column align-items-center justify-content-center text-center">
                     
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" class="premium-logo-badge">
-                        <circle cx="250" cy="250" r="250" fill="#294c7b" />
-                        <rect x="130" y="260" width="60" height="110" fill="#cbd5e1" rx="6" />
-                        <rect x="220" y="190" width="60" height="180" fill="#94a3b8" rx="6" />
-                        <rect x="310" y="120" width="60" height="250" fill="#e2e8f0" rx="6" />
-                        <path d="M 120 250 L 210 160 L 270 190 L 360 90" fill="none" stroke="#fbbf24" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
-                        <polygon points="330,80 380,70 370,120" fill="#fbbf24" />
-                    </svg>
+                    <img src="{{ asset('images/meedologo.png') }}" alt="Meedocentrix Logo" class="premium-logo-badge">
                     
                     <div class="mb-5 mt-2">
-                        <h2 class="fw-bold text-white mb-2" style="letter-spacing: 1px; font-size: 2.4rem;">Meedocentrix Admin</h2>
                         <p class="text-white opacity-90 px-2" style="line-height: 1.6; font-size: 1.15rem; font-weight: 500;">
                             Administrative Control and System<br>Management Access
                         </p>
@@ -380,15 +378,7 @@
                 <div class="right-panel d-flex flex-column justify-content-center">
 
                     <div class="d-block d-lg-none text-center mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" style="width: 130px; height: 130px; border-radius: 50%; border: 3px solid rgba(37, 99, 235, 0.2); margin-bottom: 0.8rem;">
-                            <circle cx="250" cy="250" r="250" fill="#294c7b" />
-                            <rect x="130" y="260" width="60" height="110" fill="#cbd5e1" rx="6" />
-                            <rect x="220" y="190" width="60" height="180" fill="#94a3b8" rx="6" />
-                            <rect x="310" y="120" width="60" height="250" fill="#e2e8f0" rx="6" />
-                            <path d="M 120 250 L 210 160 L 270 190 L 360 90" fill="none" stroke="#fbbf24" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
-                            <polygon points="330,80 380,70 370,120" fill="#fbbf24" />
-                        </svg>
-                        <h4 class="fw-bold mb-0" style="color: var(--accent-primary); letter-spacing: 1px;">Admin Portal</h4>
+                        <img src="{{ asset('images/meedologo.png') }}" alt="Meedocentrix Logo" style="width: 220px; max-width: 72vw; height: auto; margin-bottom: 0.8rem; position: relative; z-index: 0; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18));">
                     </div>
 
                     <div class="text-center mb-4">

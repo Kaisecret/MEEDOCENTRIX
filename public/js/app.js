@@ -64,7 +64,7 @@ const ROLES = {
             { id: 'dashboard', icon: 'fas fa-chart-pie', label: 'Dashboard' },
             { id: 'vehicles', icon: 'fas fa-bus', label: 'Vehicle Logs' },
             { id: 'terminal_records', icon: 'fas fa-ticket', label: 'Terminal Transactions' },
-            { id: 'send_payment', icon: 'fas fa-file-invoice-dollar', label: 'Send for Payment' }
+            { id: 'send_payment', icon: 'fas fa-file-invoice-dollar', label: 'Payment History' }
         ]
     },
     atrium: {
@@ -156,7 +156,8 @@ const ROLE_PAGE_ROUTES = {
         atrium_bookings: '/atrium/bookings',
         atrium_payments: '/atrium/payments',
         atrium_supplies: '/atrium/supplies',
-        atrium_reports: '/atrium/reports'
+        atrium_reports: '/atrium/reports',
+        profile: '/atrium/profile'
     },
     collector: {
         dashboard: '/collector/dashboard',
@@ -738,7 +739,7 @@ function renderPage(pageId) {
             renderVesselRegistryPage();
             break;
         case 'send_payment':
-            title = 'Send for Payment';
+            title = currentUserRole === 'terminal' ? 'Payment History' : 'Send for Payment';
             renderSendPaymentPage();
             break;
         case 'market_reports':

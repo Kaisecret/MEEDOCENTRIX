@@ -122,7 +122,7 @@ class User extends Authenticatable
         return match ($this->uiRoleKey()) {
             'administrator' => 'Administrator',
             'fishport' => 'Fishport Personnel',
-            'market' => 'Public Market Personnel',
+            'market' => 'Market Personnel',
             'cemetery' => 'Cemetery Personnel',
             'terminal' => 'Terminal Personnel',
             'atrium' => 'Atrium Hall Personnel',

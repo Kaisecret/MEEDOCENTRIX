@@ -1,431 +1,909 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meedocentrix Landing Page</title>
-    
+    <title>Meedocentrix | Enterprise System</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         :root {
-            --primary-blue: #2563eb;
-            --light-cyan: #60a5fa;
-            --mid-blue: #3b82f6;
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --bg-body: #ffffff;
+            --bg-alt: #f8fafc;
         }
 
-        body, html {
-            height: 100%;
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
             margin: 0;
-            font-family: 'Inter', 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #0b1e5c 0%, #1a3fad 40%, #2b6aeb 75%, #4a9afc 100%);
+            padding: 0;
             overflow-x: hidden;
-            color: white;
-            position: relative;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Background Liquid Shapes (Pure CSS 3D approximation) */
-        .shape {
-            position: absolute;
-            border-radius: 50%;
-            z-index: 0;
-            animation: float 6s ease-in-out infinite;
-        }
-
-        .shape-1 {
-            width: 45vw;
-            height: 40vw;
-            top: 10%;
-            right: -5%;
-            background: radial-gradient(circle at 30% 30%, #60a5fa, #1d4ed8);
-            border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
-            box-shadow: -10px 20px 50px rgba(0,0,0,0.3);
-            animation-duration: 8s;
-        }
-
-        .shape-2 {
-            width: 15vw;
-            height: 15vw;
-            bottom: -5%;
-            right: 5%;
-            background: radial-gradient(circle at 30% 30%, #93bbfd, #2563eb);
-            border-radius: 60% 40% 30% 70% / 50% 60% 40% 50%;
-            box-shadow: -5px 15px 30px rgba(0,0,0,0.2);
-            animation-duration: 7s;
-            animation-delay: 1s;
-        }
-
-        .shape-3 {
-            width: 8vw;
-            height: 8vw;
-            top: 20%;
-            left: 55%;
-            background: radial-gradient(circle at 30% 30%, #3b82f6, #1e3a8a);
-            border-radius: 50% 50% 40% 60% / 60% 40% 50% 50%;
-            box-shadow: -5px 10px 20px rgba(0,0,0,0.2);
-            animation-duration: 5s;
-            animation-delay: 0.5s;
-        }
-        
-        .shape-4 {
-            width: 10vw;
-            height: 10vw;
-            bottom: 10%;
-            left: 50%;
-            background: radial-gradient(circle at 30% 30%, #2563eb, #0f2240);
-            border-radius: 30% 70% 50% 50% / 40% 40% 60% 60%;
-            box-shadow: -5px 10px 20px rgba(0,0,0,0.2);
-            animation-duration: 9s;
-            animation-delay: 2s;
-        }
-
-        .shape-5 {
-            width: 12vw;
-            height: 12vw;
-            bottom: -5%;
-            left: 20%;
-            background: radial-gradient(circle at 30% 30%, #60a5fa, #152e56);
-            border-radius: 50%;
-            opacity: 0.6;
-            animation-duration: 6s;
-        }
-
-        /* Elongated top right shape */
-        .shape-6 {
-            width: 30vw;
-            height: 10vw;
-            top: 5%;
-            right: -10%;
-            background: radial-gradient(ellipse at 30% 30%, #3b82f6, #0a1628);
-            border-radius: 50px;
-            transform: rotate(-20deg);
-            box-shadow: -10px 20px 40px rgba(0,0,0,0.3);
-            animation-duration: 10s;
-        }
-
-        @keyframes float {
-            0% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(2deg); }
-            100% { transform: translateY(0px) rotate(0deg); }
-        }
-
-        /* Decorative dots and squiggles */
-        .dot {
-            position: absolute;
-            background-color: rgba(255,255,255,0.6);
-            border-radius: 50%;
-        }
-
-        /* Content Wrapper to sit above background */
-        .content-wrapper {
-            position: relative;
-            z-index: 10;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Navbar Styling */
+        /* 
+         * ==========================================
+         * NAVBAR
+         * ==========================================
+         */
         .navbar {
-            padding-top: 2rem;
-            padding-bottom: 1rem;
+            padding: 1.5rem 0;
+            position: relative;
+            z-index: 50;
+            background-color: transparent;
         }
-        
+
         .navbar-brand {
             font-weight: 800;
-            font-size: 1.25rem;
-            color: white !important;
+            font-size: 1.35rem;
+            color: var(--text-main) !important;
             display: flex;
             align-items: center;
             gap: 12px;
-            letter-spacing: 1px;
-            transition: transform 0.3s ease;
-        }
-
-        .navbar-brand:hover {
-            transform: scale(1.02);
-        }
-
-        .nav-link {
-            color: rgba(255,255,255,0.8) !important;
-            font-size: 0.95rem;
-            margin: 0 15px;
-            transition: all 0.3s ease;
-            font-weight: 500;
-            position: relative;
-        }
-
-        .nav-link::after {
-            content: '';
-            position: absolute;
-            width: 0;
-            height: 2px;
-            bottom: -4px;
-            left: 50%;
-            background-color: white;
-            transition: all 0.3s ease;
-            transform: translateX(-50%);
-        }
-
-        .nav-link:hover {
-            color: white !important;
-        }
-
-        .nav-link:hover::after {
-            width: 100%;
-        }
-
-        .btn-outline-custom {
-            border: 1.5px solid rgba(255,255,255,0.4);
-            border-radius: 50px;
-            padding: 0.5rem 1.8rem;
-            color: white;
-            font-weight: 600;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(5px);
-            display: inline-block;
-        }
-        
-        .btn-outline-custom:hover {
-            background: white;
-            color: var(--primary-blue);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-
-        /* Hero Section Styling */
-        .hero-section {
-            flex-grow: 1;
-            display: flex;
-            align-items: center;
-            padding-top: 2rem;
-            padding-bottom: 4rem; /* Provides safe space so icons won't hit bottom */
-        }
-
-        .hero-content {
-            animation: fadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(40px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .badge-pill-custom {
-            display: inline-block;
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 0.4rem 1rem;
-            border-radius: 50px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            letter-spacing: 0.5px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
-
-        h1.display-title {
-            font-size: 4.8rem;
-            font-weight: 800;
-            line-height: 1.1;
-            margin-bottom: 0.5rem;
-            letter-spacing: -1.5px;
-            text-shadow: 0 10px 30px rgba(0,0,0,0.15);
-        }
-
-        h2.display-subtitle {
-            font-size: 2.6rem;
-            font-weight: 300;
-            line-height: 1.2;
-            margin-bottom: 1.5rem;
-            opacity: 0.95;
             letter-spacing: -0.5px;
         }
 
-        .hero-text {
-            font-size: 1.05rem;
-            color: rgba(255, 255, 255, 0.85);
-            max-width: 500px;
+        .brand-logo {
+            height: 70px; /* Pushed height to maximum for strong visibility */
+            width: auto; 
+            object-fit: contain; 
+        }
+
+        /* Highly specialized CSS filter to instantly turn pure white PNGs into our var(--primary) #2563eb blue */
+        .blue-tint-logo {
+            filter: brightness(0) saturate(100%) invert(29%) sepia(96%) saturate(2206%) hue-rotate(214deg) brightness(101%) contrast(94%);
+        }
+
+        .nav-link {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin: 0 1rem;
+            color: var(--text-main) !important;
+            transition: color 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--primary) !important;
+        }
+
+        .btn-contact {
+            border: 2px solid var(--primary);
+            background: transparent;
+            color: var(--primary) !important;
+            padding: 0.5rem 1.8rem;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-contact:hover {
+            background: var(--primary);
+            color: white !important;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(37, 99, 235, 0.2);
+        }
+
+        /* 
+         * ==========================================
+         * HERO SECTION
+         * ==========================================
+         */
+        .hero-section {
+            position: relative;
+            z-index: 10;
+            min-height: calc(100vh - 90px);
+            display: flex;
+            align-items: center;
+            padding-bottom: 2rem;
+        }
+
+        @media (min-width: 992px) {
+            .hero-section {
+                margin-top: -34px;
+            }
+        }
+
+        .hero-content {
+            padding-right: 3rem;
+            animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .performance-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #EFF6FF;
+            color: var(--primary);
+            padding: 0.5rem 1.2rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(37, 99, 235, 0.15);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.05);
+        }
+
+        .title-main {
+            font-size: clamp(3rem, 5vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.05;
+            letter-spacing: -1.5px;
+            color: var(--text-main);
+            margin-bottom: 0.2rem;
+        }
+
+        .title-sub {
+            font-size: clamp(2rem, 3.5vw, 2.8rem);
+            font-weight: 800;
+            color: var(--primary);
+            letter-spacing: -1px;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero-desc {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            line-height: 1.6;
             margin-bottom: 2.5rem;
-            line-height: 1.7;
+            max-width: 90%;
             font-weight: 400;
         }
 
-        /* Enhanced Start Button */
-        .btn-start {
+        .btn-get-started {
             display: inline-flex;
             align-items: center;
             gap: 12px;
-            background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
-            color: var(--primary-blue);
-            font-weight: 700;
-            padding: 0.9rem 2.5rem;
-            border-radius: 50px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            font-size: 1.1rem;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            border: 2px solid rgba(255,255,255,0.9);
-        }
-
-        .btn-start:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 15px 35px rgba(37, 99, 235, 0.4);
-            color: #1e3a8a;
-            background: #ffffff;
-            border-color: #ffffff;
-        }
-        
-        .btn-start i {
-            transition: transform 0.3s ease;
-            font-size: 1rem;
-        }
-
-        .btn-start:hover i {
-            transform: translateX(6px);
-        }
-
-        /* Fixed Social Icons - Changed from absolute to margin-top to avoid overlapping */
-        .social-icons {
-            margin-top: 4.5rem;
-            display: flex;
-            gap: 1.2rem;
-            animation: fadeIn 1.5s ease-out forwards;
-            animation-delay: 0.6s;
-            opacity: 0;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .social-icons a {
+            background-color: var(--primary);
             color: white;
+            font-weight: 600;
             font-size: 1.1rem;
-            width: 46px;
-            height: 46px;
+            padding: 1rem 2.8rem;
+            border-radius: 50px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-get-started:hover {
+            background-color: var(--primary-dark);
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn-get-started i {
+            transition: transform 0.3s ease;
+        }
+
+        .btn-get-started:hover i {
+            transform: translateX(5px);
+        }
+
+        /* 
+         * ==========================================
+         * MOCKUPS (Flawless Scaling CSS)
+         * ==========================================
+         */
+        .mockups-grid {
+            position: relative;
+            height: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center; /* Horizontally center the mockups */
+            margin-top: -40px; /* Push the whole group upwards slightly */
+            animation: fadeLeft 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation-delay: 0.2s;
+            opacity: 0;
+            perspective: 1000px;
+        }
+
+        @keyframes fadeLeft {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .mockup-scaler {
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
+            transform-origin: center center; /* Scale from center now that it's centered */
+            transform: scale(0.9);
+            /* scale it slightly down universally to fit perfectly */
+        }
+
+        /* --- LAPTOP --- front and center */
+        .macbook-wrapper {
+            position: relative;
+            width: 620px;
+            z-index: 10;
+            margin: 0 auto;
+            transform: translateY(-10px);
+        }
+
+        .macbook-lid {
+            background-color: #1e293b;
+            border-radius: 16px 16px 0 0;
+            padding: 18px 18px 24px 18px;
+            box-shadow: 0 35px 60px rgba(0, 0, 0, 0.15);
+            position: relative;
+        }
+
+        .macbook-lid::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 6px;
+            background: #334155;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            text-decoration: none;
         }
 
-        .social-icons a:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-            border-color: rgba(255, 255, 255, 0.4);
+        .macbook-screen {
+            background-color: var(--primary);
+            /* SOLID BLUE BACKGROUND */
+            height: 350px;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .macbook-screen img {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 2;
+        }
+
+        .macbook-screen .logo-text {
+            width: 60%; /* Boosted from 50% to ensure it is very readable */
+            height: auto;
+            object-fit: contain;
+            animation: fadeLogoText 12s infinite cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .macbook-screen .logo-icon {
+            width: 140px;
+            /* Nice large icon size */
+            height: 140px;
+            object-fit: contain;
+            border-radius: 28px;
+            background-color: transparent;
+            /* Assuming white logo */
+            animation: fadeLogoIcon 12s infinite cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 12 second loop guarantees exact 3-second transitions */
+        @keyframes fadeLogoText {
+
+            0%,
+            25% {
+                opacity: 1;
+                filter: blur(0px);
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            50%,
+            75% {
+                opacity: 0;
+                filter: blur(5px);
+                transform: translate(-50%, -50%) scale(0.95);
+            }
+
+            100% {
+                opacity: 1;
+                filter: blur(0px);
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        @keyframes fadeLogoIcon {
+
+            0%,
+            25% {
+                opacity: 0;
+                filter: blur(5px);
+                transform: translate(-50%, -50%) scale(1.05);
+            }
+
+            50%,
+            75% {
+                opacity: 1;
+                filter: blur(0px);
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                filter: blur(5px);
+                transform: translate(-50%, -50%) scale(1.05);
+            }
+        }
+
+        .macbook-base {
+            background-color: #cbd5e1;
+            height: 20px;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            width: 114%;
+            left: -7%;
+            box-shadow: inset 0px 4px 6px rgba(255, 255, 255, 0.5), 0 25px 50px rgba(0, 0, 0, 0.25);
+        }
+
+        .macbook-base::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 12%;
+            height: 6px;
+            background: #94a3b8;
+            border-radius: 0 0 8px 8px;
+        }
+
+        /* --- PHONES --- */
+        .iphone-wrapper {
+            position: absolute;
+            bottom: -20px;
+            width: 210px;
+            height: 430px;
+            background-color: #0f172a;
+            border-radius: 36px;
+            padding: 10px;
+            box-shadow: 0 30px 50px rgba(0, 0, 0, 0.35), inset 0 0 6px rgba(255, 255, 255, 0.2);
+            z-index: 20;
+            /* PLACE PHONES ON TOP OF THE LAPTOP SO THEY ARE FULLY VISIBLE */
+        }
+
+        .phone-left {
+            left: -20px;
+            transform: scale(0.75) translateY(40px) rotate(-4deg);
+            transform-origin: center bottom;
+        }
+
+        .phone-right {
+            right: -20px;
+            transform: scale(0.75) translateY(40px) rotate(4deg);
+            transform-origin: center bottom;
+        }
+
+        .iphone-screen {
+            background-color: var(--bg-alt);
+            border-radius: 26px;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .iphone-notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 45%;
+            height: 20px;
+            background-color: #0f172a;
+            border-radius: 0 0 12px 12px;
+            z-index: 20;
+        }
+
+        /* Collector App UI Inside Phone */
+        .col-ui-header {
+            background-color: var(--primary);
+            padding: 35px 15px 45px;
             color: white;
+            text-align: center;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
         }
 
-        /* Responsive adjustments */
+        .col-ui-header h3 {
+            font-size: 14px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+
+        .col-ui-header p {
+            font-size: 10px;
+            opacity: 0.8;
+            margin: 2px 0 0 0;
+        }
+
+        .col-ui-body {
+            position: relative;
+            top: -30px;
+            height: calc(100% - 60px);
+            padding: 0 14px 20px 14px;
+            overflow-y: auto;
+            /* ENABLE SCROLLING */
+            overflow-x: hidden;
+            scrollbar-width: none;
+            /* Firefox hide scrollbar */
+        }
+
+        .col-ui-body::-webkit-scrollbar {
+            width: 0;
+            background: transparent;
+            /* Chrome/Safari hide scrollbar */
+        }
+
+        .c-card {
+            background: white;
+            border-radius: 14px;
+            padding: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .c-card .icn {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .icn-blue {
+            background: #EFF6FF;
+            color: var(--primary);
+        }
+
+        .icn-yellow {
+            background: #FEFCE8;
+            color: #ca8a04;
+        }
+
+        .c-card h4 {
+            font-size: 9px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            margin: 0 0 4px 0;
+        }
+
+        .c-card .val {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text-main);
+            margin: 0;
+        }
+
+        .c-sec-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            margin: 10px 0 8px 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .c-item {
+            background: white;
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+            border-left: 3px solid transparent;
+            margin-bottom: 6px;
+        }
+
+        .c-item.paid {
+            border-left-color: #22c55e;
+        }
+
+        .c-item.pend {
+            border-left-color: #eab308;
+        }
+
+        .c-item .n {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 0 0 2px 0;
+        }
+
+        .c-item .d {
+            font-size: 9px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .c-badge {
+            font-size: 8px;
+            font-weight: 800;
+            padding: 3px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .c-badge.paid {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .c-badge.pend {
+            background: #fef08a;
+            color: #a16207;
+        }
+
+
+        /* 
+         * ==========================================
+         * RESPONSIVENESS
+         * ==========================================
+         */
+        @media (max-width: 1400px) {
+            .mockup-scaler {
+                transform: scale(0.85);
+            }
+        }
+
+        @media (max-width: 1199px) {
+            .mockup-scaler {
+                transform: scale(0.7);
+            }
+
+            /* Pull phones tighter on smaller screens */
+            .phone-left {
+                left: -50px;
+            }
+
+            .phone-right {
+                right: -50px;
+            }
+        }
+
         @media (max-width: 991px) {
-            h1.display-title { font-size: 4rem; }
-            h2.display-subtitle { font-size: 2.2rem; }
-            .hero-section { padding-top: 1rem; }
-            .social-icons { margin-top: 3.5rem; }
+            .navbar-toggler {
+                border: none;
+            }
+
+            .navbar-toggler:focus {
+                box-shadow: none;
+            }
+
+            .hero-section {
+                align-items: flex-start;
+                padding-top: 2rem;
+                min-height: auto;
+            }
+
+            .hero-content {
+                padding-right: 0;
+                text-align: center;
+                margin-bottom: 5rem;
+            }
+
+            .hero-desc {
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            /* Reposition Mockups for Stacked Layout */
+            .mockups-grid {
+                justify-content: center;
+                height: 450px;
+                margin-top: 1rem; /* Restore space on stacked mobile layout */
+                margin-bottom: 2rem;
+            }
+
+            .mockup-scaler {
+                transform-origin: center center;
+                right: auto;
+                left: 0;
+                transform: scale(0.75);
+            }
         }
 
-        @media (max-width: 768px) {
-            h1.display-title { font-size: 3.2rem; }
-            h2.display-subtitle { font-size: 1.8rem; }
-            .shape-1 { width: 80vw; height: 70vw; }
-            .social-icons { justify-content: center; margin-top: 3rem; }
-            .hero-content { text-align: center; display: flex; flex-direction: column; align-items: center; }
-            .hero-text { text-align: center; }
+        @media (max-width: 767px) {
+            .mockups-grid {
+                height: 350px;
+            }
+
+            .mockup-scaler {
+                transform: scale(0.6);
+            }
+
+            /* phones very tight */
+            .phone-left {
+                left: -30px;
+            }
+
+            .phone-right {
+                right: -30px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .title-main {
+                font-size: 2.8rem;
+            }
+
+            .title-sub {
+                font-size: 1.8rem;
+            }
+
+            .mockups-grid {
+                height: 280px;
+            }
+
+            .mockup-scaler {
+                transform: scale(0.45);
+            }
+
+            .hero-content {
+                margin-bottom: 2rem;
+            }
+
+            /* Hide the extra phone on extremely tiny mobile if desired, or keep it */
+            .phone-right {
+                display: none;
+            }
+
+            .phone-left {
+                left: 0;
+            }
         }
     </style>
 </head>
+
 <body>
 
-    <div class="shape shape-1"></div>
-    <div class="shape shape-2"></div>
-    <div class="shape shape-3"></div>
-    <div class="shape shape-4"></div>
-    <div class="shape shape-5"></div>
-    <div class="shape shape-6"></div>
+    <div class="container-fluid px-0 h-100 d-flex flex-column">
 
-    <div class="dot" style="width: 5px; height: 5px; top: 30%; left: 50%;"></div>
-    <div class="dot" style="width: 8px; height: 8px; top: 35%; left: 48%;"></div>
-    <div class="dot" style="width: 4px; height: 4px; top: 40%; left: 52%;"></div>
-    <div class="dot" style="width: 6px; height: 6px; bottom: 30%; right: 30%;"></div>
-    
-    <div class="container content-wrapper">
-        
-        <nav class="navbar navbar-expand-lg">
-            <div class="container-fluid px-0">
-                <a class="navbar-brand" href="{{ route('home') }}">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" style="width: 38px; height: 38px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.9); background-color: #1e3a8a; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
-                        <circle cx="250" cy="250" r="250" fill="#294c7b" />
-                        <rect x="130" y="260" width="60" height="110" fill="#cbd5e1" rx="6" />
-                        <rect x="220" y="190" width="60" height="180" fill="#94a3b8" rx="6" />
-                        <rect x="310" y="120" width="60" height="250" fill="#e2e8f0" rx="6" />
-                        <path d="M 120 250 L 210 160 L 270 190 L 360 90" fill="none" stroke="#fbbf24" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
-                        <polygon points="330,80 380,70 370,120" fill="#fbbf24" />
-                    </svg>
-                    MEEDOCENTRIX
-                </a>
-                
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border-color: rgba(255,255,255,0.5);">
-                    <i class="fa-solid fa-bars text-white"></i>
-                </button>
-                
-                <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                    <ul class="navbar-nav align-items-center">
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('home') }}">HOME</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">TEAM</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('login') }}">LOGIN</a>
-                        </li>
-                        <li class="nav-item ms-3 mt-3 mt-lg-0">
-                            <a href="#" class="btn-outline-custom">Contact Sales</a>
-                        </li>
-                    </ul>
-                </div>
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg container">
+            <a class="navbar-brand" href="{{ route('home') }}">
+                <img src="{{ asset('images/logoforsidebar-cropped.png') }}" class="brand-logo blue-tint-logo" alt="Meedocentrix Logo">
+            </a>
+
+            <button class="navbar-toggler py-2 px-3" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarNav">
+                <i class="fa-solid fa-bars" style="color: var(--primary); font-size: 1.4rem;"></i>
+            </button>
+
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <ul class="navbar-nav align-items-center">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('home') }}">HOME</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">TEAM</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('login') }}">LOGIN</a>
+                    </li>
+                </ul>
             </div>
         </nav>
 
-        <div class="hero-section row">
-            <div class="col-lg-7 col-md-9 position-relative hero-content">
-                <div class="badge-pill-custom">
-                    <i class="fa-solid fa-bolt me-2 text-warning"></i>Lightning Fast Performance
-                </div>
-                
-                <h1 class="display-title">Meedocentrix</h1>
-                <h2 class="display-subtitle">Enterprise System</h2>
-                <p class="hero-text">
-                    Comprehensive Economic Enterprise Management System. A powerful platform to manage, streamline, and scale your business operations efficiently.
-                </p>
-                
-                <a href="{{ route('login') }}" class="btn btn-start text-decoration-none">
-                    Get Started <i class="fa-solid fa-arrow-right"></i>
-                </a>
+        <!-- Hero Content Area -->
+        <div class="container flex-grow-1 d-flex hero-section">
+            <div class="row w-100 align-items-center m-0">
 
-                <!-- Changed to position relative using margin instead of position:absolute; bottom:0 -->
-                <div class="social-icons">
-                    <a href="#" aria-label="Website"><i class="fa-solid fa-globe"></i></a>
-                    <a href="#" aria-label="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
-                    <a href="#" aria-label="Twitter"><i class="fa-brands fa-twitter"></i></a>
-                    <a href="#" aria-label="Email"><i class="fa-solid fa-envelope"></i></a>
+                <!-- Left Text Column -->
+                <div class="col-lg-5 col-md-12 hero-content">
+                    <div class="performance-badge">
+                        <i class="fa-solid fa-bolt text-warning"></i> Lightning Fast Performance
+                    </div>
+
+                    <h1 class="title-main">Meedocentrix</h1>
+                    <h2 class="title-sub">Enterprise System</h2>
+                    <p class="hero-desc">
+                        A robust economic enterprise management system designed to streamline, manage, and securely
+                        scale your business operations in one beautiful platform.
+                    </p>
+
+                    <a href="{{ route('login') }}" class="btn-get-started">
+                        Get Started <i class="fa-solid fa-arrow-right"></i>
+                    </a>
                 </div>
+
+                <!-- Right Mockups Column -->
+                <div class="col-lg-7 col-md-12 mockups-grid">
+
+                    <!-- Scalable Master Container -->
+                    <div class="mockup-scaler">
+
+                        <!-- Left Phone (Behind Laptop, Tilted) -->
+                        <div class="iphone-wrapper phone-left">
+                            <div class="iphone-notch"></div>
+                            <div class="iphone-screen">
+                                <!-- Collector Dashboard Code -->
+                                <div class="col-ui-header">
+                                    <h3>Collector App</h3>
+                                    <p>Active Session</p>
+                                </div>
+                                <div class="col-ui-body">
+                                    <div class="c-card">
+                                        <div>
+                                            <h4>Today's Total</h4>
+                                            <p class="val">₱ 12,500.00</p>
+                                        </div>
+                                        <div class="icn icn-blue"><i class="fa-solid fa-wallet"></i></div>
+                                    </div>
+
+                                    <div class="c-card mb-3">
+                                        <div>
+                                            <h4>Pending Tickets</h4>
+                                            <p class="val" style="font-size: 16px;">14 Pending</p>
+                                        </div>
+                                        <div class="icn icn-yellow"><i class="fa-solid fa-file-invoice"></i></div>
+                                    </div>
+
+                                    <div class="c-sec-title">Recent Transactions</div>
+                                    <div class="c-list">
+                                        <div class="c-item paid">
+                                            <div>
+                                                <p class="n">Fish Port Stall A</p>
+                                                <p class="d">Today, 09:30 AM</p>
+                                            </div>
+                                            <span class="c-badge paid">Paid</span>
+                                        </div>
+                                        <div class="c-item pend">
+                                            <div>
+                                                <p class="n">Market Section C</p>
+                                                <p class="d">Today, 10:15 AM</p>
+                                            </div>
+                                            <span class="c-badge pend">Pending</span>
+                                        </div>
+                                        <div class="c-item paid">
+                                            <div>
+                                                <p class="n">Slaughterhouse 1</p>
+                                                <p class="d">Yesterday</p>
+                                            </div>
+                                            <span class="c-badge paid">Paid</span>
+                                        </div>
+                                    </div>
+                                    <!-- Extra content for scrolling demo -->
+                                    <div class="c-list mt-1">
+                                        <div class="c-item pend">
+                                            <div>
+                                                <p class="n">Transport Fee</p>
+                                                <p class="d">Yesterday</p>
+                                            </div>
+                                            <span class="c-badge pend">Pending</span>
+                                        </div>
+                                        <div class="c-item paid">
+                                            <div>
+                                                <p class="n">Fish Port Stall B</p>
+                                                <p class="d">Older</p>
+                                            </div>
+                                            <span class="c-badge paid">Paid</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Laptop (Front and Center) -->
+                        <div class="macbook-wrapper">
+                            <div class="macbook-lid">
+                                <div class="macbook-screen">
+                                    <img src="{{ asset('images/logoforsidebar-cropped.png') }}" class="logo-text blue-tint-logo"
+                                        alt="Dashboard Sidebar Logo">
+                                    <img src="{{ asset('images/meedologo.png') }}" class="logo-icon"
+                                        alt="Meedocentrix Icon">
+                                </div>
+                            </div>
+                            <div class="macbook-base"></div>
+                        </div>
+
+                        <!-- Right Phone (Behind Laptop, Tilted) -->
+                        <div class="iphone-wrapper phone-right">
+                            <div class="iphone-notch"></div>
+                            <div class="iphone-screen">
+                                <!-- Collector Dashboard Code -->
+                                <div class="col-ui-header" style="background-color: var(--text-main);">
+                                    <h3>Collector App</h3>
+                                    <p>Performance View</p>
+                                </div>
+                                <div class="col-ui-body">
+                                    <div class="c-card">
+                                        <div>
+                                            <h4>Weekly Total</h4>
+                                            <p class="val">₱ 58,200.00</p>
+                                        </div>
+                                        <div class="icn icn-blue"><i class="fa-solid fa-chart-line"></i></div>
+                                    </div>
+
+                                    <div class="c-card mb-3">
+                                        <div>
+                                            <h4>Compliance</h4>
+                                            <p class="val" style="font-size: 16px;">94% Rate</p>
+                                        </div>
+                                        <div class="icn icn-yellow" style="color:#15803d; background:#dcfce7;"><i
+                                                class="fa-solid fa-check-circle"></i></div>
+                                    </div>
+
+                                    <div class="c-sec-title">System Logs</div>
+                                    <div class="c-list">
+                                        <div class="c-item paid">
+                                            <div>
+                                                <p class="n">Sync Success</p>
+                                                <p class="d">Today, 09:00 AM</p>
+                                            </div>
+                                            <span class="c-badge paid">OK</span>
+                                        </div>
+                                        <div class="c-item pend">
+                                            <div>
+                                                <p class="n">Network Delay</p>
+                                                <p class="d">Today, 08:15 AM</p>
+                                            </div>
+                                            <span class="c-badge pend">WARN</span>
+                                        </div>
+                                        <div class="c-item paid">
+                                            <div>
+                                                <p class="n">Batch Upload</p>
+                                                <p class="d">Yesterday</p>
+                                            </div>
+                                            <span class="c-badge paid">OK</span>
+                                        </div>
+                                    </div>
+                                    <!-- Extra content for scrolling -->
+                                    <div class="c-list mt-1">
+                                        <div class="c-item paid">
+                                            <div>
+                                                <p class="n">Device Paired</p>
+                                                <p class="d">Yesterday</p>
+                                            </div>
+                                            <span class="c-badge paid">OK</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <!-- /Scalable Master Container -->
+
+                </div>
+
             </div>
         </div>
 
@@ -433,4 +911,5 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
+
 </html>

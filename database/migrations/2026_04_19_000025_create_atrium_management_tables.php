@@ -111,10 +111,10 @@ return new class extends Migration
         $now = now();
         if (DB::table('atrium_function_halls')->count() === 0) {
             DB::table('atrium_function_halls')->insert([
-                ['code' => 'ATR-MAIN', 'name' => 'Main Atrium Hall', 'capacity' => 500, 'hourly_rate' => 2500.00, 'description' => 'Main open atrium, grand functions', 'is_active' => true, 'created_at' => $now, 'updated_at' => $now],
-                ['code' => 'ATR-EAST', 'name' => 'East Wing Hall', 'capacity' => 180, 'hourly_rate' => 1500.00, 'description' => 'Meetings and exhibits', 'is_active' => true, 'created_at' => $now, 'updated_at' => $now],
-                ['code' => 'ATR-WEST', 'name' => 'West Wing Hall', 'capacity' => 150, 'hourly_rate' => 1200.00, 'description' => 'Programs and seminars', 'is_active' => true, 'created_at' => $now, 'updated_at' => $now],
-                ['code' => 'ATR-MEZZ', 'name' => 'Mezzanine Function Room', 'capacity' => 80, 'hourly_rate' => 800.00, 'description' => 'Small gatherings', 'is_active' => true, 'created_at' => $now, 'updated_at' => $now],
+                ['code' => 'ATR-MAIN', 'name' => 'Main Atrium Hall', 'capacity' => 500, 'hourly_rate' => 400.00, 'description' => 'Main open atrium, grand functions', 'is_active' => true, 'created_at' => $now, 'updated_at' => $now],
+                ['code' => 'ATR-EAST', 'name' => 'East Wing Hall', 'capacity' => 180, 'hourly_rate' => 350.00, 'description' => 'Meetings and exhibits', 'is_active' => true, 'created_at' => $now, 'updated_at' => $now],
+                ['code' => 'ATR-WEST', 'name' => 'West Wing Hall', 'capacity' => 150, 'hourly_rate' => 300.00, 'description' => 'Programs and seminars', 'is_active' => true, 'created_at' => $now, 'updated_at' => $now],
+                ['code' => 'ATR-MEZZ', 'name' => 'Mezzanine Function Room', 'capacity' => 80, 'hourly_rate' => 250.00, 'description' => 'Small gatherings', 'is_active' => true, 'created_at' => $now, 'updated_at' => $now],
             ]);
         }
     }

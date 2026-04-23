@@ -6,6 +6,7 @@
 @php
     $isEdit = $mode === 'edit';
     $action = $isEdit ? route('atrium.payments.update', $payment) : route('atrium.payments.store');
+    $selectedEventId = (int) old('atrium_event_id', $payment->atrium_event_id ?? ($event->id ?? 0));
 @endphp
 
 <div class="atr" data-server-rendered-page="atrium_payments" data-page-title="{{ $isEdit ? 'Edit Payment' : 'Record Payment' }}">
@@ -37,14 +38,30 @@
         <div class="atr-form-grid">
             <div class="atr-field full">
                 <label>Event Booking *</label>
-                <select name="atrium_event_id" class="atr-input" required>
-                    <option value="">— Choose event —</option>
+                <select name="atrium_event_id" id="atrEventSelect" class="atr-input" required>
+                    <option value="">- Choose event -</option>
                     @foreach ($eventsForSelect as $e)
-                        <option value="{{ $e->id }}" {{ (int) old('atrium_event_id', $payment->atrium_event_id ?? ($event->id ?? 0)) === $e->id ? 'selected' : '' }}>
-                            {{ $e->event_code }} — {{ $e->name_contact_person }} ({{ optional($e->date_of_event)->format('M d, Y') }}) — PHP {{ number_format((float) $e->actual_due, 2) }}
+                        @php
+                            $totalPaid = (float) ($e->total_paid ?? 0);
+                            $due = (float) $e->actual_due;
+                            $balance = max(0.0, $due - $totalPaid);
+                        @endphp
+                        <option
+                            value="{{ $e->id }}"
+                            data-due="{{ number_format($due, 2, '.', '') }}"
+                            data-paid="{{ number_format($totalPaid, 2, '.', '') }}"
+                            data-balance="{{ number_format($balance, 2, '.', '') }}"
+                            {{ $selectedEventId === $e->id ? 'selected' : '' }}
+                        >
+                            {{ $e->event_code }} - {{ $e->name_contact_person }} ({{ optional($e->date_of_event)->format('M d, Y') }}) - Remaining PHP {{ number_format($balance, 2) }}
                         </option>
                     @endforeach
                 </select>
+                <div class="atr-help" style="margin-top:.45rem;display:flex;gap:1rem;flex-wrap:wrap;">
+                    <span>Total Due: <b id="atrEventDue">PHP 0.00</b></span>
+                    <span>Paid: <b id="atrEventPaid">PHP 0.00</b></span>
+                    <span>Remaining Balance: <b id="atrEventBalance">PHP 0.00</b></span>
+                </div>
             </div>
             <div class="atr-field">
                 <label>OR Number</label>
@@ -70,4 +87,44 @@
         </div>
     </form>
 </div>
+
+<script>
+(function () {
+    const eventSelect = document.getElementById('atrEventSelect');
+    const dueEl = document.getElementById('atrEventDue');
+    const paidEl = document.getElementById('atrEventPaid');
+    const balanceEl = document.getElementById('atrEventBalance');
+
+    if (!eventSelect || !dueEl || !paidEl || !balanceEl) return;
+
+    const formatPhp = (value) => {
+        const amount = Number.isFinite(value) ? value : 0;
+        return 'PHP ' + amount.toLocaleString('en-PH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    };
+
+    const updateBalanceInfo = () => {
+        const selected = eventSelect.options[eventSelect.selectedIndex];
+        if (!selected || selected.value === '') {
+            dueEl.textContent = 'PHP 0.00';
+            paidEl.textContent = 'PHP 0.00';
+            balanceEl.textContent = 'PHP 0.00';
+            return;
+        }
+
+        const due = Number(selected.dataset.due || 0);
+        const paid = Number(selected.dataset.paid || 0);
+        const balance = Math.max(0, Number(selected.dataset.balance || (due - paid)));
+
+        dueEl.textContent = formatPhp(due);
+        paidEl.textContent = formatPhp(paid);
+        balanceEl.textContent = formatPhp(balance);
+    };
+
+    eventSelect.addEventListener('change', updateBalanceInfo);
+    updateBalanceInfo();
+})();
+</script>
 @endsection

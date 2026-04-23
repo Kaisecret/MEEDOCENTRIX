@@ -89,6 +89,7 @@ class AtriumPaymentController extends Controller
 
         $eventsForSelect = AtriumEvent::query()
             ->with('functionHall:id,name,code')
+            ->withSum('payments as total_paid', 'payment_amount')
             ->whereIn('booking_status', ['reserved', 'confirmed', 'completed'])
             ->orderByDesc('date_of_event')
             ->limit(200)
@@ -153,6 +154,7 @@ class AtriumPaymentController extends Controller
 
         $eventsForSelect = AtriumEvent::query()
             ->with('functionHall:id,name,code')
+            ->withSum('payments as total_paid', 'payment_amount')
             ->whereIn('booking_status', ['reserved', 'confirmed', 'completed'])
             ->orderByDesc('date_of_event')
             ->limit(200)

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * @property int $id
@@ -72,18 +73,35 @@ class User extends Authenticatable
     {
         $role = strtolower(trim((string) $this->role));
 
-        return $role === 'admin' || $role === 'administrator';
+        if ($role === 'admin' || $role === 'administrator') {
+            return true;
+        }
+
+        $assignedRole = $this->assignedSystemRole();
+
+        return $assignedRole?->isAdministrator() ?? false;
     }
 
     public function isCollector(): bool
     {
-        return strtolower(trim((string) $this->role)) === 'collector'
-            || strtolower(trim((string) $this->department)) === 'collector';
+        if (
+            strtolower(trim((string) $this->role)) === 'collector'
+            || strtolower(trim((string) $this->department)) === 'collector'
+        ) {
+            return true;
+        }
+
+        return $this->assignedSystemRole()?->guard_name === 'collector';
     }
 
     public function collectorAssignment(): HasOne
     {
         return $this->hasOne(CollectorDepartmentAssignment::class, 'collector_user_id');
+    }
+
+    public function roleAssignment(): HasOne
+    {
+        return $this->hasOne(UserRoleAssignment::class);
     }
 
     public function sentCollectionDispatches(): HasMany
@@ -98,27 +116,40 @@ class User extends Authenticatable
 
     public function uiRoleKey(): string
     {
-        if ($this->isAdmin()) {
-            return 'administrator';
+        $assignedRole = $this->assignedSystemRole();
+        if ($assignedRole) {
+            if ($assignedRole->isAdministrator()) {
+                return 'administrator';
+            }
+
+            if ($assignedRole->guard_name === 'collector') {
+                return 'collector';
+            }
+
+            if ($assignedRole->guard_name === 'cashier') {
+                return 'cashier';
+            }
+
+            $assignedDepartment = $this->assignedDepartmentCode();
+            if ($assignedDepartment) {
+                return $assignedDepartment;
+            }
+
+            if ($assignedRole->department_scope) {
+                return $assignedRole->department_scope;
+            }
         }
 
-        if ($this->isCollector()) {
-            return 'collector';
-        }
-
-        return match (strtolower(trim((string) $this->department))) {
-            'fishport' => 'fishport',
-            'market' => 'market',
-            'cemetery' => 'cemetery',
-            'terminal' => 'terminal',
-            'atrium' => 'atrium',
-            'cashier' => 'cashier',
-            default => 'market',
-        };
+        return $this->legacyUiRoleKey();
     }
 
     public function roleLabel(): string
     {
+        $assignedRole = $this->assignedSystemRole();
+        if ($assignedRole) {
+            return $assignedRole->name;
+        }
+
         return match ($this->uiRoleKey()) {
             'administrator' => 'Administrator',
             'fishport' => 'Fishport Personnel',
@@ -145,5 +176,148 @@ class User extends Authenticatable
             'cashier' => 'cashier.dashboard',
             default => 'home',
         };
+    }
+
+    public function hasPermission(string $permissionKey): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if (! $this->roleTablesAvailable()) {
+            return $this->legacyHasPermission($permissionKey);
+        }
+
+        $assignedRole = $this->assignedSystemRole();
+        if (! $assignedRole || ! $assignedRole->is_active) {
+            return $this->legacyHasPermission($permissionKey);
+        }
+
+        if ($assignedRole->relationLoaded('permissions')) {
+            return $assignedRole->permissions->contains('key', $permissionKey);
+        }
+
+        return $assignedRole->permissions()
+            ->where('system_permissions.key', $permissionKey)
+            ->exists();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function permissionKeys(): array
+    {
+        if ($this->isAdmin()) {
+            if (! $this->roleTablesAvailable()) {
+                return ['*'];
+            }
+
+            return SystemPermission::query()->pluck('key')->all();
+        }
+
+        $assignedRole = $this->assignedSystemRole();
+        if (! $assignedRole || ! $assignedRole->is_active) {
+            return [];
+        }
+
+        return $assignedRole->permissions()
+            ->orderBy('sort_order')
+            ->pluck('key')
+            ->all();
+    }
+
+    public function assignedDepartmentCode(): ?string
+    {
+        if ($this->roleTablesAvailable()) {
+            $assignment = $this->resolvedRoleAssignment();
+            $department = $assignment?->department;
+            if ($department?->code) {
+                return (string) $department->code;
+            }
+
+            if ($assignment?->role?->department_scope) {
+                return (string) $assignment->role->department_scope;
+            }
+        }
+
+        $department = strtolower(trim((string) $this->department));
+
+        return $department !== '' ? $department : null;
+    }
+
+    private function assignedSystemRole(): ?SystemRole
+    {
+        if (! $this->roleTablesAvailable()) {
+            return null;
+        }
+
+        return $this->resolvedRoleAssignment()?->role;
+    }
+
+    private function resolvedRoleAssignment(): ?UserRoleAssignment
+    {
+        if (! $this->roleTablesAvailable() || ! $this->exists) {
+            return null;
+        }
+
+        if ($this->relationLoaded('roleAssignment')) {
+            $assignment = $this->getRelation('roleAssignment');
+            if ($assignment && ! $assignment->relationLoaded('role')) {
+                $assignment->load('role.permissions', 'department');
+            }
+
+            return $assignment;
+        }
+
+        return $this->roleAssignment()
+            ->with('role.permissions', 'department')
+            ->first();
+    }
+
+    private function legacyUiRoleKey(): string
+    {
+        $role = strtolower(trim((string) $this->role));
+
+        if ($role === 'admin' || $role === 'administrator') {
+            return 'administrator';
+        }
+
+        if (
+            $role === 'collector'
+            || strtolower(trim((string) $this->department)) === 'collector'
+        ) {
+            return 'collector';
+        }
+
+        return match (strtolower(trim((string) $this->department))) {
+            'fishport' => 'fishport',
+            'market' => 'market',
+            'cemetery' => 'cemetery',
+            'terminal' => 'terminal',
+            'atrium' => 'atrium',
+            'cashier' => 'cashier',
+            default => 'market',
+        };
+    }
+
+    private function legacyHasPermission(string $permissionKey): bool
+    {
+        $roleKey = $this->legacyUiRoleKey();
+
+        return $roleKey === 'administrator'
+            || str_starts_with($permissionKey, $roleKey . '.');
+    }
+
+    private function roleTablesAvailable(): bool
+    {
+        static $available = null;
+
+        if ($available === null) {
+            $available = Schema::hasTable('system_roles')
+                && Schema::hasTable('system_permissions')
+                && Schema::hasTable('user_role_assignments');
+        }
+
+        return $available;
     }
 }

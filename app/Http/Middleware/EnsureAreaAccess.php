@@ -16,7 +16,13 @@ class EnsureAreaAccess
             return redirect()->route('login');
         }
 
-        if ($user->uiRoleKey() === $area) {
+        if ($user->isAdmin()) {
+            return $next($request);
+        }
+
+        $requiredPermission = $area . '.dashboard.view';
+
+        if ($user->uiRoleKey() === $area && $user->hasPermission($requiredPermission)) {
             return $next($request);
         }
 

@@ -37,4 +37,9 @@ class Department extends Model
     {
         return $this->hasMany(CollectorDepartmentAssignment::class);
     }
+
+    public function roleAssignments(): HasMany
+    {
+        return $this->hasMany(UserRoleAssignment::class);
+    }
 }

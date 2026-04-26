@@ -158,7 +158,7 @@
                 <button class="hamburger" onclick="toggleSidebar()">
                     <i class="fas fa-bars"></i>
                 </button>
-                <div class="breadcrumb">
+                <div class="breadcrumb" hidden>
                     <h3 id="pageTitle">Dashboard</h3>
                 </div>
             </div>

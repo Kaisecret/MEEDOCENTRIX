@@ -6,30 +6,35 @@
     .db { --db-primary:#155f8f; --db-primary-dk:#0f4b73; --db-green:#047857; --db-red:#dc2626; --db-amber:#d97706; --db-border:#e2e8f0; --db-soft:#f8fafc; --db-text:#334155; --db-muted:#64748b; --db-head:#0f172a; font-family:'Inter',system-ui,-apple-system,sans-serif; color:var(--db-text); display:grid; gap:20px; }
 
     /* â”€â”€ KPI CARDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-    .db-kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
-    .db-kpi { border:1px solid var(--db-border); border-radius:12px; background:#fff; padding:1.2rem 1.4rem; display:grid; gap:4px; box-shadow:0 1px 3px rgba(0,0,0,.04); position:relative; overflow:hidden; }
-    .db-kpi::before { content:''; position:absolute; top:0; left:0; width:4px; height:100%; border-radius:999px 0 0 999px; }
-    .db-kpi-blue::before  { background:var(--db-primary); }
-    .db-kpi-green::before { background:#10b981; }
-    .db-kpi-red::before   { background:var(--db-red); }
-    .db-kpi-amber::before { background:#f59e0b; }
-    .db-kpi-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; margin-bottom:8px; }
-    .db-kpi-icon-blue  { background:#dbeafe; color:var(--db-primary); }
-    .db-kpi-icon-green { background:#d1fae5; color:var(--db-green); }
-    .db-kpi-icon-red   { background:#fee2e2; color:var(--db-red); }
-    .db-kpi-icon-amber { background:#fef3c7; color:var(--db-amber); }
-    .db-kpi-label { font-size:.82rem; font-weight:600; color:var(--db-muted); text-transform:uppercase; letter-spacing:.03em; }
-    .db-kpi-value { font-size:1.8rem; font-weight:800; color:var(--db-head); letter-spacing:-.02em; line-height:1; }
-    .db-kpi-sub { font-size:.8rem; color:var(--db-muted); margin-top:2px; }
-    .db-kpi-sub .up   { color:#059669; font-weight:600; }
-    .db-kpi-sub .down { color:var(--db-red); font-weight:600; }
-    .db-kpi-sub .warn { color:var(--db-amber); font-weight:600; }
+    .db-kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+    .db-kpi { border:1px solid var(--db-border); border-radius:14px; background:#fff; padding:1.25rem 1.4rem; display:grid; gap:4px; box-shadow:0 1px 2px rgba(15,35,60,.04); position:relative; overflow:hidden; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+    .db-kpi:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(15,35,60,.07); border-color:#cfdae6; }
+    .db-kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+    .db-kpi-blue::before  { background:linear-gradient(90deg,var(--db-primary),#4ea3e0); }
+    .db-kpi-green::before { background:linear-gradient(90deg,#10b981,#34d399); }
+    .db-kpi-red::before   { background:linear-gradient(90deg,var(--db-red),#f87171); }
+    .db-kpi-amber::before { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+    .db-kpi-icon { width:42px; height:42px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1.05rem; margin-bottom:10px; }
+    .db-kpi-icon-blue  { background:rgba(21,95,143,.1); color:var(--db-primary); }
+    .db-kpi-icon-green { background:rgba(16,185,129,.1); color:var(--db-green); }
+    .db-kpi-icon-red   { background:rgba(220,38,38,.1); color:var(--db-red); }
+    .db-kpi-icon-amber { background:rgba(245,158,11,.1); color:var(--db-amber); }
+    .db-kpi-label { font-size:.7rem; font-weight:800; color:var(--db-muted); text-transform:uppercase; letter-spacing:.05em; }
+    .db-kpi-value { font-size:1.65rem; font-weight:850; color:var(--db-head); letter-spacing:-.02em; line-height:1.05; font-variant-numeric:tabular-nums; margin-top:4px; }
+    .db-kpi-sub { font-size:.78rem; color:var(--db-muted); margin-top:6px; }
+    .db-kpi-sub .up   { color:#059669; font-weight:700; }
+    .db-kpi-sub .down { color:var(--db-red); font-weight:700; }
+    .db-kpi-sub .warn { color:var(--db-amber); font-weight:700; }
 
     /* â”€â”€ CARD SHELL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-    .db-card { border:1px solid var(--db-border); border-radius:12px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.04); overflow:hidden; }
-    .db-card-head { border-bottom:1px solid var(--db-border); padding:1rem 1.25rem; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-    .db-card-head h3 { margin:0; font-size:1rem; font-weight:700; color:var(--db-head); display:flex; align-items:center; gap:8px; }
-    .db-card-body { padding:1.25rem; }
+    .db-card { border:1px solid var(--db-border); border-radius:14px; background:#fff; box-shadow:0 1px 2px rgba(15,35,60,.04); overflow:hidden; transition:box-shadow .18s ease; }
+    .db-card:hover { box-shadow:0 6px 18px rgba(15,35,60,.06); }
+    .db-card-head { border-bottom:1px solid var(--db-border); padding:1rem 1.3rem; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; background:linear-gradient(180deg,#fff,#fafcfe); }
+    .db-card-head h3 { position:relative; margin:0; padding-left:12px; font-size:.98rem; font-weight:850; color:var(--db-head); display:flex; align-items:center; gap:8px; letter-spacing:-.005em; }
+    .db-card-head h3::before { content:''; position:absolute; left:0; top:.18rem; bottom:.18rem; width:3px; border-radius:3px; background:linear-gradient(180deg,var(--db-primary),#4ea3e0); }
+    .db-card-head h3 i { position:relative; }
+    .db-card-head > span { font-size:.76rem; font-weight:700; color:var(--db-muted); padding:4px 10px; background:rgba(21,95,143,.06); border-radius:999px; }
+    .db-card-body { padding:1.25rem 1.3rem; }
 
     /* â”€â”€ 2-COL GRID â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     .db-twin { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:14px; }
@@ -51,15 +56,16 @@
     .db-badge-unpaid { background:#fef2f2; color:var(--db-red); border:1px solid #fecaca; }
 
     /* â”€â”€ PROGRESS BAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-    .db-progress-wrap { display:grid; gap:8px; }
+    .db-progress-wrap { display:grid; gap:10px; }
     .db-progress-label { display:flex; justify-content:space-between; align-items:center; }
-    .db-progress-label span:first-child { font-size:.82rem; font-weight:600; color:var(--db-muted); }
-    .db-progress-label span:last-child  { font-size:.82rem; font-weight:700; color:var(--db-head); }
-    .db-progress-bar-bg { height:8px; background:#e2e8f0; border-radius:999px; overflow:hidden; }
-    .db-progress-bar-fill { height:100%; border-radius:999px; transition:width .6s ease; }
-    .db-progress-bar-fill.green  { background:#10b981; }
-    .db-progress-bar-fill.blue   { background:var(--db-primary); }
-    .db-progress-bar-fill.red    { background:var(--db-red); }
+    .db-progress-label span:first-child { font-size:.82rem; font-weight:700; color:var(--db-text); }
+    .db-progress-label span:last-child  { font-size:.92rem; font-weight:850; color:var(--db-head); font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+    .db-progress-bar-bg { height:10px; background:#eef2f7; border-radius:999px; overflow:hidden; box-shadow:inset 0 1px 2px rgba(0,0,0,.04); }
+    .db-progress-bar-fill { height:100%; border-radius:999px; transition:width .6s cubic-bezier(.4,0,.2,1); position:relative; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+    .db-progress-bar-fill::after { content:''; position:absolute; inset:0; border-radius:999px; background:linear-gradient(180deg,rgba(255,255,255,.25),transparent 60%); }
+    .db-progress-bar-fill.green  { background:linear-gradient(90deg,#10b981,#34d399); }
+    .db-progress-bar-fill.blue   { background:linear-gradient(90deg,var(--db-primary),#4ea3e0); }
+    .db-progress-bar-fill.red    { background:linear-gradient(90deg,var(--db-red),#f87171); }
 
     /* â”€â”€ METRIC ROWS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     .db-metric-row { display:flex; justify-content:space-between; align-items:center; padding:.7rem 0; border-bottom:1px solid #f1f5f9; font-size:.88rem; }
@@ -157,7 +163,7 @@
         <div class="db-kpi db-kpi-green">
             <div class="db-kpi-icon db-kpi-icon-green"><i class="fa-solid fa-peso-sign"></i></div>
             <div class="db-kpi-label">Paid Collections</div>
-            <div class="db-kpi-value" style="font-size:1.4rem;">PHP {{ number_format($paidTodayAmount, 2) }}</div>
+            <div class="db-kpi-value">PHP {{ number_format($paidTodayAmount, 2) }}</div>
             <div class="db-kpi-sub">{{ $filterLabel }} period</div>
         </div>
 
@@ -175,7 +181,7 @@
         <div class="db-kpi db-kpi-amber">
             <div class="db-kpi-icon db-kpi-icon-amber"><i class="fa-solid fa-chart-line"></i></div>
             <div class="db-kpi-label">Total Billings</div>
-            <div class="db-kpi-value" style="font-size:1.4rem;">PHP {{ number_format($totalRevenue, 2) }}</div>
+            <div class="db-kpi-value">PHP {{ number_format($totalRevenue, 2) }}</div>
             <div class="db-kpi-sub">{{ $displayRange }}</div>
         </div>
     </div>
@@ -405,9 +411,29 @@
     const AMBER     = '#f59e0b';
     const SOFT_BLUE = 'rgba(21,95,143,0.12)';
 
+    const darkTooltip = {
+        backgroundColor: 'rgba(15,23,42,.94)',
+        titleColor: '#f8fafc',
+        bodyColor: '#e2e8f0',
+        padding: 12,
+        cornerRadius: 10,
+        boxPadding: 6,
+        titleFont: { weight: '700', size: 12 },
+        bodyFont: { weight: '600', size: 12 },
+    };
+
+    const buildVerticalGradient = (canvas, top, bottom) => {
+        const ctx = canvas.getContext('2d');
+        const g = ctx.createLinearGradient(0, 0, 0, canvas.parentElement?.clientHeight || 220);
+        g.addColorStop(0, top);
+        g.addColorStop(1, bottom);
+        return g;
+    };
+
     // â”€â”€ Weekly Bar Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    const weeklyCanvas = document.getElementById('weeklyChart');
     const weeklyData = parseJsonScript('dbDailyStatsJson', []);
-    new Chart(document.getElementById('weeklyChart'), {
+    new Chart(weeklyCanvas, {
         type: 'bar',
         data: {
             labels: weeklyData.map(d => d.label + '\n' + d.date),
@@ -415,29 +441,46 @@
                 {
                     label: 'Arrivals',
                     data: weeklyData.map(d => d.arrivals),
-                    backgroundColor: '#10b981',
-                    borderRadius: 6,
+                    backgroundColor: buildVerticalGradient(weeklyCanvas, '#34d399', '#10b981'),
+                    hoverBackgroundColor: '#0ea372',
+                    borderRadius: 8,
                     borderSkipped: false,
+                    maxBarThickness: 22,
                 },
                 {
                     label: 'Departures',
                     data: weeklyData.map(d => d.departures),
-                    backgroundColor: PRIMARY,
-                    borderRadius: 6,
+                    backgroundColor: buildVerticalGradient(weeklyCanvas, '#4ea3e0', PRIMARY),
+                    hoverBackgroundColor: '#0f4b73',
+                    borderRadius: 8,
                     borderSkipped: false,
+                    maxBarThickness: 22,
                 },
             ],
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: { padding: { top: 12, right: 8, left: 0, bottom: 0 } },
+            animation: { duration: 800, easing: 'easeOutQuart' },
             plugins: {
-                legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } },
-                tooltip: { mode: 'index', intersect: false },
+                legend: {
+                    position: 'top',
+                    align: 'end',
+                    labels: { font: { size: 11, weight: '700' }, boxWidth: 8, boxHeight: 8, usePointStyle: true, padding: 14, color: '#475569' },
+                },
+                tooltip: { ...darkTooltip, mode: 'index', intersect: false, displayColors: true },
             },
             scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
+                x: {
+                    grid: { display: false, drawBorder: false },
+                    ticks: { font: { size: 10, weight: '600' }, color: '#94a3b8', maxRotation: 0, autoSkipPadding: 8 },
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, font: { size: 10, weight: '600' }, color: '#94a3b8', padding: 8 },
+                    grid: { color: 'rgba(148,163,184,.14)', drawBorder: false },
+                },
             },
         },
     });
@@ -453,24 +496,47 @@
             datasets: [{
                 data: [arrCount, depCount],
                 backgroundColor: [GREEN, PRIMARY],
-                borderWidth: 2,
+                hoverBackgroundColor: ['#0ea372', '#0f4b73'],
+                borderWidth: 3,
                 borderColor: '#fff',
+                hoverOffset: 8,
+                spacing: 2,
             }],
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '68%',
+            cutout: '72%',
+            radius: '94%',
+            animation: { animateRotate: true, animateScale: true, duration: 800, easing: 'easeOutQuart' },
             plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}` } },
+                tooltip: {
+                    ...darkTooltip,
+                    callbacks: {
+                        label: (ctx) => {
+                            const total = (ctx.dataset.data || []).reduce((s, v) => s + Number(v || 0), 0);
+                            const pct = total > 0 ? ((Number(ctx.parsed) / total) * 100).toFixed(1) : '0.0';
+                            return ` ${ctx.label}: ${ctx.parsed} (${pct}%)`;
+                        },
+                    },
+                },
             },
         },
     });
 
     // â”€â”€ Monthly Revenue Line Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    const revenueCanvas = document.getElementById('revenueChart');
     const monthlyData = parseJsonScript('dbMonthlyRevenueJson', []);
-    const revenueChart = new Chart(document.getElementById('revenueChart'), {
+    const revenueGradient = (() => {
+        const ctx = revenueCanvas.getContext('2d');
+        const g = ctx.createLinearGradient(0, 0, 0, 220);
+        g.addColorStop(0, 'rgba(21,95,143,.32)');
+        g.addColorStop(0.55, 'rgba(21,95,143,.08)');
+        g.addColorStop(1, 'rgba(21,95,143,0)');
+        return g;
+    })();
+    const revenueChart = new Chart(revenueCanvas, {
         type: 'line',
         data: {
             labels: monthlyData.map(d => d.label),
@@ -478,45 +544,56 @@
                 label: 'Revenue (PHP)',
                 data: monthlyData.map(d => d.revenue),
                 borderColor: PRIMARY,
-                backgroundColor: SOFT_BLUE,
+                backgroundColor: revenueGradient,
                 borderWidth: 2.5,
-                pointBackgroundColor: PRIMARY,
-                pointRadius: 4,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: PRIMARY,
+                pointBorderWidth: 2.5,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                pointHoverBackgroundColor: PRIMARY,
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 3,
                 fill: true,
-                tension: 0.35,
+                tension: 0.4,
             }],
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: { padding: { top: 12, right: 8, left: 0, bottom: 0 } },
+            animation: { duration: 900, easing: 'easeOutQuart' },
+            interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    ...darkTooltip,
+                    displayColors: false,
                     callbacks: {
                         label: ctx => ' PHP ' + Number(ctx.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2 }),
                     },
                 },
             },
             scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                x: {
+                    grid: { display: false, drawBorder: false },
+                    ticks: { font: { size: 10, weight: '600' }, color: '#94a3b8', maxRotation: 0, autoSkipPadding: 12 },
+                },
                 y: {
                     beginAtZero: true,
                     ticks: {
-                        font: { size: 10 },
-                        callback: v => 'PHP ' + Number(v).toLocaleString('en-PH'),
+                        font: { size: 10, weight: '600' },
+                        color: '#94a3b8',
+                        padding: 8,
+                        callback: v => 'PHP ' + Number(v).toLocaleString('en-PH', { notation: 'compact', maximumFractionDigits: 1 }),
                     },
-                    grid: { color: '#f1f5f9' },
+                    grid: { color: 'rgba(148,163,184,.14)', drawBorder: false },
                 },
             },
         },
     });
 
-    // Keep chart currency formatting in English.
-    revenueChart.options.plugins.tooltip.callbacks.label = (ctx) =>
-        ' PHP ' + Number(ctx.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2 });
-    revenueChart.options.scales.y.ticks.callback = (v) =>
-        'PHP ' + Number(v).toLocaleString('en-PH');
-    revenueChart.update();
+    // Tooltip currency stays in English en-PH locale (already set above).
 
     // Pull fresh DB data continuously (disabled for custom range mode).
     if (!periodInput || periodInput.value !== 'range') {

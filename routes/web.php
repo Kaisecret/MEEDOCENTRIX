@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\UserManagementController;
-use App\Http\Controllers\Admin\FishportRateController;
+use App\Http\Controllers\Admin\AdminRateController;
+use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\RoleManagementController;
 use App\Http\Controllers\Atrium\AtriumBookingController;
 use App\Http\Controllers\Atrium\AtriumDashboardController;
 use App\Http\Controllers\Atrium\AtriumPaymentController;
@@ -48,13 +50,19 @@ Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->
 Route::middleware('auth')->group(function () {
     // Admin
     Route::prefix('admin')->middleware('admin')->group(function () {
-        Route::view('/dashboard', 'admin.dashboard')->name('admin.dashboard');
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+        Route::get('/dashboard/all', [AdminDashboardController::class, 'all'])->name('admin.dashboard.all');
+        Route::get('/dashboard/departments/{department}', [AdminDashboardController::class, 'department'])->name('admin.dashboard.department');
         Route::get('/users', [UserManagementController::class, 'index'])->name('admin.users');
         Route::post('/users', [UserManagementController::class, 'store'])->name('admin.users.store');
         Route::post('/users/collector-assignments', [UserManagementController::class, 'assignCollector'])->name('admin.users.collector_assignments.store');
-        Route::get('/rates', [FishportRateController::class, 'index'])->name('admin.rates');
-        Route::put('/rates', [FishportRateController::class, 'update'])->name('admin.rates.update');
-        Route::view('/roles', 'admin.roles')->name('admin.roles');
+        Route::get('/roles', [RoleManagementController::class, 'index'])->name('admin.roles');
+        Route::post('/roles', [RoleManagementController::class, 'storeRole'])->name('admin.roles.store');
+        Route::put('/roles/{role}', [RoleManagementController::class, 'updateRole'])->name('admin.roles.update');
+        Route::put('/roles/{role}/permissions', [RoleManagementController::class, 'updatePermissions'])->name('admin.roles.permissions.update');
+        Route::post('/roles/assignments', [RoleManagementController::class, 'assignUser'])->name('admin.roles.assignments.store');
+        Route::get('/rates', [AdminRateController::class, 'index'])->name('admin.rates');
+        Route::put('/rates', [AdminRateController::class, 'update'])->name('admin.rates.update');
         Route::view('/reports', 'admin.reports')->name('admin.reports');
         Route::view('/transactions', 'admin.transactions')->name('admin.transactions');
     });

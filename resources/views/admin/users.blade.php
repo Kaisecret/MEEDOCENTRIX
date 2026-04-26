@@ -22,24 +22,36 @@
     $unassignedCollectorCount = max($collectorAccounts->count() - $assignedCollectorCount, 0);
 @endphp
 
-<div data-server-rendered-page="users" data-page-title="User Management" class="um-page">
+<div
+    data-server-rendered-page="users"
+    data-page-title="User Management"
+    data-active-tab="{{ (string) session('active_tab', '') }}"
+    data-old-form="{{ (string) old('_form', '') }}"
+    data-has-errors="{{ $errors->any() ? '1' : '0' }}"
+    class="um-page"
+>
     <section class="um-hero">
-        <div>
-            <h1>User Management</h1>
-            <p>Create accounts, manage roles, and assign collectors to the correct department workflow.</p>
-        </div>
         <div class="um-hero-metrics">
             <div class="um-kpi">
-                <span class="um-kpi-label">Total Users</span>
-                <strong>{{ $users->count() }}</strong>
+                <span class="um-kpi-icon"><i class="fas fa-users"></i></span>
+                <div>
+                    <span class="um-kpi-label">Total Users</span>
+                    <strong>{{ $users->count() }}</strong>
+                </div>
             </div>
             <div class="um-kpi">
-                <span class="um-kpi-label">Collectors</span>
-                <strong>{{ $collectorAccounts->count() }}</strong>
+                <span class="um-kpi-icon um-kpi-icon-teal"><i class="fas fa-hand-holding-dollar"></i></span>
+                <div>
+                    <span class="um-kpi-label">Collectors</span>
+                    <strong>{{ $collectorAccounts->count() }}</strong>
+                </div>
             </div>
             <div class="um-kpi">
-                <span class="um-kpi-label">Assigned</span>
-                <strong>{{ $assignedCollectorCount }}</strong>
+                <span class="um-kpi-icon um-kpi-icon-green"><i class="fas fa-user-check"></i></span>
+                <div>
+                    <span class="um-kpi-label">Assigned</span>
+                    <strong>{{ $assignedCollectorCount }}</strong>
+                </div>
             </div>
         </div>
     </section>
@@ -160,7 +172,7 @@
             <header class="um-card-head um-card-head-stack">
                 <div>
                     <h3>Create New User</h3>
-                    <p>Create any personnel account including collector accounts.</p>
+                    <p>Set up personnel accounts with clear role mapping and secure credentials.</p>
                 </div>
                 <div class="um-info-note">
                     <i class="fas fa-lightbulb"></i>
@@ -168,51 +180,88 @@
                 </div>
             </header>
 
-            <form action="{{ route('admin.users.store') }}" method="POST" class="um-form">
+            <form action="{{ route('admin.users.store') }}" method="POST" class="um-form um-form-modern">
                 @csrf
                 <input type="hidden" name="_form" value="add_user">
 
-                <div class="um-form-grid">
-                    <label>
-                        <span>Full Name</span>
-                        <input id="name" name="name" type="text" value="{{ old('name') }}" class="form-control" required>
+                <div class="um-form-intro">
+                    <div class="um-form-intro-item">
+                        <i class="fas fa-circle-check"></i>
+                        <span>Use a department-specific account for easier audit tracking.</span>
+                    </div>
+                    <div class="um-form-intro-item">
+                        <i class="fas fa-shield-halved"></i>
+                        <span>Set a strong password to reduce unauthorized access risk.</span>
+                    </div>
+                </div>
+
+                <div class="um-form-grid um-form-grid-modern">
+                    <label class="um-field">
+                        <span class="um-field-label">Full Name</span>
+                        <div class="um-input-wrap">
+                            <i class="fas fa-id-badge"></i>
+                            <input id="name" name="name" type="text" value="{{ old('name') }}" class="form-control" placeholder="e.g. Juan Dela Cruz" autocomplete="name" required>
+                        </div>
                     </label>
-                    <label>
-                        <span>Username</span>
-                        <input id="username" name="username" type="text" value="{{ old('username') }}" class="form-control" required>
+                    <label class="um-field">
+                        <span class="um-field-label">Username</span>
+                        <div class="um-input-wrap">
+                            <i class="fas fa-at"></i>
+                            <input id="username" name="username" type="text" value="{{ old('username') }}" class="form-control" placeholder="e.g. juan.dela.cruz" autocomplete="username" required>
+                        </div>
                     </label>
-                    <label>
-                        <span>Email Address</span>
-                        <input id="email" name="email" type="email" value="{{ old('email') }}" class="form-control" required>
+                    <label class="um-field">
+                        <span class="um-field-label">Email Address</span>
+                        <div class="um-input-wrap">
+                            <i class="fas fa-envelope"></i>
+                            <input id="email" name="email" type="email" value="{{ old('email') }}" class="form-control" placeholder="name@domain.com" autocomplete="email" required>
+                        </div>
                     </label>
-                    <label>
-                        <span>Department</span>
-                        <select id="department" name="department" class="form-control" required>
-                            <option value="">Select department...</option>
-                            @foreach ($departments as $department)
-                                @php $departmentCode = strtolower((string) $department); @endphp
-                                <option value="{{ $departmentCode }}" {{ old('department') === $departmentCode ? 'selected' : '' }}>
-                                    {{ $departmentLabels[$departmentCode] ?? ucfirst($departmentCode) }}
-                                </option>
-                            @endforeach
-                        </select>
+                    <label class="um-field">
+                        <span class="um-field-label">Department</span>
+                        <div class="um-input-wrap">
+                            <i class="fas fa-building-user"></i>
+                            <select id="department" name="department" class="form-control" required>
+                                <option value="">Select department...</option>
+                                @foreach ($departments as $department)
+                                    @php $departmentCode = strtolower((string) $department); @endphp
+                                    <option value="{{ $departmentCode }}" {{ old('department') === $departmentCode ? 'selected' : '' }}>
+                                        {{ $departmentLabels[$departmentCode] ?? ucfirst($departmentCode) }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <small class="um-field-help">Collector accounts require assignment in the next tab.</small>
                     </label>
-                    <label>
-                        <span>Password</span>
-                        <input id="password" name="password" type="password" class="form-control" required>
+                    <label class="um-field">
+                        <span class="um-field-label">Password</span>
+                        <div class="um-input-wrap um-input-wrap-password">
+                            <i class="fas fa-lock"></i>
+                            <input id="password" name="password" type="password" class="form-control" autocomplete="new-password" placeholder="Enter a strong password" required>
+                            <button type="button" class="um-password-toggle" data-toggle-password="password" aria-label="Show password">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
                     </label>
-                    <label>
-                        <span>Confirm Password</span>
-                        <input id="password_confirmation" name="password_confirmation" type="password" class="form-control" required>
+                    <label class="um-field">
+                        <span class="um-field-label">Confirm Password</span>
+                        <div class="um-input-wrap um-input-wrap-password">
+                            <i class="fas fa-lock"></i>
+                            <input id="password_confirmation" name="password_confirmation" type="password" class="form-control" autocomplete="new-password" placeholder="Re-enter password" required>
+                            <button type="button" class="um-password-toggle" data-toggle-password="password_confirmation" aria-label="Show password confirmation">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
                     </label>
                 </div>
 
                 <div class="um-form-actions">
-                    <label class="um-checkbox">
+                    <label class="um-switch">
                         <input type="checkbox" name="is_active" value="1" {{ old('is_active', '1') ? 'checked' : '' }}>
-                        <span>Account is active</span>
+                        <span class="um-switch-track" aria-hidden="true"></span>
+                        <span class="um-switch-text">Account is active</span>
                     </label>
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary um-create-btn">
                         <i class="fas fa-user-check"></i> Create Account
                     </button>
                 </div>
@@ -363,58 +412,93 @@
     }
 
     .um-hero {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        padding: 1.2rem 1.25rem;
-        border-radius: 16px;
-        background: linear-gradient(135deg, #113b68 0%, #205d91 52%, #2a77ac 100%);
-        color: #f8fbff;
-        box-shadow: 0 14px 30px rgba(11, 52, 92, 0.28);
         margin-bottom: 1rem;
-    }
-
-    .um-hero h1 {
-        margin: 0;
-        font-size: 1.45rem;
-        font-weight: 800;
-        letter-spacing: 0.01em;
-    }
-
-    .um-hero p {
-        margin: 0.4rem 0 0;
-        opacity: 0.9;
-        font-size: 0.93rem;
-        max-width: 620px;
     }
 
     .um-hero-metrics {
         display: grid;
-        grid-template-columns: repeat(3, minmax(95px, 1fr));
-        gap: 0.6rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
     }
 
     .um-kpi {
-        background: rgba(255, 255, 255, 0.12);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding: 1rem 1.1rem;
+        background: #ffffff;
+        border: 1px solid #e3eaf3;
+        border-radius: 14px;
+        box-shadow: 0 1px 2px rgba(15, 35, 60, 0.04);
+        overflow: hidden;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+
+    .um-kpi::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #2563eb, #60a5fa);
+    }
+
+    .um-kpi:nth-child(2)::before {
+        background: linear-gradient(90deg, #14b8a6, #2dd4bf);
+    }
+
+    .um-kpi:nth-child(3)::before {
+        background: linear-gradient(90deg, #16a34a, #4ade80);
+    }
+
+    .um-kpi:hover {
+        transform: translateY(-2px);
+        border-color: #cfdae6;
+        box-shadow: 0 6px 16px rgba(15, 35, 60, 0.07);
+    }
+
+    .um-kpi-icon {
+        width: 42px;
+        height: 42px;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         border-radius: 11px;
-        padding: 0.55rem 0.65rem;
-        min-width: 92px;
-        text-align: right;
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        font-size: 1.05rem;
+    }
+
+    .um-kpi-icon-teal {
+        background: rgba(20, 184, 166, 0.1);
+        color: #14b8a6;
+    }
+
+    .um-kpi-icon-green {
+        background: rgba(22, 163, 74, 0.1);
+        color: #16a34a;
     }
 
     .um-kpi-label {
         display: block;
+        color: #6b7d93;
         font-size: 0.7rem;
+        font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        opacity: 0.85;
+        letter-spacing: 0.06em;
     }
 
     .um-kpi strong {
-        font-size: 1.18rem;
-        line-height: 1.1;
+        display: block;
+        margin-top: 0.25rem;
+        color: #0b1a2c;
+        font-size: 1.45rem;
+        font-weight: 850;
+        line-height: 1;
+        letter-spacing: -0.01em;
     }
 
     .um-alert {
@@ -888,23 +972,246 @@
         background: #fbfdff;
     }
 
+    /* Modern UI overrides */
+    .um-page {
+        padding-top: 0.6rem;
+    }
+
+    .um-tabs {
+        gap: 0.5rem;
+        background: linear-gradient(180deg, #edf4fc 0%, #e6eff9 100%);
+        border: 1px solid #ccddee;
+        border-radius: 14px;
+        padding: 0.45rem;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+    }
+
+    .um-tab-btn {
+        color: #395571;
+        padding: 0.66rem 1rem;
+        border-radius: 11px;
+        font-weight: 700;
+    }
+
+    .um-tab-btn:hover {
+        color: #123e65;
+        background: rgba(255, 255, 255, 0.58);
+    }
+
+    .um-tab-btn-active {
+        background: #ffffff;
+        color: #0f4f87;
+        box-shadow: 0 10px 20px rgba(13, 72, 123, 0.15);
+    }
+
+    .um-card {
+        border: 1px solid #d7e4f1;
+        border-radius: 16px;
+        box-shadow: 0 16px 32px rgba(8, 39, 70, 0.09);
+    }
+
+    .um-card-head {
+        padding: 1.18rem 1.28rem;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    }
+
+    .um-form-modern {
+        gap: 1.15rem;
+        padding: 1.3rem;
+    }
+
+    .um-form-intro {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.6rem;
+    }
+
+    .um-form-intro-item {
+        display: flex;
+        align-items: center;
+        gap: 0.56rem;
+        padding: 0.68rem 0.78rem;
+        border-radius: 12px;
+        border: 1px solid #d4e2f0;
+        background: linear-gradient(180deg, #f8fbff 0%, #f1f7ff 100%);
+        color: #214666;
+        font-size: 0.84rem;
+        font-weight: 600;
+    }
+
+    .um-form-intro-item i {
+        color: #1d6eb0;
+    }
+
+    .um-form-grid-modern {
+        gap: 0.95rem;
+    }
+
+    .um-field {
+        gap: 0.42rem;
+    }
+
+    .um-field-label {
+        color: #183b5a;
+        font-size: 0.82rem;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        font-weight: 800;
+    }
+
+    .um-field-help {
+        color: #5b7794;
+        font-size: 0.78rem;
+        margin-top: 0.06rem;
+    }
+
+    .um-input-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .um-input-wrap > i {
+        position: absolute;
+        left: 12px;
+        color: #6d88a3;
+        font-size: 0.83rem;
+        pointer-events: none;
+    }
+
+    .um-form-modern .form-control {
+        width: 100%;
+        min-height: 44px;
+        border: 1px solid #c6d8ea;
+        background: #f7fbff;
+        border-radius: 12px;
+        padding: 0.6rem 0.76rem 0.6rem 2.15rem;
+        color: #163550;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        appearance: none;
+    }
+
+    .um-form-modern .form-control:focus {
+        border-color: #2f7fbd;
+        box-shadow: 0 0 0 4px rgba(32, 110, 172, 0.14);
+        background: #ffffff;
+        outline: none;
+    }
+
+    .um-input-wrap-password .form-control {
+        padding-right: 2.45rem;
+    }
+
+    .um-password-toggle {
+        position: absolute;
+        right: 8px;
+        width: 30px;
+        height: 30px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #507090;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .um-password-toggle:hover {
+        background: #e8f1fb;
+        color: #205b8d;
+    }
+
+    .um-password-toggle:focus-visible {
+        outline: 2px solid #2f7fbd;
+        outline-offset: 1px;
+    }
+
+    .um-form-actions {
+        margin-top: 0.15rem;
+        border-top: 1px solid #deebf7;
+        padding-top: 1rem;
+    }
+
+    .um-switch {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.62rem;
+        font-weight: 700;
+        color: #214a6d;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .um-switch input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .um-switch-track {
+        width: 48px;
+        height: 28px;
+        border-radius: 999px;
+        background: #cad8e7;
+        position: relative;
+        transition: background 0.22s ease;
+        box-shadow: inset 0 1px 2px rgba(11, 43, 74, 0.16);
+    }
+
+    .um-switch-track::after {
+        content: '';
+        position: absolute;
+        width: 22px;
+        height: 22px;
+        top: 3px;
+        left: 3px;
+        border-radius: 50%;
+        background: #ffffff;
+        box-shadow: 0 2px 8px rgba(10, 46, 79, 0.22);
+        transition: transform 0.22s ease;
+    }
+
+    .um-switch input:checked + .um-switch-track {
+        background: linear-gradient(135deg, #0f7d5a 0%, #1f9f73 100%);
+    }
+
+    .um-switch input:checked + .um-switch-track::after {
+        transform: translateX(20px);
+    }
+
+    .um-switch input:focus-visible + .um-switch-track {
+        outline: 2px solid #2f7fbd;
+        outline-offset: 2px;
+    }
+
+    .um-create-btn {
+        min-height: 44px;
+        border-radius: 12px;
+        padding: 0.64rem 1.22rem;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+        box-shadow: 0 12px 20px rgba(16, 91, 151, 0.22);
+    }
+
     @keyframes umFadeIn {
         from { opacity: 0; transform: translateY(4px); }
         to { opacity: 1; transform: translateY(0); }
     }
 
     @media (max-width: 1080px) {
-        .um-hero {
-            flex-direction: column;
-            align-items: flex-start;
-        }
-
         .um-hero-metrics {
             width: 100%;
             grid-template-columns: repeat(3, minmax(80px, 1fr));
         }
 
         .um-assign-form {
+            grid-template-columns: 1fr;
+        }
+
+        .um-form-intro {
             grid-template-columns: 1fr;
         }
     }
@@ -923,8 +1230,12 @@
             justify-content: center;
         }
 
-        .um-hero h1 {
-            font-size: 1.22rem;
+        .um-hero-metrics {
+            grid-template-columns: 1fr;
+        }
+
+        .um-kpi strong {
+            font-size: 1.25rem;
         }
 
         .um-card-head,
@@ -1022,26 +1333,47 @@
 
         applyUserSearch('');
 
-        const activeTab = @json(session('active_tab'));
-        const oldForm = @json(old('_form'));
-        const hasErrors = @json($errors->any());
+        const pageRoot = document.querySelector('.um-page');
+        const activeTab = (pageRoot?.dataset.activeTab || '').trim();
+        const oldForm = (pageRoot?.dataset.oldForm || '').trim();
+        const hasErrors = (pageRoot?.dataset.hasErrors || '') === '1';
+        let targetTab = 'users';
 
         if (activeTab === 'users' || activeTab === 'add' || activeTab === 'assignments') {
-            switchTab(activeTab);
-            return;
+            targetTab = activeTab;
+        } else if (oldForm === 'collector_assignment') {
+            targetTab = 'assignments';
+        } else if (oldForm === 'add_user' || hasErrors) {
+            targetTab = 'add';
         }
 
-        if (oldForm === 'collector_assignment') {
-            switchTab('assignments');
-            return;
-        }
+        switchTab(targetTab);
 
-        if (oldForm === 'add_user' || hasErrors) {
-            switchTab('add');
-            return;
-        }
+        const passwordToggles = Array.from(document.querySelectorAll('[data-toggle-password]'));
+        passwordToggles.forEach((toggleButton) => {
+            toggleButton.addEventListener('click', function () {
+                const inputId = toggleButton.getAttribute('data-toggle-password');
+                if (!inputId) {
+                    return;
+                }
 
-        switchTab('users');
+                const input = document.getElementById(inputId);
+                if (!input) {
+                    return;
+                }
+
+                const nextType = input.type === 'password' ? 'text' : 'password';
+                input.type = nextType;
+
+                const icon = toggleButton.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-eye', nextType === 'password');
+                    icon.classList.toggle('fa-eye-slash', nextType === 'text');
+                }
+
+                toggleButton.setAttribute('aria-label', nextType === 'password' ? 'Show password' : 'Hide password');
+            });
+        });
 
         const assignmentForm = document.getElementById('collectorAssignmentForm');
         const collectorSelect = document.getElementById('collector_user_id');

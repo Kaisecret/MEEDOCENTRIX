@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CollectorDepartmentAssignment;
 use App\Models\Department;
+use App\Models\SystemRole;
 use App\Models\User;
+use App\Models\UserRoleAssignment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -34,10 +36,15 @@ class UserManagementController extends Controller
     {
         $hasCollectorSchema = Schema::hasTable('departments')
             && Schema::hasTable('collector_department_assignments');
+        $hasRoleSchema = Schema::hasTable('system_roles')
+            && Schema::hasTable('user_role_assignments');
 
         $usersQuery = User::query()->latest();
         if ($hasCollectorSchema) {
             $usersQuery->with('collectorAssignment.department');
+        }
+        if ($hasRoleSchema) {
+            $usersQuery->with(['roleAssignment.role', 'roleAssignment.department']);
         }
 
         $collectorAccountsQuery = User::query()
@@ -49,6 +56,9 @@ class UserManagementController extends Controller
 
         if ($hasCollectorSchema) {
             $collectorAccountsQuery->with('collectorAssignment.department');
+        }
+        if ($hasRoleSchema) {
+            $collectorAccountsQuery->with(['roleAssignment.role', 'roleAssignment.department']);
         }
 
         $collectorDepartments = collect();
@@ -89,7 +99,7 @@ class UserManagementController extends Controller
 
         $isCollector = strtolower((string) $validated['department']) === 'collector';
 
-        User::create([
+        $user = User::create([
             'name' => $validated['name'],
             'username' => $validated['username'],
             'email' => $validated['email'],
@@ -99,6 +109,8 @@ class UserManagementController extends Controller
             'is_active' => $request->boolean('is_active', true),
             'email_verified_at' => now(),
         ]);
+
+        $this->syncDefaultRoleAssignment($user, (string) $validated['department']);
 
         $statusMessage = $isCollector
             ? 'Collector account created. You can now assign this collector to Fishport, Public Market, or Atrium.'
@@ -173,5 +185,44 @@ class UserManagementController extends Controller
             ->route('admin.users')
             ->with('status', "Collector assignment {$action}: {$collector->name} -> {$department->name}.")
             ->with('active_tab', 'assignments');
+    }
+
+    private function syncDefaultRoleAssignment(User $user, string $departmentCode): void
+    {
+        if (! Schema::hasTable('system_roles') || ! Schema::hasTable('user_role_assignments')) {
+            return;
+        }
+
+        $departmentCode = strtolower(trim($departmentCode));
+        $roleKey = match ($departmentCode) {
+            'collector' => 'collector',
+            'cashier' => 'cashier',
+            'fishport' => 'fishport_personnel',
+            'market' => 'market_personnel',
+            'cemetery' => 'cemetery_personnel',
+            'terminal' => 'terminal_personnel',
+            'atrium' => 'atrium_personnel',
+            default => 'market_personnel',
+        };
+
+        $role = SystemRole::query()->where('key', $roleKey)->first();
+        if (! $role) {
+            return;
+        }
+
+        $department = Department::query()
+            ->where('code', $role->department_scope ?: $departmentCode)
+            ->first();
+
+        UserRoleAssignment::query()->updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'system_role_id' => $role->id,
+                'department_id' => $department?->id,
+                'assigned_by_user_id' => auth()->id(),
+                'assigned_at' => now(),
+                'notes' => 'Assigned during user creation.',
+            ]
+        );
     }
 }

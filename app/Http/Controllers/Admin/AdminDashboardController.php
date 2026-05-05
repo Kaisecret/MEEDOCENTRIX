@@ -78,14 +78,26 @@ class AdminDashboardController extends Controller
 
     private function renderDashboard(Request $request, string $mode, ?string $selectedDepartment = null): View
     {
+        $requestedDepartment = strtolower(trim((string) $request->query('department', '')));
+        if (! array_key_exists($requestedDepartment, self::DEPARTMENTS)) {
+            $requestedDepartment = '';
+        }
+
+        $effectiveDepartment = $requestedDepartment !== ''
+            ? $requestedDepartment
+            : $selectedDepartment;
+        if ($mode === 'overview' && $effectiveDepartment) {
+            $mode = 'department';
+        }
+
         $filters = $this->resolveFilters($request);
         $currentRows = $this->getRevenueRows($filters['start_date'], $filters['end_date']);
         $previousRows = $this->getRevenueRows($filters['previous_start_date'], $filters['previous_end_date']);
-        $visibleRows = $selectedDepartment
-            ? $currentRows->where('department_code', $selectedDepartment)->values()
+        $visibleRows = $effectiveDepartment
+            ? $currentRows->where('department_code', $effectiveDepartment)->values()
             : $currentRows;
-        $visiblePreviousRows = $selectedDepartment
-            ? $previousRows->where('department_code', $selectedDepartment)->values()
+        $visiblePreviousRows = $effectiveDepartment
+            ? $previousRows->where('department_code', $effectiveDepartment)->values()
             : $previousRows;
 
         $departmentSummaries = $this->buildDepartmentSummaries($currentRows, $previousRows, $filters);
@@ -98,8 +110,8 @@ class AdminDashboardController extends Controller
 
         return view('admin.dashboard', [
             'mode' => $mode,
-            'selectedDepartment' => $selectedDepartment,
-            'selectedDepartmentConfig' => $selectedDepartment ? self::DEPARTMENTS[$selectedDepartment] : null,
+            'selectedDepartment' => $effectiveDepartment,
+            'selectedDepartmentConfig' => $effectiveDepartment ? self::DEPARTMENTS[$effectiveDepartment] : null,
             'departments' => self::DEPARTMENTS,
             'filters' => $filters,
             'summaryCards' => $summaryCards,
@@ -376,7 +388,7 @@ class AdminDashboardController extends Controller
                     'best_day_label' => $bestDayKey ? Carbon::parse($bestDayKey)->format('M d') : 'No revenue',
                     'best_day_revenue' => $bestDayRevenue,
                     'latest_payment_label' => $latestPaymentAt instanceof Carbon ? $latestPaymentAt->format('M d, Y h:i A') : 'No recent payment',
-                    'insights' => $this->buildDepartmentInsights($revenue, $growth, $share, $bestDayKey, $bestDayRevenue),
+                    'insights' => $this->buildDepartmentInsights($revenue, $share, $bestDayKey, $bestDayRevenue),
                 ];
             })
             ->sortByDesc('revenue')
@@ -419,7 +431,7 @@ class AdminDashboardController extends Controller
     /**
      * @return array<int, string>
      */
-    private function buildDepartmentInsights(float $revenue, float $growth, float $share, ?string $bestDayKey, float $bestDayRevenue): array
+    private function buildDepartmentInsights(float $revenue, float $share, ?string $bestDayKey, float $bestDayRevenue): array
     {
         if ($revenue <= 0) {
             return [
@@ -428,16 +440,11 @@ class AdminDashboardController extends Controller
             ];
         }
 
-        $growthText = $growth >= 0
-            ? 'Revenue increased by ' . number_format($growth, 1) . '% versus the previous period.'
-            : 'Revenue decreased by ' . number_format(abs($growth), 1) . '% versus the previous period.';
-
         $bestDayText = $bestDayKey
             ? 'Best day was ' . Carbon::parse($bestDayKey)->format('F j') . ' with PHP ' . number_format($bestDayRevenue, 2) . '.'
             : 'No daily peak available for this period.';
 
         return [
-            $growthText,
             'Department share is ' . number_format($share, 1) . '% of total selected revenue.',
             $bestDayText,
         ];

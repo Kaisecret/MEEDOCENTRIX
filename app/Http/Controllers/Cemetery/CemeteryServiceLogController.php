@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CemeteryServiceLogController extends Controller
 {
@@ -25,26 +26,7 @@ class CemeteryServiceLogController extends Controller
         $siteId = (int) $request->query('cemetery_site_id', 0);
         $serviceTypeId = (int) $request->query('cemetery_service_type_id', 0);
 
-        $serviceLogQuery = CemeteryServiceLog::query()
-            ->with(['site', 'serviceType']);
-
-        if ($search !== '') {
-            $like = '%' . $search . '%';
-            $serviceLogQuery->where(function ($query) use ($like): void {
-                $query->where('log_no', 'like', $like)
-                    ->orWhere('deceased_name', 'like', $like)
-                    ->orWhere('plot_reference', 'like', $like)
-                    ->orWhere('processed_by', 'like', $like);
-            });
-        }
-
-        if ($siteId > 0) {
-            $serviceLogQuery->where('cemetery_site_id', $siteId);
-        }
-
-        if ($serviceTypeId > 0) {
-            $serviceLogQuery->where('cemetery_service_type_id', $serviceTypeId);
-        }
+        $serviceLogQuery = $this->buildFilteredServiceLogQuery($search, $siteId, $serviceTypeId);
 
         $serviceLogs = $serviceLogQuery
             ->orderByDesc('service_date')
@@ -85,6 +67,30 @@ class CemeteryServiceLogController extends Controller
                     ->count(),
             ],
         ]);
+    }
+
+    public function csv(Request $request): StreamedResponse
+    {
+        $search = trim((string) $request->query('q', ''));
+        $siteId = (int) $request->query('cemetery_site_id', 0);
+        $serviceTypeId = (int) $request->query('cemetery_service_type_id', 0);
+
+        $serviceLogs = $this->buildFilteredServiceLogQuery($search, $siteId, $serviceTypeId)
+            ->orderByDesc('service_date')
+            ->orderByDesc('id')
+            ->get();
+
+        $filename = 'cemetery-service-logs-' . now()->format('Ymd-His') . '.xls';
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+        ];
+
+        return response()->streamDownload(function () use ($serviceLogs, $search): void {
+            echo "\xEF\xBB\xBF";
+            echo $this->renderServiceLogsExcelHtml($serviceLogs, $search);
+        }, $filename, $headers);
     }
 
     public function store(Request $request): RedirectResponse
@@ -281,5 +287,117 @@ class CemeteryServiceLogController extends Controller
         }
 
         return 'CSL-0001';
+    }
+
+    private function buildFilteredServiceLogQuery(string $search, int $siteId, int $serviceTypeId)
+    {
+        $serviceLogQuery = CemeteryServiceLog::query()
+            ->with(['site', 'serviceType']);
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $serviceLogQuery->where(function ($query) use ($like): void {
+                $query->where('log_no', 'like', $like)
+                    ->orWhere('deceased_name', 'like', $like)
+                    ->orWhere('plot_reference', 'like', $like)
+                    ->orWhere('processed_by', 'like', $like);
+            });
+        }
+
+        if ($siteId > 0) {
+            $serviceLogQuery->where('cemetery_site_id', $siteId);
+        }
+
+        if ($serviceTypeId > 0) {
+            $serviceLogQuery->where('cemetery_service_type_id', $serviceTypeId);
+        }
+
+        return $serviceLogQuery;
+    }
+
+    private function renderServiceLogsExcelHtml($serviceLogs, string $search): string
+    {
+        $esc = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $searchLabel = $search === '' ? 'All records' : $search;
+
+        $css = '
+            body { font-family: Calibri, "Segoe UI", Arial, sans-serif; color:#0f172a; }
+            table { border-collapse: collapse; width: 100%; }
+            .title { font-size:16pt; font-weight:bold; color:#0c3a5b; }
+            .meta { font-size:10pt; color:#475569; }
+            .data th {
+                background:#155f8f; color:#ffffff; font-weight:bold;
+                padding:6pt 8pt; border:1px solid #0c3a5b; text-align:left; font-size:10pt;
+            }
+            .data td {
+                padding:5pt 8pt; border:1px solid #cbd5e1; font-size:10pt; vertical-align:top;
+            }
+            .data tr.alt td { background:#f8fafc; }
+        ';
+
+        ob_start();
+        ?>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="UTF-8">
+    <title>Cemetery Service Logs</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>Service Logs</x:Name>
+                    <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+    <style><?= $css ?></style>
+</head>
+<body>
+<table>
+    <tr><td colspan="7" class="title">Cemetery Service Logs</td></tr>
+    <tr><td colspan="7" class="meta">Generated: <?= $esc(now()->format('F d, Y h:i A')) ?></td></tr>
+    <tr><td colspan="7" class="meta">Filter: <?= $esc($searchLabel) ?></td></tr>
+    <tr><td colspan="7">&nbsp;</td></tr>
+</table>
+
+<table class="data">
+    <thead>
+        <tr>
+            <th>Log No.</th>
+            <th>Service Date</th>
+            <th>Deceased Name</th>
+            <th>Niche / Lot</th>
+            <th>Cemetery</th>
+            <th>Service Type</th>
+            <th>Processed By</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $rowIndex = 0; foreach ($serviceLogs as $serviceLog): $rowIndex++; ?>
+            <tr<?= $rowIndex % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($serviceLog->log_no) ?></strong></td>
+                <td><?= $esc(optional($serviceLog->service_date)->format('Y-m-d') ?: '-') ?></td>
+                <td><?= $esc($serviceLog->deceased_name ?: '-') ?></td>
+                <td><?= $esc($serviceLog->plot_reference ?: '-') ?></td>
+                <td><?= $esc($serviceLog->site?->site_name ?: '-') ?></td>
+                <td><?= $esc($serviceLog->serviceType?->type_name ?: '-') ?></td>
+                <td><?= $esc($serviceLog->processed_by ?: '-') ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if ($serviceLogs->isEmpty()): ?>
+            <tr><td colspan="7">No service logs found.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+</body>
+</html>
+        <?php
+
+        return (string) ob_get_clean();
     }
 }

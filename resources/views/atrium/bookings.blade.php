@@ -2,6 +2,144 @@
 
 @section('content')
 @include('atrium.partials.atrium_shared_styles')
+<style>
+    #contentArea {
+        padding-top: 10px;
+    }
+
+    .atr {
+        gap: 10px;
+    }
+
+    .atr-kpi-grid {
+        gap: 10px;
+    }
+
+    .atr-kpi-head {
+        gap: 10px;
+    }
+
+    .atr-card-head {
+        padding: 10px;
+        gap: 10px;
+    }
+
+    .atr-card-head h3 {
+        gap: 10px;
+    }
+
+    .atr-filter-bar {
+        gap: 10px;
+        padding: 10px;
+    }
+
+    .atr-range-bar,
+    .atr-range-fields {
+        gap: 10px;
+    }
+
+    .atr-range-select {
+        min-width: 140px;
+    }
+
+    .atr-flash {
+        position: fixed;
+        top: 74px;
+        right: 14px;
+        z-index: 1700;
+        min-width: 220px;
+        max-width: min(360px, calc(100vw - 28px));
+        border-radius: 10px;
+        border: 1px solid #86efac;
+        background: #ecfdf5;
+        color: #065f46;
+        padding: 8px 11px;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, .14);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: .82rem;
+        font-weight: 700;
+        line-height: 1.3;
+        transition: opacity .22s ease, transform .22s ease;
+    }
+
+    .atr-flash i {
+        font-size: .9rem;
+    }
+
+    .atr-flash.is-hiding {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    @media (max-width: 640px) {
+        .atr-flash {
+            top: 70px;
+            left: 10px;
+            right: 10px;
+            max-width: none;
+        }
+    }
+
+    .atr-pagination-wrap {
+        border-top: 1px solid var(--atr-border);
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .atr-pagination-summary {
+        font-size: .82rem;
+        color: var(--atr-muted);
+        font-weight: 600;
+    }
+
+    .atr-pagination {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .atr-page-link {
+        min-width: 34px;
+        height: 34px;
+        padding: 0 10px;
+        border-radius: 9px;
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        color: var(--atr-primary);
+        font-size: .82rem;
+        font-weight: 700;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all .16s ease;
+    }
+
+    .atr-page-link:hover {
+        background: #f0f7ff;
+        border-color: var(--atr-primary);
+    }
+
+    .atr-page-link.is-active {
+        background: var(--atr-primary);
+        border-color: var(--atr-primary);
+        color: #fff;
+    }
+
+    .atr-page-link.is-disabled {
+        background: #f8fafc;
+        color: #94a3b8;
+        border-color: #e2e8f0;
+        pointer-events: none;
+    }
+</style>
 
 @php
     $modalAddOns = old('add_ons', [['description' => '', 'amount' => '']]);
@@ -66,19 +204,11 @@
 @endphp
 
 <div class="atr" data-server-rendered-page="atrium_bookings" data-page-title="Atrium Bookings">
-    <section class="atr-hero">
-        <div>
-            <h2><i class="fa-solid fa-calendar-check" style="margin-right:8px;opacity:.88;"></i>Booking Module</h2>
-            <p>Register new atrium events, confirm reservations, and manage hall assignments.</p>
-        </div>
-        <div class="atr-hero-meta">
-            <span style="font-size:.83rem;color:rgba(255,255,255,.84);font-weight:600;">Total events: <b>{{ number_format($summary['total']) }}</b></span>
-            <span style="font-size:.83rem;color:rgba(255,255,255,.84);font-weight:600;">{{ $rangeLabel }}</span>
-        </div>
-    </section>
-
     @if (session('status'))
-        <div class="atr-flash">{{ session('status') }}</div>
+        <div id="atrStatusToast" class="atr-flash" role="status" aria-live="polite">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            <span>{{ session('status') }}</span>
+        </div>
     @endif
 
     <section class="atr-kpi-grid">
@@ -105,9 +235,8 @@
             <h3><i class="fa-solid fa-filter" style="color:var(--atr-primary);"></i>Filters</h3>
             <button type="button" class="atr-btn-primary" id="atrOpenBookingModal"><i class="fa-solid fa-plus"></i>New Booking</button>
         </div>
-        <form method="GET" action="{{ route('atrium.bookings') }}" class="atr-filter-bar">
-            <input type="hidden" name="range" id="atrRangeInput" value="{{ $range }}">
-            <input type="text" name="q" value="{{ $search }}" placeholder="Search code, name, contact..." class="atr-input atr-input--grow">
+        <form method="GET" action="{{ route('atrium.bookings') }}" class="atr-filter-bar" id="atrBookingFiltersForm">
+            <input type="text" name="q" value="{{ $search }}" placeholder="Search code, name, contact..." class="atr-input atr-input--grow" id="atrBookingSearchInput" autocomplete="off">
             <select name="status" class="atr-input" onchange="this.form.submit()">
                 <option value="all" {{ $status === 'all' ? 'selected' : '' }}>All statuses</option>
                 <option value="reserved" {{ $status === 'reserved' ? 'selected' : '' }}>Reserved</option>
@@ -121,20 +250,12 @@
                     <option value="{{ $hall->id }}" {{ (int) $hallId === $hall->id ? 'selected' : '' }}>{{ $hall->name }}</option>
                 @endforeach
             </select>
-            <div class="atr-range-bar">
-                <button type="button" class="atr-pill {{ $range === 'all' ? 'is-active' : '' }}" data-range="all">All</button>
-                <button type="button" class="atr-pill {{ $range === 'today' ? 'is-active' : '' }}" data-range="today">Today</button>
-                <button type="button" class="atr-pill {{ $range === 'week' ? 'is-active' : '' }}" data-range="week">Week</button>
-                <button type="button" class="atr-pill {{ $range === 'month' ? 'is-active' : '' }}" data-range="month">Month</button>
-                <button type="button" class="atr-pill {{ $range === 'custom' ? 'is-active' : '' }}" data-range="custom">Custom</button>
-                <div id="atrCustomRange" class="atr-range-fields" {{ $range === 'custom' ? '' : 'hidden' }}>
-                    <input type="date" name="from" value="{{ $from }}" class="atr-input">
-                    <span style="color:var(--atr-muted);font-size:.84rem;">to</span>
-                    <input type="date" name="to" value="{{ $to }}" class="atr-input">
-                    <button type="submit" class="atr-btn-primary">Apply</button>
-                </div>
-            </div>
-            <button class="atr-btn-outline" type="submit"><i class="fa-solid fa-magnifying-glass"></i>Search</button>
+            <select name="range" id="atrRangeSelect" class="atr-input atr-range-select" onchange="this.form.submit()">
+                <option value="all" {{ !in_array($range, ['today', 'week', 'month'], true) ? 'selected' : '' }}>All</option>
+                <option value="today" {{ $range === 'today' ? 'selected' : '' }}>Today</option>
+                <option value="week" {{ $range === 'week' ? 'selected' : '' }}>Week</option>
+                <option value="month" {{ $range === 'month' ? 'selected' : '' }}>Month</option>
+            </select>
         </form>
     </section>
 
@@ -207,7 +328,53 @@
                     </tbody>
                 </table>
             </div>
-            <div style="padding: .8rem 1rem; border-top:1px solid var(--atr-border);">{{ $events->links() }}</div>
+            @if ($events->hasPages())
+                <div class="atr-pagination-wrap">
+                    <div class="atr-pagination-summary">
+                        Showing {{ $events->firstItem() }}-{{ $events->lastItem() }} of {{ $events->total() }} records
+                    </div>
+                    <nav class="atr-pagination" aria-label="Event bookings pagination">
+                        @if ($events->onFirstPage())
+                            <span class="atr-page-link is-disabled">Prev</span>
+                        @else
+                            <a class="atr-page-link" href="{{ $events->previousPageUrl() }}" rel="prev">Prev</a>
+                        @endif
+
+                        @php
+                            $startPage = max(1, $events->currentPage() - 2);
+                            $endPage = min($events->lastPage(), $events->currentPage() + 2);
+                        @endphp
+
+                        @if ($startPage > 1)
+                            <a class="atr-page-link" href="{{ $events->url(1) }}">1</a>
+                            @if ($startPage > 2)
+                                <span class="atr-page-link is-disabled">...</span>
+                            @endif
+                        @endif
+
+                        @for ($page = $startPage; $page <= $endPage; $page++)
+                            @if ($page === $events->currentPage())
+                                <span class="atr-page-link is-active">{{ $page }}</span>
+                            @else
+                                <a class="atr-page-link" href="{{ $events->url($page) }}">{{ $page }}</a>
+                            @endif
+                        @endfor
+
+                        @if ($endPage < $events->lastPage())
+                            @if ($endPage < $events->lastPage() - 1)
+                                <span class="atr-page-link is-disabled">...</span>
+                            @endif
+                            <a class="atr-page-link" href="{{ $events->url($events->lastPage()) }}">{{ $events->lastPage() }}</a>
+                        @endif
+
+                        @if ($events->hasMorePages())
+                            <a class="atr-page-link" href="{{ $events->nextPageUrl() }}" rel="next">Next</a>
+                        @else
+                            <span class="atr-page-link is-disabled">Next</span>
+                        @endif
+                    </nav>
+                </div>
+            @endif
         @endif
     </section>
 
@@ -288,7 +455,7 @@
                         <div class="atr-field">
                             <label>Booking Status</label>
                             <select name="booking_status" class="atr-input">
-                                @foreach (['reserved', 'confirmed', 'completed', 'cancelled'] as $st)
+                                @foreach (['reserved', 'confirmed', 'cancelled'] as $st)
                                     <option value="{{ $st }}" {{ old('booking_status', 'reserved') === $st ? 'selected' : '' }}>{{ ucfirst($st) }}</option>
                                 @endforeach
                             </select>
@@ -458,7 +625,7 @@
                         <div class="atr-field">
                             <label>Booking Status</label>
                             <select name="booking_status" id="atrEditStatus" class="atr-input">
-                                @foreach (['reserved', 'confirmed', 'completed', 'cancelled'] as $st)
+                                @foreach (['reserved', 'confirmed', 'cancelled'] as $st)
                                     <option value="{{ $st }}">{{ ucfirst($st) }}</option>
                                 @endforeach
                             </select>
@@ -532,9 +699,9 @@
     const bookingMap = @json($eventsMap);
     const oldEditPayload = @json($oldEditPayload);
 
-    const rangeInput = document.getElementById('atrRangeInput');
-    const customWrap = document.getElementById('atrCustomRange');
-    const pills = document.querySelectorAll('.atr-pill[data-range]');
+    const filtersForm = document.getElementById('atrBookingFiltersForm');
+    const searchInput = document.getElementById('atrBookingSearchInput');
+    const statusToast = document.getElementById('atrStatusToast');
 
     const createModal = document.getElementById('atrBookingModal');
     const viewModal = document.getElementById('atrViewBookingModal');
@@ -727,16 +894,33 @@
         openModal(deleteModal);
     };
 
-    if (rangeInput) {
-        pills.forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const chosen = btn.dataset.range;
-                rangeInput.value = chosen;
-                pills.forEach((pill) => pill.classList.toggle('is-active', pill === btn));
-                if (customWrap) customWrap.hidden = chosen !== 'custom';
-                if (chosen !== 'custom') btn.closest('form').submit();
-            });
+    if (filtersForm && searchInput) {
+        let searchTimer = null;
+        const submitFilters = () => filtersForm.submit();
+
+        searchInput.addEventListener('input', () => {
+            if (searchTimer) {
+                window.clearTimeout(searchTimer);
+            }
+            searchTimer = window.setTimeout(submitFilters, 380);
         });
+
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (searchTimer) {
+                    window.clearTimeout(searchTimer);
+                }
+                submitFilters();
+            }
+        });
+    }
+
+    if (statusToast) {
+        window.setTimeout(() => {
+            statusToast.classList.add('is-hiding');
+            window.setTimeout(() => statusToast.remove(), 240);
+        }, 3200);
     }
 
     const openCreateBtn = document.getElementById('atrOpenBookingModal');

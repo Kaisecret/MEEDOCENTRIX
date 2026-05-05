@@ -8,10 +8,33 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class TerminalParkingController extends Controller
 {
+    /**
+     * @return array<string, array{label: string, vehicle_kind: string, fare: float}>
+     */
+    private static function routeFareConfig(): array
+    {
+        return [
+            'jeep_bugasong' => ['label' => 'Bugasong', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_lindero' => ['label' => 'Lindero', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_guinsangan' => ['label' => 'Guinsang-an', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_patnongon' => ['label' => 'Patnongon', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_sibalom' => ['label' => 'Sibalom', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_bugo' => ['label' => 'Bugo', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_san_remegio' => ['label' => 'San Remegio', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_dao' => ['label' => 'Dao', 'vehicle_kind' => 'Jeep', 'fare' => 35.00],
+            'jeep_aniniy' => ['label' => 'Anini-y', 'vehicle_kind' => 'Jeep', 'fare' => 35.00],
+            'jeep_valderrama' => ['label' => 'Valderrama', 'vehicle_kind' => 'Jeep', 'fare' => 35.00],
+            'bus_ceres_iloilo' => ['label' => 'Ceres - Iloilo', 'vehicle_kind' => 'Bus', 'fare' => 60.00],
+            'bus_roro_alps' => ['label' => 'Roro - ALPS', 'vehicle_kind' => 'Bus', 'fare' => 100.00],
+            'bus_roro_ceres' => ['label' => 'Roro - Ceres', 'vehicle_kind' => 'Bus', 'fare' => 100.00],
+        ];
+    }
+
     public function index(Request $request): View
     {
         return $this->renderSimplePaymentsPage(
@@ -36,16 +59,28 @@ class TerminalParkingController extends Controller
 
     public function storeSimplePayment(Request $request): RedirectResponse
     {
+        $routeConfig = self::routeFareConfig();
+        $routeCodes = array_keys($routeConfig);
+
         $validated = $request->validate([
-            'payer_name' => ['required', 'string', 'max:160'],
-            'total_payment' => ['required', 'numeric', 'min:0.01'],
+            'payer_name' => ['nullable', 'string', 'max:160'],
+            'ticket_number' => ['required', 'string', 'max:80', 'unique:terminal_quick_payments,ticket_number'],
+            'route_code' => ['required', 'string', Rule::in($routeCodes)],
             'payment_date' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        $selectedRoute = $routeConfig[(string) $validated['route_code']];
+
         TerminalQuickPayment::query()->create([
-            'payer_name' => trim((string) $validated['payer_name']),
-            'total_payment' => round((float) $validated['total_payment'], 2),
+            'payer_name' => trim((string) ($validated['payer_name'] ?? '')) !== ''
+                ? trim((string) $validated['payer_name'])
+                : 'N/A',
+            'ticket_number' => trim((string) $validated['ticket_number']),
+            'vehicle_kind' => $selectedRoute['vehicle_kind'],
+            'route_name' => $selectedRoute['label'],
+            'route_code' => (string) $validated['route_code'],
+            'total_payment' => round((float) $selectedRoute['fare'], 2),
             'payment_date' => isset($validated['payment_date']) && trim((string) $validated['payment_date']) !== ''
                 ? Carbon::parse((string) $validated['payment_date'])
                 : now(),
@@ -65,16 +100,33 @@ class TerminalParkingController extends Controller
             return redirect()->back()->with('error', 'Paid records are read-only and can only be viewed in Payment History.');
         }
 
+        $routeConfig = self::routeFareConfig();
+        $routeCodes = array_keys($routeConfig);
+
         $validated = $request->validate([
-            'payer_name' => ['required', 'string', 'max:160'],
-            'total_payment' => ['required', 'numeric', 'min:0.01'],
+            'payer_name' => ['nullable', 'string', 'max:160'],
+            'ticket_number' => [
+                'required',
+                'string',
+                'max:80',
+                Rule::unique('terminal_quick_payments', 'ticket_number')->ignore($quickPayment->id),
+            ],
+            'route_code' => ['required', 'string', Rule::in($routeCodes)],
             'payment_date' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        $selectedRoute = $routeConfig[(string) $validated['route_code']];
+
         $quickPayment->update([
-            'payer_name' => trim((string) $validated['payer_name']),
-            'total_payment' => round((float) $validated['total_payment'], 2),
+            'payer_name' => trim((string) ($validated['payer_name'] ?? '')) !== ''
+                ? trim((string) $validated['payer_name'])
+                : 'N/A',
+            'ticket_number' => trim((string) $validated['ticket_number']),
+            'vehicle_kind' => $selectedRoute['vehicle_kind'],
+            'route_name' => $selectedRoute['label'],
+            'route_code' => (string) $validated['route_code'],
+            'total_payment' => round((float) $selectedRoute['fare'], 2),
             'payment_date' => isset($validated['payment_date']) && trim((string) $validated['payment_date']) !== ''
                 ? Carbon::parse((string) $validated['payment_date'])
                 : now(),
@@ -135,10 +187,17 @@ class TerminalParkingController extends Controller
         $payments = TerminalQuickPayment::query()
             ->with(['recordedBy:id,name', 'paidBy:id,name'])
             ->where('is_paid', $historyMode)
+            ->whereNotNull('ticket_number')
+            ->where('ticket_number', '<>', '')
+            ->whereNotNull('route_code')
+            ->where('route_code', '<>', '')
             ->when($search !== '', static function ($query) use ($search): void {
                 $like = '%' . $search . '%';
                 $query->where(function ($nested) use ($like): void {
                     $nested->where('payer_name', 'like', $like)
+                        ->orWhere('ticket_number', 'like', $like)
+                        ->orWhere('vehicle_kind', 'like', $like)
+                        ->orWhere('route_name', 'like', $like)
                         ->orWhere('remarks', 'like', $like);
                 });
             })
@@ -147,7 +206,8 @@ class TerminalParkingController extends Controller
             })
             ->orderByDesc($dateColumn)
             ->orderByDesc('id')
-            ->paginate(15)
+            ->paginate(10)
+            ->onEachSide(1)
             ->withQueryString();
 
         return view($view, [
@@ -159,6 +219,7 @@ class TerminalParkingController extends Controller
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
             'isHistoryMode' => $historyMode,
+            'routeFareConfig' => self::routeFareConfig(),
         ]);
     }
 

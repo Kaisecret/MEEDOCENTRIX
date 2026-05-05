@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CemeteryOccupantRecordController extends Controller
 {
@@ -75,44 +76,12 @@ class CemeteryOccupantRecordController extends Controller
             || $status !== ''
             || $maintenanceStatus !== '';
 
-        $recordQuery = CemeteryOccupantRecord::query()
-            ->with(['site', 'category', 'plot', 'contact']);
-
-        if ($search !== '') {
-            $like = '%' . $search . '%';
-            $recordQuery->where(function ($query) use ($like): void {
-                $query->where('record_no', 'like', $like)
-                    ->orWhere('deceased_name', 'like', $like)
-                    ->orWhereHas('plot', function ($plotQuery) use ($like): void {
-                        $plotQuery->where('plot_reference', 'like', $like);
-                    })
-                    ->orWhereHas('contact', function ($contactQuery) use ($like): void {
-                        $contactQuery->where('contact_person', 'like', $like)
-                            ->orWhere('contact_number', 'like', $like);
-                    });
-            });
-        }
-
-        if ($siteId > 0) {
-            $recordQuery->where('cemetery_site_id', $siteId);
-        }
-
-        if ($categoryId > 0) {
-            $recordQuery->where('cemetery_category_id', $categoryId);
-        }
-
-        if (array_key_exists($status, self::STATUS_OPTIONS)) {
-            $recordQuery->where('status', $status);
-        }
-
-        if (array_key_exists($maintenanceStatus, self::MAINTENANCE_STATUS_OPTIONS)) {
-            $recordQuery->where('maintenance_fee_status', $maintenanceStatus);
-        }
+        $recordQuery = $this->buildFilteredRecordQuery($search, $siteId, $categoryId, $status, $maintenanceStatus);
 
         $records = $recordQuery
             ->orderByDesc('date_of_interment')
             ->orderByDesc('id')
-            ->paginate(12)
+            ->paginate(10)
             ->withQueryString();
 
         $sites = CemeterySite::query()
@@ -157,9 +126,45 @@ class CemeteryOccupantRecordController extends Controller
         ]);
     }
 
+    public function csv(Request $request): StreamedResponse
+    {
+        $this->syncOverdueMaintenanceStatuses();
+
+        $search = trim((string) $request->query('q', ''));
+        $siteId = (int) $request->query('cemetery_site_id', 0);
+        $categoryId = (int) $request->query('cemetery_category_id', 0);
+        $status = trim((string) $request->query('status', ''));
+        $maintenanceStatus = trim((string) $request->query('maintenance_fee_status', ''));
+
+        $records = $this->buildFilteredRecordQuery($search, $siteId, $categoryId, $status, $maintenanceStatus)
+            ->orderByDesc('date_of_interment')
+            ->orderByDesc('id')
+            ->get();
+
+        $filename = 'cemetery-occupant-records-' . now()->format('Ymd-His') . '.xls';
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+        ];
+
+        return response()->streamDownload(function () use ($records, $search): void {
+            echo "\xEF\xBB\xBF";
+            echo $this->renderRecordsExcelHtml($records, $search);
+        }, $filename, $headers);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate($this->rules($request));
+
+        if (! isset($validated['tx_transaction_type_id']) || (int) $validated['tx_transaction_type_id'] <= 0) {
+            $fallbackTypeId = $this->defaultAutoTransactionTypeId();
+            if ($fallbackTypeId !== null) {
+                $validated['tx_transaction_type_id'] = $fallbackTypeId;
+            }
+        }
+
         $createdTransactionNo = null;
 
         DB::transaction(function () use ($validated, &$createdTransactionNo): void {
@@ -293,6 +298,139 @@ class CemeteryOccupantRecordController extends Controller
         ];
     }
 
+    private function buildFilteredRecordQuery(
+        string $search,
+        int $siteId,
+        int $categoryId,
+        string $status,
+        string $maintenanceStatus
+    ) {
+        $recordQuery = CemeteryOccupantRecord::query()
+            ->with(['site', 'category', 'plot', 'contact']);
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $recordQuery->where(function ($query) use ($like): void {
+                $query->where('record_no', 'like', $like)
+                    ->orWhere('deceased_name', 'like', $like)
+                    ->orWhereHas('plot', function ($plotQuery) use ($like): void {
+                        $plotQuery->where('plot_reference', 'like', $like);
+                    })
+                    ->orWhereHas('contact', function ($contactQuery) use ($like): void {
+                        $contactQuery->where('contact_person', 'like', $like)
+                            ->orWhere('contact_number', 'like', $like);
+                    });
+            });
+        }
+
+        if ($siteId > 0) {
+            $recordQuery->where('cemetery_site_id', $siteId);
+        }
+
+        if ($categoryId > 0) {
+            $recordQuery->where('cemetery_category_id', $categoryId);
+        }
+
+        if (array_key_exists($status, self::STATUS_OPTIONS)) {
+            $recordQuery->where('status', $status);
+        }
+
+        if (array_key_exists($maintenanceStatus, self::MAINTENANCE_STATUS_OPTIONS)) {
+            $recordQuery->where('maintenance_fee_status', $maintenanceStatus);
+        }
+
+        return $recordQuery;
+    }
+
+    private function renderRecordsExcelHtml($records, string $search): string
+    {
+        $esc = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $searchLabel = $search === '' ? 'All records' : $search;
+
+        $css = '
+            body { font-family: Calibri, "Segoe UI", Arial, sans-serif; color:#0f172a; }
+            table { border-collapse: collapse; width: 100%; }
+            .title { font-size:16pt; font-weight:bold; color:#0c3a5b; }
+            .meta { font-size:10pt; color:#475569; }
+            .data th {
+                background:#155f8f; color:#ffffff; font-weight:bold;
+                padding:6pt 8pt; border:1px solid #0c3a5b; text-align:left; font-size:10pt;
+            }
+            .data td {
+                padding:5pt 8pt; border:1px solid #cbd5e1; font-size:10pt; vertical-align:top;
+            }
+            .data tr.alt td { background:#f8fafc; }
+        ';
+
+        ob_start();
+        ?>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="UTF-8">
+    <title>Cemetery Occupant Records</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>Occupant Records</x:Name>
+                    <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+    <style><?= $css ?></style>
+</head>
+<body>
+<table>
+    <tr><td colspan="8" class="title">Cemetery Occupant Records</td></tr>
+    <tr><td colspan="8" class="meta">Generated: <?= $esc(now()->format('F d, Y h:i A')) ?></td></tr>
+    <tr><td colspan="8" class="meta">Filter: <?= $esc($searchLabel) ?></td></tr>
+    <tr><td colspan="8">&nbsp;</td></tr>
+</table>
+
+<table class="data">
+    <thead>
+        <tr>
+            <th>Record No.</th>
+            <th>Name of Deceased</th>
+            <th>Cemetery / Category</th>
+            <th>Niche / Lot</th>
+            <th>Interment Date</th>
+            <th>Contact Details</th>
+            <th>Status</th>
+            <th>Maintenance</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $rowIndex = 0; foreach ($records as $record): $rowIndex++; ?>
+            <?php $plot = $record->plot; $contact = $record->contact; ?>
+            <tr<?= $rowIndex % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($record->record_no) ?></strong></td>
+                <td><?= $esc($record->deceased_name) ?></td>
+                <td><?= $esc(($record->site?->site_name ?: '-') . ' / ' . ($record->category?->category_name ?: '-')) ?></td>
+                <td><?= $esc(($plot?->plot_reference ?: '-') . ' (' . strtoupper((string) ($plot?->plot_type ?: '-')) . ')') ?></td>
+                <td><?= $esc(optional($record->date_of_interment)->format('Y-m-d') ?: '-') ?></td>
+                <td><?= $esc(($contact?->contact_person ?: '-') . ' | ' . ($contact?->contact_number ?: '-') . ' | ' . ($contact?->address ?: '-')) ?></td>
+                <td><?= $esc(self::STATUS_OPTIONS[$record->status] ?? strtoupper((string) $record->status)) ?></td>
+                <td><?= $esc(self::MAINTENANCE_STATUS_OPTIONS[$record->maintenance_fee_status] ?? strtoupper((string) $record->maintenance_fee_status)) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if ($records->isEmpty()): ?>
+            <tr><td colspan="8">No occupant records found.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+</body>
+</html>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
     /**
      * @param  array<string, mixed>  $validated
      */
@@ -421,6 +559,27 @@ class CemeteryOccupantRecordController extends Controller
         return isset($validated['tx_transaction_type_id']) && (int) $validated['tx_transaction_type_id'] > 0;
     }
 
+    private function defaultAutoTransactionTypeId(): ?int
+    {
+        $types = CemeteryTransactionType::query()
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get(['id', 'type_code']);
+
+        if ($types->isEmpty()) {
+            return null;
+        }
+
+        foreach (['MAINTENANCE_FEE', 'SINGLE_NICHE_PURCHASE', 'OTHER'] as $preferredCode) {
+            $preferred = $types->first(static fn (CemeteryTransactionType $type): bool => strtoupper((string) $type->type_code) === $preferredCode);
+            if ($preferred) {
+                return (int) $preferred->id;
+            }
+        }
+
+        return (int) optional($types->first())->id;
+    }
+
     /**
      * @param array<string, mixed> $validated
      */
@@ -471,6 +630,11 @@ class CemeteryOccupantRecordController extends Controller
 
         $txDate = trim((string) ($validated['tx_transaction_date'] ?? ''));
         $resolvedTxDate = $txDate === '' ? now()->format('Y-m-d H:i:s') : Carbon::parse($txDate)->format('Y-m-d H:i:s');
+        $amountDue = (float) $fees['amount_due'];
+        $requestedStatus = strtolower(trim((string) ($validated['tx_status'] ?? 'pending')));
+        $resolvedStatus = $amountDue <= 0
+            ? 'paid'
+            : ($requestedStatus === 'cancelled' ? 'cancelled' : 'pending');
 
         return CemeteryTransaction::query()->create([
             'transaction_no' => $txNo,
@@ -483,7 +647,9 @@ class CemeteryOccupantRecordController extends Controller
             'deceased_name' => (string) $occupantRecord->deceased_name,
             'plot_reference' => (string) ($plot->plot_reference ?? ''),
             'quantity' => isset($validated['tx_quantity']) && $validated['tx_quantity'] !== '' ? (float) $validated['tx_quantity'] : null,
-            'amount_due' => $fees['amount_due'],
+            'amount_due' => $amountDue,
+            'total_paid' => 0,
+            'remaining_balance' => $amountDue,
             'maintenance_type' => $maintenanceType,
             'maintenance_years' => $maintenanceYears,
             'has_burial_permit' => $hasBurialPermit,
@@ -492,7 +658,7 @@ class CemeteryOccupantRecordController extends Controller
             'burial_permit_fee' => $fees['burial_permit_fee'],
             'other_applicable_fee' => $fees['other_applicable_fee'],
             'remarks' => trim((string) ($validated['tx_remarks'] ?? '')) ?: null,
-            'status' => trim((string) ($validated['tx_status'] ?? 'pending')) ?: 'pending',
+            'status' => $resolvedStatus,
             'created_by_user_id' => Auth::id(),
         ]);
     }

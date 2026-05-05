@@ -14,9 +14,12 @@
         .meta { font-size: 12px; line-height: 1.5; margin-top: 10px; }
         .divider { border-top: 1px dashed #9ca3af; margin: 8px 0; }
         .items { font-size: 12px; }
-        .items-head { display:flex; justify-content:space-between; font-weight: 700; margin-bottom: 6px; }
-        .item-row { display:flex; justify-content:space-between; margin-bottom: 4px; }
-        .item-left { max-width: 60%; }
+        .receipt-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .receipt-table th, .receipt-table td { padding: 4px 6px; font-size: 12px; }
+        .receipt-table th { border-bottom: 1px dashed #9ca3af; text-align: left; font-weight: 700; }
+        .receipt-table th:nth-child(2), .receipt-table td:nth-child(2) { width: 52px; text-align: center; }
+        .receipt-table th:nth-child(3), .receipt-table td:nth-child(3) { width: 88px; text-align: right; }
+        .receipt-table td:first-child { word-break: break-word; }
         .total { display:flex; justify-content:space-between; font-size: 14px; font-weight: 800; }
         .footer { text-align:center; font-size: 12px; margin-top: 10px; }
     </style>
@@ -42,24 +45,30 @@
         <div class="divider"></div>
 
         <div class="items">
-            <div class="items-head">
-                <span>Item</span>
-                <span>Qty</span>
-                <span>Total</span>
-            </div>
+            <table class="receipt-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
             @forelse(($receipt['charges'] ?? []) as $line)
-                <div class="item-row">
-                    <span class="item-left">{{ $line['item'] ?? 'Charge' }}</span>
-                    <span>{{ number_format((float) ($line['qty'] ?? 0), 2) }}</span>
-                    <span>{{ number_format((float) ($line['total'] ?? 0), 2) }}</span>
-                </div>
+                    <tr>
+                        <td>{{ $line['item'] ?? 'Charge' }}</td>
+                        <td>{{ number_format((float) ($line['qty'] ?? 0), 2) }}</td>
+                        <td>{{ number_format((float) ($line['total'] ?? 0), 2) }}</td>
+                    </tr>
             @empty
-                <div class="item-row">
-                    <span class="item-left">No charges</span>
-                    <span>0.00</span>
-                    <span>0.00</span>
-                </div>
+                    <tr>
+                        <td>No charges</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                    </tr>
             @endforelse
+                </tbody>
+            </table>
         </div>
 
         <div class="divider"></div>
@@ -72,7 +81,7 @@
         <div class="divider"></div>
 
         <div class="footer">
-            Thank you! Please come again.
+            Safe voyage to your vessel. Thank you.
         </div>
     </div>
 </body>

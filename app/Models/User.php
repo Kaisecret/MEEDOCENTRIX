@@ -114,6 +114,11 @@ class User extends Authenticatable
         return $this->hasMany(CollectionDispatch::class, 'collector_user_id');
     }
 
+    public function appNotifications(): HasMany
+    {
+        return $this->hasMany(AppNotification::class);
+    }
+
     public function uiRoleKey(): string
     {
         $assignedRole = $this->assignedSystemRole();

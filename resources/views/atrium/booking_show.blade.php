@@ -35,7 +35,6 @@
         <a class="atr-btn-outline" href="{{ route('atrium.bookings') }}"><i class="fa-solid fa-arrow-left"></i>Back</a>
         <a class="atr-btn-primary" href="{{ route('atrium.bookings.edit', $event) }}"><i class="fa-solid fa-pen"></i>Edit</a>
         <a class="atr-btn-outline" href="{{ route('atrium.payments.create', ['event' => $event->id]) }}"><i class="fa-solid fa-peso-sign"></i>Record Payment</a>
-        <a class="atr-btn-outline" href="{{ route('atrium.supplies.create', ['event' => $event->id]) }}"><i class="fa-solid fa-boxes-stacked"></i>Request Supplies</a>
         @if ($event->booking_status !== 'cancelled')
             <form method="POST" action="{{ route('atrium.bookings.cancel', $event) }}" onsubmit="return confirm('Cancel this booking?')">
                 @csrf @method('PATCH')
@@ -126,28 +125,5 @@
         @endif
     </section>
 
-    <section class="atr-card">
-        <div class="atr-card-head"><h3><i class="fa-solid fa-boxes-stacked" style="color:var(--atr-primary);"></i>Supplies Requests ({{ $event->suppliesOrders->count() }})</h3></div>
-        @if ($event->suppliesOrders->isEmpty())
-            <div class="atr-empty">No supplies requests for this event.</div>
-        @else
-            <div class="atr-table-wrap">
-                <table class="atr-table">
-                    <thead><tr><th>Time Needed</th><th>Requested Supplies</th><th>Status</th><th>Remarks</th></tr></thead>
-                    <tbody>
-                        @foreach ($event->suppliesOrders as $o)
-                            @php $tag = 'atr-tag-' . $o->request_status; @endphp
-                            <tr>
-                                <td>{{ $o->time_needed ?? '—' }}</td>
-                                <td>{{ \Illuminate\Support\Str::limit($o->requested_supplies, 120) }}</td>
-                                <td><span class="atr-tag {{ $tag }}">{{ ucfirst($o->request_status) }}</span></td>
-                                <td style="font-size:.8rem;color:var(--atr-muted);">{{ $o->remarks }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        @endif
-    </section>
 </div>
 @endsection

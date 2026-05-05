@@ -52,11 +52,6 @@ class AtriumEvent extends Model
         return $this->hasMany(AtriumEventPayment::class, 'atrium_event_id');
     }
 
-    public function suppliesOrders(): HasMany
-    {
-        return $this->hasMany(AtriumSuppliesOrder::class, 'atrium_event_id');
-    }
-
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');

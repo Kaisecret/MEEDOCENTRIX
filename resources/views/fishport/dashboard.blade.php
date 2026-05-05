@@ -2,26 +2,30 @@
 
 @section('content')
 <style>
+    #contentArea {
+        padding-top: 12px;
+    }
+
     /* â”€â”€ Design tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-    .db { --db-primary:#155f8f; --db-primary-dk:#0f4b73; --db-green:#047857; --db-red:#dc2626; --db-amber:#d97706; --db-border:#e2e8f0; --db-soft:#f8fafc; --db-text:#334155; --db-muted:#64748b; --db-head:#0f172a; font-family:'Inter',system-ui,-apple-system,sans-serif; color:var(--db-text); display:grid; gap:20px; }
+    .db { --db-primary:#155f8f; --db-primary-dk:#0f4b73; --db-green:#047857; --db-red:#dc2626; --db-amber:#d97706; --db-border:#e2e8f0; --db-soft:#f8fafc; --db-text:#334155; --db-muted:#64748b; --db-head:#0f172a; font-family:'Inter',system-ui,-apple-system,sans-serif; color:var(--db-text); display:grid; gap:8px; }
 
     /* â”€â”€ KPI CARDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-    .db-kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
-    .db-kpi { border:1px solid var(--db-border); border-radius:14px; background:#fff; padding:1.25rem 1.4rem; display:grid; gap:4px; box-shadow:0 1px 2px rgba(15,35,60,.04); position:relative; overflow:hidden; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+    .db-kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    .db-kpi { border:1px solid var(--db-border); border-radius:14px; background:#fff; padding:1.15rem 1.2rem; display:grid; gap:4px; box-shadow:0 1px 2px rgba(15,35,60,.04); position:relative; overflow:hidden; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
     .db-kpi:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(15,35,60,.07); border-color:#cfdae6; }
     .db-kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
     .db-kpi-blue::before  { background:linear-gradient(90deg,var(--db-primary),#4ea3e0); }
     .db-kpi-green::before { background:linear-gradient(90deg,#10b981,#34d399); }
     .db-kpi-red::before   { background:linear-gradient(90deg,var(--db-red),#f87171); }
     .db-kpi-amber::before { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
-    .db-kpi-icon { width:42px; height:42px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1.05rem; margin-bottom:10px; }
+    .db-kpi-icon { width:44px; height:44px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1.08rem; margin-bottom:8px; }
     .db-kpi-icon-blue  { background:rgba(21,95,143,.1); color:var(--db-primary); }
     .db-kpi-icon-green { background:rgba(16,185,129,.1); color:var(--db-green); }
     .db-kpi-icon-red   { background:rgba(220,38,38,.1); color:var(--db-red); }
     .db-kpi-icon-amber { background:rgba(245,158,11,.1); color:var(--db-amber); }
-    .db-kpi-label { font-size:.7rem; font-weight:800; color:var(--db-muted); text-transform:uppercase; letter-spacing:.05em; }
-    .db-kpi-value { font-size:1.65rem; font-weight:850; color:var(--db-head); letter-spacing:-.02em; line-height:1.05; font-variant-numeric:tabular-nums; margin-top:4px; }
-    .db-kpi-sub { font-size:.78rem; color:var(--db-muted); margin-top:6px; }
+    .db-kpi-label { font-size:.8rem; font-weight:800; color:var(--db-muted); text-transform:uppercase; letter-spacing:.05em; }
+    .db-kpi-value { font-size:1.95rem; font-weight:850; color:var(--db-head); letter-spacing:-.02em; line-height:1.05; font-variant-numeric:tabular-nums; margin-top:4px; }
+    .db-kpi-sub { font-size:.9rem; color:var(--db-muted); margin-top:3px; }
     .db-kpi-sub .up   { color:#059669; font-weight:700; }
     .db-kpi-sub .down { color:var(--db-red); font-weight:700; }
     .db-kpi-sub .warn { color:var(--db-amber); font-weight:700; }
@@ -29,37 +33,62 @@
     /* â”€â”€ CARD SHELL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     .db-card { border:1px solid var(--db-border); border-radius:14px; background:#fff; box-shadow:0 1px 2px rgba(15,35,60,.04); overflow:hidden; transition:box-shadow .18s ease; }
     .db-card:hover { box-shadow:0 6px 18px rgba(15,35,60,.06); }
-    .db-card-head { border-bottom:1px solid var(--db-border); padding:1rem 1.3rem; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; background:linear-gradient(180deg,#fff,#fafcfe); }
-    .db-card-head h3 { position:relative; margin:0; padding-left:12px; font-size:.98rem; font-weight:850; color:var(--db-head); display:flex; align-items:center; gap:8px; letter-spacing:-.005em; }
+    .db-card-head { border-bottom:1px solid var(--db-border); padding:.9rem 1.15rem; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; background:linear-gradient(180deg,#fff,#fafcfe); }
+    .db-card-head h3 { position:relative; margin:0; padding-left:12px; font-size:1.08rem; font-weight:850; color:var(--db-head); display:flex; align-items:center; gap:8px; letter-spacing:-.005em; }
     .db-card-head h3::before { content:''; position:absolute; left:0; top:.18rem; bottom:.18rem; width:3px; border-radius:3px; background:linear-gradient(180deg,var(--db-primary),#4ea3e0); }
     .db-card-head h3 i { position:relative; }
-    .db-card-head > span { font-size:.76rem; font-weight:700; color:var(--db-muted); padding:4px 10px; background:rgba(21,95,143,.06); border-radius:999px; }
-    .db-card-body { padding:1.25rem 1.3rem; }
+    .db-card-head > span { font-size:.84rem; font-weight:700; color:var(--db-muted); padding:4px 10px; background:rgba(21,95,143,.06); border-radius:999px; }
+    .db-card-body { padding:1rem 1.15rem; }
 
     /* â”€â”€ 2-COL GRID â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-    .db-twin { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:14px; }
-    .db-triple { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+    .db-twin { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:8px; }
+    .db-activity-grid { grid-template-columns:minmax(0,2.3fr) minmax(280px,.8fr); }
+    .db-side-metrics { display:grid; gap:8px; }
+    .db-triple { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .db-revenue-card { display:flex; flex-direction:column; }
+    .db-revenue-card-body { flex:1; display:flex; align-items:stretch; justify-content:stretch; }
 
     /* â”€â”€ CHART WRAPPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     .db-chart-wrap { position:relative; width:100%; }
     .db-chart-wrap canvas { display:block; width:100% !important; }
+    .db-activity-chart-frame,
+    .db-revenue-chart-frame {
+        padding:10px 12px 8px 8px;
+        border:1px solid #dbe7f5;
+        border-radius:4px;
+        background:linear-gradient(180deg,#ffffff 0%,#f9fbff 100%);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.9), 0 10px 24px rgba(21,95,143,.06);
+    }
+    .db-activity-chart-frame { height:390px; }
+    .db-revenue-chart-frame { height:350px; }
+    .db-activity-chart-frame canvas,
+    .db-revenue-chart-frame canvas { height:100% !important; }
+    .db-revenue-card .db-revenue-chart-frame { width:100%; height:100%; min-height:560px; margin:0; }
 
     /* â”€â”€ NOT-PAID TABLE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     .db-table { width:100%; border-collapse:collapse; }
-    .db-table th { background:#eef5fb; color:#103250; font-size:.75rem; text-transform:uppercase; letter-spacing:.03em; font-weight:700; padding:.75rem 1rem; text-align:left; border-bottom:1px solid var(--db-border); }
-    .db-table td { padding:.75rem 1rem; border-bottom:1px solid #f1f5f9; font-size:.88rem; color:var(--db-text); vertical-align:middle; }
+    .db-table th { background:#eef4fa; color:#0f3a64; font-size:.75rem; text-transform:uppercase; letter-spacing:.04em; font-weight:800; padding:.68rem .82rem; text-align:left; border-bottom:1px solid #d5e0ec; }
+    .db-table td { padding:.72rem .82rem; border-bottom:1px solid #edf2f7; font-size:.9rem; color:#23405f; vertical-align:middle; line-height:1.3; }
     .db-table tbody tr:last-child td { border-bottom:none; }
-    .db-table tbody tr:hover { background:#f8fafc; }
-    .db-badge { border-radius:999px; padding:.2rem .6rem; font-size:.72rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
+    .db-table tbody tr:hover { background:#f8fbff; }
+    .db-table td strong { color:#1a3657; }
+    .db-log-number { display:block; margin-bottom:.3rem; font-weight:800; font-size:.93rem; letter-spacing:.01em; line-height:1.18; color:#17395f; }
+    .db-vessel-name { display:block; font-size:.9rem; font-weight:600; color:#1f3f63; line-height:1.28; }
+    .db-log-date { white-space:nowrap; font-size:.84rem; font-weight:600; color:#3d5877; }
+    .db-amount { white-space:nowrap; font-size:.95rem; font-weight:800; color:#14355b; letter-spacing:.01em; }
+    .db-amount-pending { color:var(--db-muted); font-size:.8rem; }
+    .db-badge { border-radius:999px; padding:.2rem .56rem; font-size:.72rem; font-weight:800; display:inline-flex; align-items:center; justify-content:center; letter-spacing:.01em; }
     .db-badge-arr { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
     .db-badge-dep { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
     .db-badge-unpaid { background:#fef2f2; color:var(--db-red); border:1px solid #fecaca; }
+    .db-unpaid-link { font-size:.8rem; color:var(--db-primary); text-decoration:none; font-weight:700; display:inline-flex; align-items:center; gap:5px; }
+    .db-unpaid-link:hover { color:#0f4b73; }
 
     /* â”€â”€ PROGRESS BAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     .db-progress-wrap { display:grid; gap:10px; }
     .db-progress-label { display:flex; justify-content:space-between; align-items:center; }
-    .db-progress-label span:first-child { font-size:.82rem; font-weight:700; color:var(--db-text); }
-    .db-progress-label span:last-child  { font-size:.92rem; font-weight:850; color:var(--db-head); font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+    .db-progress-label span:first-child { font-size:.9rem; font-weight:700; color:var(--db-text); }
+    .db-progress-label span:last-child  { font-size:1.02rem; font-weight:850; color:var(--db-head); font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
     .db-progress-bar-bg { height:10px; background:#eef2f7; border-radius:999px; overflow:hidden; box-shadow:inset 0 1px 2px rgba(0,0,0,.04); }
     .db-progress-bar-fill { height:100%; border-radius:999px; transition:width .6s cubic-bezier(.4,0,.2,1); position:relative; box-shadow:0 1px 2px rgba(0,0,0,.05); }
     .db-progress-bar-fill::after { content:''; position:absolute; inset:0; border-radius:999px; background:linear-gradient(180deg,rgba(255,255,255,.25),transparent 60%); }
@@ -68,68 +97,55 @@
     .db-progress-bar-fill.red    { background:linear-gradient(90deg,var(--db-red),#f87171); }
 
     /* â”€â”€ METRIC ROWS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-    .db-metric-row { display:flex; justify-content:space-between; align-items:center; padding:.7rem 0; border-bottom:1px solid #f1f5f9; font-size:.88rem; }
+    .db-metric-row { display:flex; justify-content:space-between; align-items:center; padding:.56rem 0; border-bottom:1px solid #f1f5f9; font-size:.95rem; }
     .db-metric-row:last-child { border-bottom:none; }
     .db-metric-row span:first-child { color:var(--db-muted); }
     .db-metric-row strong { color:var(--db-head); font-weight:700; }
 
     /* â”€â”€ HERO BANNER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-    .db-hero { background:var(--db-primary); color:#fff; border-radius:12px; padding:1.4rem 1.6rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; box-shadow:0 4px 6px -1px rgba(0,0,0,.1); }
-    .db-hero h2 { margin:0 0 .3rem; font-size:1.6rem; font-weight:700; letter-spacing:-.02em; }
-    .db-hero p  { margin:0; font-size:.92rem; color:rgba(255,255,255,.85); }
-    .db-hero-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
-    .db-hero-date { font-size:.85rem; color:rgba(255,255,255,.75); }
-    .db-hero-time { font-size:1.5rem; font-weight:800; }
-    .db-filter-card { border:1px solid var(--db-border); border-radius:12px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.04); padding:14px 16px; display:grid; gap:12px; }
-    .db-filter-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .db-filter-pill { border:1px solid #cbd5e1; background:#fff; color:#155f8f; border-radius:999px; min-height:34px; padding:0 14px; font-size:.82rem; font-weight:700; cursor:pointer; transition:all .2s ease; }
-    .db-filter-pill:hover { background:#f0f7fd; }
+    .db-filter-card { border:1px solid var(--db-border); border-radius:12px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.04); padding:12px 14px; display:grid; gap:8px; }
+    .db-filter-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .db-filter-pill { border:1px solid #cbd5e1; background:#fff; color:#155f8f; border-radius:999px; min-height:38px; padding:0 16px; font-size:.9rem; font-weight:700; cursor:pointer; transition:all .2s ease; display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+    .db-filter-pill:hover { background:#f0f7fd; border-color:#b9c8dc; transform:translateY(-1px); }
     .db-filter-pill.is-active { background:#155f8f; border-color:#155f8f; color:#fff; box-shadow:0 4px 12px rgba(21,95,143,.18); }
+    .db-filter-pill i { font-size:.78rem; opacity:.9; }
     .db-filter-range { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .db-filter-range[hidden] { display:none !important; }
-    .db-filter-input { min-height:36px; border:1px solid #cbd5e1; border-radius:9px; padding:0 .72rem; font-size:.86rem; color:#334155; background:#fff; }
+    .db-filter-input { min-height:40px; border:1px solid #cbd5e1; border-radius:9px; padding:0 .78rem; font-size:.92rem; color:#334155; background:#fff; }
     .db-filter-input:focus { outline:none; border-color:#155f8f; box-shadow:0 0 0 3px rgba(21,95,143,.14); }
-    .db-filter-apply { border:1px solid #155f8f; background:#155f8f; color:#fff; border-radius:9px; min-height:36px; padding:0 .9rem; font-size:.84rem; font-weight:700; cursor:pointer; }
-    .db-filter-summary { font-size:.84rem; color:#64748b; }
+    .db-filter-apply { border:1px solid #155f8f; background:#155f8f; color:#fff; border-radius:9px; min-height:40px; padding:0 1rem; font-size:.9rem; font-weight:700; cursor:pointer; }
+    .db-filter-summary { font-size:.92rem; color:#64748b; }
 
     /* â”€â”€ EMPTY STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-    .db-empty { padding:2rem; text-align:center; color:var(--db-muted); font-size:.9rem; }
+    .db-empty { padding:1.3rem; text-align:center; color:var(--db-muted); font-size:.98rem; }
 
     /* â”€â”€ RESPONSIVE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     @media (max-width:1024px) {
         .db-kpi-grid  { grid-template-columns:repeat(2,minmax(0,1fr)); }
         .db-twin      { grid-template-columns:1fr; }
+        .db-activity-grid { grid-template-columns:1fr; }
         .db-triple    { grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
     @media (max-width:640px) {
         .db-kpi-grid { grid-template-columns:1fr; }
         .db-triple   { grid-template-columns:1fr; }
         .db-filter-row { align-items:flex-start; }
+        .db-activity-chart-frame { height:320px; padding:8px 8px 6px 4px; }
+        .db-revenue-chart-frame { height:290px; padding:8px 8px 6px 4px; }
+        .db-revenue-card .db-revenue-chart-frame { min-height:320px; }
     }
 </style>
 
 <div class="db">
 
-    {{-- â”€â”€ HERO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
-    <div class="db-hero">
-        <div>
-            <h2><i class="fa-solid fa-fish-fins" style="margin-right:10px;opacity:.85;"></i>Fishport Dashboard</h2>
-            <p>Real-time overview of vessel activity and collection status</p>
-        </div>
-        <div class="db-hero-right">
-            <span class="db-hero-date">{{ $filterLabel }}</span>
-            <span class="db-hero-date">{{ $displayRange }}</span>
-            <span class="db-hero-time" id="db-clock">{{ now()->format('h:i A') }}</span>
-        </div>
-    </div>
-
     <section class="db-filter-card">
         <form id="dbFilterForm" method="GET" action="{{ route('fishport.dashboard') }}">
             <input type="hidden" id="dbPeriodInput" name="period" value="{{ $period }}">
             <div class="db-filter-row">
-                <button type="button" class="db-filter-pill {{ $period === 'today' ? 'is-active' : '' }}" data-period="today">Today</button>
-                <button type="button" class="db-filter-pill {{ $period === 'month' ? 'is-active' : '' }}" data-period="month">This Month</button>
-                <button type="button" class="db-filter-pill {{ $period === 'range' ? 'is-active' : '' }}" data-period="range">Custom Range</button>
+                <button type="button" class="db-filter-pill {{ $period === 'today' ? 'is-active' : '' }}" data-period="today"><i class="fa-solid fa-sun"></i>Today</button>
+                <button type="button" class="db-filter-pill {{ $period === 'week' ? 'is-active' : '' }}" data-period="week"><i class="fa-regular fa-calendar"></i>This Week</button>
+                <button type="button" class="db-filter-pill {{ $period === 'month' ? 'is-active' : '' }}" data-period="month"><i class="fa-solid fa-calendar-days"></i>This Month</button>
+                <button type="button" class="db-filter-pill {{ $period === 'range' ? 'is-active' : '' }}" data-period="range"><i class="fa-solid fa-calendar-check"></i>Custom Range</button>
                 <div id="dbFilterRangeFields" class="db-filter-range" {{ $period === 'range' ? '' : 'hidden' }}>
                     <input class="db-filter-input" type="date" id="dbDateFrom" name="date_from" value="{{ $dateFrom }}">
                     <span style="color:#64748b;font-size:.85rem;">to</span>
@@ -187,7 +203,7 @@
     </div>
 
     {{-- â”€â”€ ROW 2: Weekly Chart + Donut + Progress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
-    <div class="db-twin">
+    <div class="db-twin db-activity-grid">
 
         {{-- Weekly Arrivals/Departures Bar Chart --}}
         <div class="db-card">
@@ -196,14 +212,14 @@
                 <span style="font-size:.8rem;color:var(--db-muted);">{{ $displayRange }}</span>
             </div>
             <div class="db-card-body">
-                <div class="db-chart-wrap" style="height:220px;">
+                <div class="db-chart-wrap db-activity-chart-frame">
                     <canvas id="weeklyChart"></canvas>
                 </div>
             </div>
         </div>
 
         {{-- Right column: donut + progress --}}
-        <div style="display:grid;gap:14px;">
+        <div class="db-side-metrics">
 
             {{-- ARR vs DEP Donut --}}
             <div class="db-card">
@@ -211,11 +227,11 @@
                     <h3><i class="fa-solid fa-circle-half-stroke" style="color:var(--db-primary);"></i>ARR vs DEP</h3>
                     <span style="font-size:.8rem;color:var(--db-muted);">{{ $filterLabel }}</span>
                 </div>
-                <div class="db-card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+                <div class="db-card-body" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
                     <div class="db-chart-wrap" style="height:110px;width:110px;flex-shrink:0;">
                         <canvas id="donutChart"></canvas>
                     </div>
-                    <div style="flex:1;min-width:120px;display:grid;gap:6px;">
+                    <div style="flex:1;min-width:120px;display:grid;gap:4px;">
                         <div class="db-metric-row">
                             <span><i class="fa-solid fa-circle" style="color:#10b981;font-size:.55rem;margin-right:4px;"></i>Arrivals</span>
                             <strong>{{ $arrCount }}</strong>
@@ -234,7 +250,7 @@
                     <h3><i class="fa-solid fa-circle-check" style="color:var(--db-primary);"></i>Collection Progress</h3>
                     <span style="font-size:.8rem;color:var(--db-muted);">{{ $filterLabel }}</span>
                 </div>
-                <div class="db-card-body" style="display:grid;gap:14px;">
+                <div class="db-card-body" style="display:grid;gap:10px;">
                     <div class="db-progress-wrap">
                         <div class="db-progress-label">
                             <span>Paid ({{ $monthPaid }}/{{ $monthTotal }})</span>
@@ -262,13 +278,13 @@
     <div class="db-twin">
 
         {{-- Monthly Revenue Line Chart --}}
-        <div class="db-card">
+        <div class="db-card db-revenue-card">
             <div class="db-card-head">
                 <h3><i class="fa-solid fa-chart-area" style="color:var(--db-primary);"></i>Revenue Trend</h3>
                 <span style="font-size:.8rem;color:var(--db-muted);">{{ $displayRange }}</span>
             </div>
-            <div class="db-card-body">
-                <div class="db-chart-wrap" style="height:220px;">
+            <div class="db-card-body db-revenue-card-body">
+                <div class="db-chart-wrap db-revenue-chart-frame">
                     <canvas id="revenueChart"></canvas>
                 </div>
             </div>
@@ -278,7 +294,7 @@
         <div class="db-card">
             <div class="db-card-head">
                 <h3><i class="fa-solid fa-clock" style="color:#dc2626;"></i>Unpaid Transactions ({{ $filterLabel }})</h3>
-                <a href="{{ route('fishport.records', ['saved_status' => 'not_paid']) }}" style="font-size:.8rem;color:var(--db-primary);text-decoration:none;font-weight:600;">View all <i class="fa-solid fa-arrow-right" style="font-size:.65rem;"></i></a>
+                <a href="{{ route('fishport.records', ['saved_status' => 'not_paid']) }}" class="db-unpaid-link">View all <i class="fa-solid fa-arrow-right" style="font-size:.72rem;"></i></a>
             </div>
             @if($notPaidLogs->isEmpty())
                 <div class="db-empty"><i class="fa-solid fa-circle-check" style="font-size:1.5rem;color:#10b981;display:block;margin-bottom:8px;"></i>All transactions are paid!</div>
@@ -297,16 +313,16 @@
                             @foreach($notPaidLogs as $row)
                                 <tr>
                                     <td>
-                                        <strong>{{ $row['log_number'] }}</strong><br>
+                                        <strong class="db-log-number">{{ $row['log_number'] }}</strong>
                                         <span class="db-badge {{ $row['arr_dep'] === 'ARR' ? 'db-badge-arr' : 'db-badge-dep' }}">{{ $row['arr_dep'] }}</span>
                                     </td>
-                                    <td>{{ $row['vessel'] }}</td>
-                                    <td style="white-space:nowrap;font-size:.82rem;">{{ $row['log_date'] }}</td>
-                                    <td style="white-space:nowrap;">
+                                    <td><span class="db-vessel-name">{{ $row['vessel'] }}</span></td>
+                                    <td><span class="db-log-date">{{ $row['log_date'] }}</span></td>
+                                    <td>
                                         @if($row['grand_total'] > 0)
-                                            <strong>PHP {{ number_format($row['grand_total'], 2) }}</strong>
+                                            <strong class="db-amount">PHP {{ number_format($row['grand_total'], 2) }}</strong>
                                         @else
-                                            <span style="color:var(--db-muted);font-size:.8rem;">Pending entry</span>
+                                            <span class="db-amount-pending">Pending entry</span>
                                         @endif
                                     </td>
                                 </tr>
@@ -326,19 +342,14 @@
 
 <script>
 (function () {
-    // â”€â”€ Live clock â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    const clockEl = document.getElementById('db-clock');
-    if (clockEl) {
-        const tick = () => {
-            const now = new Date();
-            let h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
-            const ampm = h >= 12 ? 'PM' : 'AM';
-            h = h % 12 || 12;
-            clockEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ampm}`;
-        };
-        tick();
-        setInterval(tick, 1000);
-    }
+    // Show the page title in the top white bar for this dashboard.
+    window.addEventListener('load', () => {
+        const breadcrumb = document.querySelector('.breadcrumb');
+        if (breadcrumb) breadcrumb.hidden = false;
+
+        const titleEl = document.getElementById('pageTitle');
+        if (titleEl) titleEl.textContent = 'Fishport';
+    });
 
     const parseJsonScript = (id, fallback) => {
         const el = document.getElementById(id);
@@ -424,44 +435,59 @@
 
     const buildVerticalGradient = (canvas, top, bottom) => {
         const ctx = canvas.getContext('2d');
-        const g = ctx.createLinearGradient(0, 0, 0, canvas.parentElement?.clientHeight || 220);
+        const g = ctx.createLinearGradient(0, 0, 0, canvas.parentElement?.clientHeight || 340);
         g.addColorStop(0, top);
         g.addColorStop(1, bottom);
         return g;
     };
 
-    // â”€â”€ Weekly Bar Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â”€â”€ Weekly Bar + Line Combo Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const weeklyCanvas = document.getElementById('weeklyChart');
     const weeklyData = parseJsonScript('dbDailyStatsJson', []);
+    const arrivalsSeries = weeklyData.map(d => Number(d.arrivals) || 0);
+    const departuresSeries = weeklyData.map(d => Number(d.departures) || 0);
+
     new Chart(weeklyCanvas, {
         type: 'bar',
         data: {
             labels: weeklyData.map(d => d.label + '\n' + d.date),
             datasets: [
                 {
+                    type: 'bar',
                     label: 'Arrivals',
-                    data: weeklyData.map(d => d.arrivals),
-                    backgroundColor: buildVerticalGradient(weeklyCanvas, '#34d399', '#10b981'),
-                    hoverBackgroundColor: '#0ea372',
-                    borderRadius: 8,
+                    data: arrivalsSeries,
+                    backgroundColor: buildVerticalGradient(weeklyCanvas, 'rgba(16,185,129,.9)', 'rgba(16,185,129,.62)'),
+                    hoverBackgroundColor: GREEN,
+                    borderColor: 'rgba(5,150,105,.24)',
+                    borderWidth: 1,
+                    borderRadius: 0,
                     borderSkipped: false,
-                    maxBarThickness: 22,
+                    barPercentage: 0.58,
+                    categoryPercentage: 0.76,
+                    maxBarThickness: 46,
+                    order: 2,
                 },
                 {
+                    type: 'bar',
                     label: 'Departures',
-                    data: weeklyData.map(d => d.departures),
-                    backgroundColor: buildVerticalGradient(weeklyCanvas, '#4ea3e0', PRIMARY),
-                    hoverBackgroundColor: '#0f4b73',
-                    borderRadius: 8,
+                    data: departuresSeries,
+                    backgroundColor: buildVerticalGradient(weeklyCanvas, 'rgba(21,95,143,.9)', 'rgba(21,95,143,.62)'),
+                    hoverBackgroundColor: PRIMARY,
+                    borderColor: 'rgba(21,95,143,.28)',
+                    borderWidth: 1,
+                    borderRadius: 0,
                     borderSkipped: false,
-                    maxBarThickness: 22,
+                    barPercentage: 0.58,
+                    categoryPercentage: 0.76,
+                    maxBarThickness: 46,
+                    order: 2,
                 },
             ],
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: { padding: { top: 12, right: 8, left: 0, bottom: 0 } },
+            layout: { padding: { top: 10, right: 8, left: 0, bottom: 0 } },
             animation: { duration: 800, easing: 'easeOutQuart' },
             plugins: {
                 legend: {
@@ -473,13 +499,14 @@
             },
             scales: {
                 x: {
-                    grid: { display: false, drawBorder: false },
-                    ticks: { font: { size: 10, weight: '600' }, color: '#94a3b8', maxRotation: 0, autoSkipPadding: 8 },
+                    offset: true,
+                    grid: { color: 'rgba(148,163,184,.12)', drawBorder: false, drawTicks: false },
+                    ticks: { font: { size: 10, weight: '600' }, color: '#64748b', maxRotation: 0, autoSkipPadding: 12, padding: 8 },
                 },
                 y: {
                     beginAtZero: true,
-                    ticks: { stepSize: 1, font: { size: 10, weight: '600' }, color: '#94a3b8', padding: 8 },
-                    grid: { color: 'rgba(148,163,184,.14)', drawBorder: false },
+                    ticks: { stepSize: 1, font: { size: 10, weight: '600' }, color: '#64748b', padding: 8 },
+                    grid: { color: 'rgba(148,163,184,.24)', drawBorder: false },
                 },
             },
         },
@@ -525,43 +552,54 @@
         },
     });
 
-    // â”€â”€ Monthly Revenue Line Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â”€â”€ Monthly Revenue Bar + Line Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const revenueCanvas = document.getElementById('revenueChart');
     const monthlyData = parseJsonScript('dbMonthlyRevenueJson', []);
-    const revenueGradient = (() => {
-        const ctx = revenueCanvas.getContext('2d');
-        const g = ctx.createLinearGradient(0, 0, 0, 220);
-        g.addColorStop(0, 'rgba(21,95,143,.32)');
-        g.addColorStop(0.55, 'rgba(21,95,143,.08)');
-        g.addColorStop(1, 'rgba(21,95,143,0)');
-        return g;
-    })();
+    const revenueValues = monthlyData.map(d => Number(d.revenue) || 0);
+    const revenueBarGradient = buildVerticalGradient(revenueCanvas, 'rgba(79,128,237,.82)', 'rgba(79,128,237,.58)');
     const revenueChart = new Chart(revenueCanvas, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: monthlyData.map(d => d.label),
-            datasets: [{
-                label: 'Revenue (PHP)',
-                data: monthlyData.map(d => d.revenue),
-                borderColor: PRIMARY,
-                backgroundColor: revenueGradient,
-                borderWidth: 2.5,
-                pointBackgroundColor: '#fff',
-                pointBorderColor: PRIMARY,
-                pointBorderWidth: 2.5,
-                pointRadius: 0,
-                pointHoverRadius: 6,
-                pointHoverBackgroundColor: PRIMARY,
-                pointHoverBorderColor: '#fff',
-                pointHoverBorderWidth: 3,
-                fill: true,
-                tension: 0.4,
-            }],
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Revenue (PHP)',
+                    data: revenueValues,
+                    backgroundColor: revenueBarGradient,
+                    hoverBackgroundColor: '#4f80ed',
+                    borderColor: 'rgba(37,99,235,.22)',
+                    borderWidth: 1,
+                    borderRadius: 0,
+                    borderSkipped: false,
+                    barPercentage: 0.56,
+                    categoryPercentage: 0.76,
+                    maxBarThickness: 52,
+                    minBarLength: 4,
+                    order: 2,
+                },
+                {
+                    type: 'line',
+                    label: 'Trend',
+                    data: revenueValues,
+                    borderColor: 'rgba(216,124,124,.78)',
+                    backgroundColor: 'rgba(216,124,124,.16)',
+                    borderWidth: 1.6,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    pointHoverBackgroundColor: '#d87c7c',
+                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderWidth: 2,
+                    fill: false,
+                    tension: 0.28,
+                    order: 1,
+                },
+            ],
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: { padding: { top: 12, right: 8, left: 0, bottom: 0 } },
+            layout: { padding: { top: 10, right: 8, left: 0, bottom: 0 } },
             animation: { duration: 900, easing: 'easeOutQuart' },
             interaction: { mode: 'index', intersect: false },
             plugins: {
@@ -569,6 +607,7 @@
                 tooltip: {
                     ...darkTooltip,
                     displayColors: false,
+                    filter: ctx => ctx.dataset.type === 'bar',
                     callbacks: {
                         label: ctx => ' PHP ' + Number(ctx.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2 }),
                     },
@@ -576,18 +615,19 @@
             },
             scales: {
                 x: {
-                    grid: { display: false, drawBorder: false },
-                    ticks: { font: { size: 10, weight: '600' }, color: '#94a3b8', maxRotation: 0, autoSkipPadding: 12 },
+                    offset: true,
+                    grid: { color: 'rgba(148,163,184,.12)', drawBorder: false, drawTicks: false },
+                    ticks: { font: { size: 10, weight: '600' }, color: '#64748b', maxRotation: 0, autoSkipPadding: 12, padding: 8 },
                 },
                 y: {
                     beginAtZero: true,
                     ticks: {
                         font: { size: 10, weight: '600' },
-                        color: '#94a3b8',
+                        color: '#64748b',
                         padding: 8,
                         callback: v => 'PHP ' + Number(v).toLocaleString('en-PH', { notation: 'compact', maximumFractionDigits: 1 }),
                     },
-                    grid: { color: 'rgba(148,163,184,.14)', drawBorder: false },
+                    grid: { color: 'rgba(148,163,184,.24)', drawBorder: false },
                 },
             },
         },
@@ -604,5 +644,3 @@
 })();
 </script>
 @endsection
-
-

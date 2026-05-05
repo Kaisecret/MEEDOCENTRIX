@@ -62,9 +62,9 @@ const ROLES = {
         user: 'Mario Lopez',
         nav: [
             { id: 'dashboard', icon: 'fas fa-chart-pie', label: 'Dashboard' },
-            { id: 'vehicles', icon: 'fas fa-bus', label: 'Vehicle Logs' },
             { id: 'terminal_records', icon: 'fas fa-ticket', label: 'Terminal Transactions' },
-            { id: 'send_payment', icon: 'fas fa-file-invoice-dollar', label: 'Payment History' }
+            { id: 'send_payment', icon: 'fas fa-file-invoice-dollar', label: 'Payment History' },
+            { id: 'terminal_reports', icon: 'fas fa-file-lines', label: 'Reports' }
         ]
     },
     atrium: {
@@ -74,7 +74,6 @@ const ROLES = {
             { id: 'dashboard', icon: 'fas fa-chart-pie', label: 'Dashboard' },
             { id: 'atrium_bookings', icon: 'fas fa-calendar-check', label: 'Bookings' },
             { id: 'atrium_payments', icon: 'fas fa-money-check-dollar', label: 'Payments' },
-            { id: 'atrium_supplies', icon: 'fas fa-boxes-stacked', label: 'Supplies' },
             { id: 'atrium_reports', icon: 'fas fa-chart-pie', label: 'Reports' }
         ]
     },
@@ -146,16 +145,15 @@ const ROLE_PAGE_ROUTES = {
     },
     terminal: {
         dashboard: '/terminal/dashboard',
-        vehicles: '/terminal/vehicles',
         terminal_records: '/terminal/records',
-        send_payment: '/terminal/send-payment'
+        send_payment: '/terminal/send-payment',
+        terminal_reports: '/terminal/reports'
     },
     atrium: {
         dashboard: '/atrium/dashboard',
         atrium_records: '/atrium/records',
         atrium_bookings: '/atrium/bookings',
         atrium_payments: '/atrium/payments',
-        atrium_supplies: '/atrium/supplies',
         atrium_reports: '/atrium/reports',
         profile: '/atrium/profile'
     },
@@ -230,10 +228,17 @@ let profileDropdownName = document.getElementById('profileDropdownName');
 let profileDropdownRole = document.getElementById('profileDropdownRole');
 const notifDropdown = document.getElementById('notifDropdown');
 const profileDropdown = document.getElementById('profileDropdown');
+const notifBadge = document.getElementById('notifBadge');
+const notifList = document.getElementById('notifList');
+const notifMarkAllBtn = document.getElementById('notifMarkAllBtn');
 const isServerRenderedApp = Boolean(appContainer && sidebarNav && contentArea && !loginPage);
 const serverRenderedRoleKey = appContainer?.dataset.authRoleKey || null;
 const serverRenderedUserName = appContainer?.dataset.authUserName || null;
 const serverRenderedRoleLabel = appContainer?.dataset.authUserRoleLabel || null;
+const notifFeedUrl = appContainer?.dataset.notifFeedUrl || null;
+const notifReadAllUrl = appContainer?.dataset.notifReadAllUrl || null;
+const notifViewAllUrl = appContainer?.dataset.notifViewAllUrl || '/notifications';
+const csrfToken = document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content') || '';
 
 // ======================= AUTH & NAVIGATION =======================
 
@@ -593,6 +598,7 @@ function startServerLiveSync() {
 
     const pageRoot = contentArea?.querySelector('[data-server-rendered-page]');
     if (!pageRoot) return;
+    if ((pageRoot.dataset.serverRenderedPage || '') !== 'dashboard') return;
     if (pageRoot.hasAttribute('data-live-refresh-disabled')) return;
 
     const intervalMs = Number(pageRoot.dataset.liveRefreshMs || 12000);
@@ -601,6 +607,7 @@ function startServerLiveSync() {
     liveSyncTimer = window.setInterval(() => {
         const currentRoot = contentArea?.querySelector('[data-server-rendered-page]');
         if (!currentRoot) return;
+        if ((currentRoot.dataset.serverRenderedPage || '') !== 'dashboard') return;
         if (currentRoot.hasAttribute('data-live-refresh-disabled')) return;
         if (!canRunLiveSyncRefresh()) return;
 
@@ -642,6 +649,12 @@ function renderPage(pageId) {
             'collector_reports': '/collector/reports',
             'profile': '/collector/profile',
         },
+        'terminal': {
+            'dashboard': '/terminal/dashboard',
+            'terminal_records': '/terminal/records',
+            'send_payment': '/terminal/send-payment',
+            'terminal_reports': '/terminal/reports',
+        },
     };
 
     // Check role-specific pages
@@ -673,6 +686,12 @@ function renderPage(pageId) {
                     collector_payments: 'Collector Payments',
                     collector_reports: 'Collector Reports',
                     profile: 'My Profile',
+                },
+                terminal: {
+                    dashboard: 'Terminal Dashboard',
+                    terminal_records: 'Terminal Transactions',
+                    send_payment: 'Payment History',
+                    terminal_reports: 'Terminal Reports',
                 },
             };
 
@@ -742,6 +761,10 @@ function renderPage(pageId) {
             title = currentUserRole === 'terminal' ? 'Payment History' : 'Send for Payment';
             renderSendPaymentPage();
             break;
+        case 'terminal_reports':
+            title = 'Terminal Reports';
+            window.location.href = '/terminal/reports';
+            return;
         case 'market_reports':
             title = 'Market Reports';
             window.location.href = '/market/reports';
@@ -781,10 +804,6 @@ function renderPage(pageId) {
         case 'direct_payment':
             title = 'Direct Payment Collection';
             renderDirectPaymentPage();
-            break;
-        case 'vehicles':
-            title = 'Vehicle Logs';
-            renderTerminalVehiclesPage();
             break;
         case 'terminal_records':
             title = 'Terminal Transactions';
@@ -5999,9 +6018,129 @@ window.toggleSidebar = function(forceOpen = null) {
     sidebarOpen = shouldExpand;
 }
 
+function notificationIconClass(type) {
+    if (type === 'success') return 'green';
+    if (type === 'warning' || type === 'danger') return 'orange';
+    if (type === 'info') return 'blue';
+    return 'purple';
+}
+
+function escapeHtml(value) {
+    const text = String(value ?? '');
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function updateNotificationBadge(unreadCount) {
+    if (!notifBadge) return;
+    const count = Number(unreadCount || 0);
+    notifBadge.textContent = String(count);
+    notifBadge.style.display = count > 0 ? 'inline-flex' : 'none';
+}
+
+function renderNotificationList(items) {
+    if (!notifList) return;
+    if (!Array.isArray(items) || items.length === 0) {
+        notifList.innerHTML = '<div class=\"notif-empty\">No notifications yet.</div>';
+        return;
+    }
+
+    notifList.innerHTML = items.map((item) => {
+        const iconClass = notificationIconClass(item.type);
+        const itemClass = item.is_read ? 'notif-item' : 'notif-item unread';
+        const title = escapeHtml(item.title || 'Notification');
+        const message = escapeHtml(item.message || '');
+        const createdAt = escapeHtml(item.created_at_human || 'just now');
+        const markReadUrl = escapeHtml(item.mark_read_url || '');
+        const actionUrl = escapeHtml(item.action_url || notifViewAllUrl);
+
+        return `
+            <a href=\"${actionUrl}\" class=\"${itemClass}\" data-notif-id=\"${item.id}\" data-mark-url=\"${markReadUrl}\">
+                <div class=\"notif-icon ${iconClass}\"><i class=\"fas fa-bell\"></i></div>
+                <div class=\"notif-content\">
+                    <p><strong>${title}</strong><br>${message}</p>
+                    <span>${createdAt}</span>
+                </div>
+            </a>
+        `;
+    }).join('');
+}
+
+async function refreshNotifications() {
+    if (!notifFeedUrl) return;
+    try {
+        const response = await fetch(notifFeedUrl, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (!response.ok) return;
+        const data = await response.json();
+        updateNotificationBadge(data.unread_count || 0);
+        renderNotificationList(data.items || []);
+    } catch (error) {
+        // keep UI usable even if notification fetch fails
+    }
+}
+
+async function markNotificationRead(markUrl) {
+    if (!markUrl || !csrfToken) return;
+    try {
+        const response = await fetch(markUrl, {
+            method: 'PATCH',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            credentials: 'same-origin',
+        });
+
+        if (response.ok) return;
+
+        await fetch(markUrl, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            body: new URLSearchParams({ _method: 'PATCH' }),
+            credentials: 'same-origin',
+        });
+    } catch (error) {
+        try {
+            await fetch(markUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: new URLSearchParams({ _method: 'PATCH' }),
+                credentials: 'same-origin',
+            });
+        } catch (fallbackError) {
+            // no-op
+        }
+    }
+}
+
 window.toggleNotifications = function() {
     if(profileDropdown) profileDropdown.style.display = 'none';
-    if(notifDropdown) notifDropdown.style.display = notifDropdown.style.display === 'none' ? 'block' : 'none';
+    if(!notifDropdown) return;
+    const isOpening = notifDropdown.style.display === 'none';
+    notifDropdown.style.display = isOpening ? 'block' : 'none';
+    if (isOpening) {
+        refreshNotifications();
+    }
 }
 
 window.toggleProfileMenu = function() {
@@ -6020,6 +6159,69 @@ document.addEventListener('click', (e) => {
         closeDropdowns();
     }
 });
+
+if (notifMarkAllBtn) {
+    notifMarkAllBtn.addEventListener('click', async () => {
+        if (!notifReadAllUrl || !csrfToken) return;
+        try {
+            const response = await fetch(notifReadAllUrl, {
+                method: 'PATCH',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) {
+                await fetch(notifReadAllUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
+                    body: new URLSearchParams({ _method: 'PATCH' }),
+                    credentials: 'same-origin',
+                });
+            }
+            refreshNotifications();
+        } catch (error) {
+            try {
+                await fetch(notifReadAllUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrfToken,
+                    },
+                    body: new URLSearchParams({ _method: 'PATCH' }),
+                    credentials: 'same-origin',
+                });
+                refreshNotifications();
+            } catch (fallbackError) {
+                // no-op
+            }
+        }
+    });
+}
+
+if (notifList) {
+    notifList.addEventListener('click', async (event) => {
+        const link = event.target.closest('a[data-mark-url]');
+        if (!link) return;
+        event.preventDefault();
+        const markUrl = link.dataset.markUrl;
+        await markNotificationRead(markUrl);
+        const href = link.getAttribute('href') || notifViewAllUrl;
+        window.location.href = href;
+    });
+}
+
+if (notifFeedUrl) {
+    refreshNotifications();
+}
 
 // ======================= MODAL SYSTEM =======================
 

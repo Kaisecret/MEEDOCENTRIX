@@ -2,16 +2,16 @@
 
 @section('content')
 <style>
-    .vr-page { display:grid; gap:16px; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #334155; }
-    .vr-hero { background: #155f8f; color:#fff; border-radius:12px; padding:1.45rem 1.6rem; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-    .vr-hero h2 { margin:0 0 .4rem; font-size:1.7rem; font-weight:700; letter-spacing: -0.02em; }
-    .vr-hero p { margin:0; font-size: 0.95rem; color: rgba(255, 255, 255, 0.85); }
-    .vr-stats { margin-top:.75rem; display:inline-flex; flex-wrap:wrap; gap:8px; }
-    .vr-pill { background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.38); border-radius:8px; padding:.25rem .75rem; font-size:.85rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
-    .vr-hero-btn { border:1px solid rgba(255,255,255,.38); background:rgba(255,255,255,.15); color:#fff; border-radius:10px; min-height:42px; padding:0 1rem; font-size: 0.95rem; font-weight:600; display:inline-flex; align-items:center; gap:8px; text-decoration: none; transition: all 0.2s; }
-    .vr-hero-btn:hover { background:rgba(255,255,255,.25); }
+    #contentArea {
+        padding-top: 16px;
+    }
+
+    .vr-page { display:grid; gap:12px; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #334155; }
+    .vr-hero-btn { border:1px solid #155f8f; background:#155f8f; color:#fff; border-radius:10px; min-height:40px; padding:0 .95rem; font-size: 0.92rem; font-weight:700; display:inline-flex; align-items:center; gap:8px; text-decoration: none; transition: all 0.2s; }
+    .vr-hero-btn:hover { background:#0f4b73; border-color:#0f4b73; }
     .vr-card { border:1px solid #e2e8f0; border-radius:12px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.05); overflow:hidden; }
-    .vr-head { border-bottom:1px solid #e2e8f0; background: #fff; padding:1.25rem 1.5rem; display:grid; grid-template-columns:1fr auto; gap:16px; align-items:center; }
+    .vr-head { border-bottom:1px solid #e2e8f0; background: #fff; padding:1rem 1.2rem; display:grid; gap:10px; align-items:center; }
+    .vr-head-main { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .vr-head h3 { margin:0; font-size:1.25rem; font-weight: 700; color: #0f172a; }
     .vr-head p { margin:.25rem 0 0; color:#64748b; font-size:.9rem; }
     .vr-search-wrap { position:relative; display: flex; align-items: center; min-width: 320px; }
@@ -20,16 +20,16 @@
     .vr-search:focus { border-color: #155f8f; box-shadow: 0 0 0 3px rgba(21, 95, 143, 0.15); outline: none; }
     .vr-table-wrap { overflow:auto; }
     .vr-table { width:100%; border-collapse:collapse; }
-    .vr-table th { background:#eef5fb; color:#103250; border-bottom:1px solid #e2e8f0; font-size:.8rem; text-transform:uppercase; letter-spacing:.03em; font-weight:700; padding:1rem 1.25rem; text-align: left; }
-    .vr-table td { padding:.88rem 1.25rem; border-bottom:1px solid #f1f5f9; color:#334155; font-size:.93rem; vertical-align: middle; }
+    .vr-table th { background:#eef5fb; color:#103250; border-bottom:1px solid #e2e8f0; font-size:.74rem; text-transform:uppercase; letter-spacing:.03em; font-weight:700; padding:.82rem 1rem; text-align: left; white-space: nowrap; }
+    .vr-table td { padding:.74rem 1rem; border-bottom:1px solid #f1f5f9; color:#334155; font-size:.86rem; vertical-align: middle; line-height:1.32; }
     .vr-table td:first-child, .vr-table td:last-child { white-space: nowrap; }
     .vr-table tbody tr:nth-child(even) { background: #fdfdfe; }
     .vr-table tbody tr:hover { background: #f1f5f9; }
-    .vr-badge { border-radius:999px; padding:.25rem .65rem; font-size:.77rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
+    .vr-badge { border-radius:999px; padding:.2rem .56rem; font-size:.7rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
     .vr-badge-active { background:#ecfdf5; color:#047857; border: 1px solid #a7f3d0; }
     .vr-badge-inactive { background:#fef2f2; color:#b91c1c; border: 1px solid #fecaca; }
-    .vr-actions { display:inline-flex; gap:6px; flex-wrap: nowrap; }
-    .vr-icon-btn { width:32px; height:32px; border-radius:8px; border:1px solid #e2e8f0; background:transparent; color:#475569; display:inline-flex; align-items:center; justify-content:center; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+    .vr-actions { display:inline-flex; gap:5px; flex-wrap: nowrap; }
+    .vr-icon-btn { width:30px; height:30px; border-radius:8px; border:1px solid #e2e8f0; background:transparent; color:#475569; display:inline-flex; align-items:center; justify-content:center; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
     .vr-icon-btn:hover { background:#f1f5f9; color:#155f8f; border-color: #cbd5e1; }
     .vr-icon-btn-danger:hover { background:#fee2e2; border-color:#fca5a5; color:#dc2626; }
     .vr-pagination { border-top:1px solid #e2e8f0; background: #f8fafc; padding:12px 16px; display:flex; justify-content:flex-end; gap:8px; align-items: center; }
@@ -63,7 +63,7 @@
     .vr-status-toast.is-success { background:#ecfdf5; border-color:#86efac; color:#065f46; }
     .vr-status-toast.is-error { background:#fff1f2; border-color:#fecdd3; color:#9f1239; }
     .vr-status-toast.is-hiding { opacity:0; transform:translateY(-10px); }
-    @media (max-width:920px){ .vr-head { grid-template-columns:1fr; } .vr-form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .vr-search-wrap{ min-width: 100%; } }
+    @media (max-width:920px){ .vr-form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .vr-search-wrap{ min-width: 100%; } }
     @media (max-width:640px){ .vr-form-grid { grid-template-columns:1fr; } }
 </style>
 
@@ -80,24 +80,13 @@
         </div>
     @endif
 
-    <section class="vr-hero">
-        <div>
-            <h2>Master Vessel Registry</h2>
-            <p>Manage and edit the official directory of all registered vessels operating in the fishport.</p>
-            <div class="vr-stats">
-                <span class="vr-pill"><i class="fas fa-ship"></i> Total: {{ $activeCount + $inactiveCount }}</span>
-                <span class="vr-pill"><i class="fas fa-circle-check"></i> Active: {{ $activeCount }}</span>
-                <span class="vr-pill"><i class="fas fa-circle-xmark"></i> Inactive: {{ $inactiveCount }}</span>
-            </div>
-        </div>
-        <button type="button" id="openRegisterVesselBtn" class="vr-hero-btn"><i class="fas fa-plus"></i> Register Vessel</button>
-    </section>
-
     <section class="vr-card" id="vesselRegistryCard">
         <div class="vr-head">
-            <div>
-                <h3>Registered Vessels</h3>
-                <p>{{ number_format($vessels->total()) }} total record{{ $vessels->total() === 1 ? '' : 's' }}.</p>
+            <div class="vr-head-main">
+                <div>
+                    <h3>Master Vessel Registry</h3>
+                </div>
+                <button type="button" id="openRegisterVesselBtn" class="vr-hero-btn"><i class="fas fa-plus"></i> Register Vessel</button>
             </div>
             <form id="vesselSearchForm" method="GET" action="{{ route('fishport.vessel_registry') }}">
                 <div class="vr-search-wrap">
@@ -222,6 +211,11 @@
 
 <script>
 (() => {
+    const breadcrumb = document.querySelector('.breadcrumb');
+    if (breadcrumb) breadcrumb.hidden = false;
+    const pageTitle = document.getElementById('pageTitle');
+    if (pageTitle) pageTitle.textContent = 'Master Vessel Registry';
+
     const statusToast = document.getElementById('vrStatusToast');
     const registerModal = document.getElementById('registerVesselModal');
     const editModal = document.getElementById('editVesselModal');

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AtriumFunctionHall;
 use App\Models\CemeteryFeeRule;
 use App\Models\FishportCommodity;
+use App\Models\FishportCommodityClassification;
 use App\Models\FishportPaymentType;
 use App\Models\MarketStallLocation;
 use App\Models\MarketStallType;
@@ -93,6 +94,62 @@ class AdminRateManagementTest extends TestCase
 
         $this->assertSame(6789.00, $fees['base_fee']);
         $this->assertSame(6789.00, $fees['amount_due']);
+    }
+
+    public function test_admin_can_delete_newly_added_fishport_payment_type(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'department' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $newPaymentType = FishportPaymentType::query()->create([
+            'code' => 'TEMP_DELETE',
+            'name' => 'Temporary Delete',
+            'default_fee' => 10.00,
+            'is_active' => true,
+        ]);
+
+        $payload = $this->fullRatePayload();
+        $payload['delete_fishport_payment_type_ids'] = [$newPaymentType->id];
+
+        $response = $this->actingAs($admin)->put(route('admin.rates.update'), $payload);
+
+        $response->assertRedirect(route('admin.rates'));
+        $response->assertSessionHasNoErrors();
+        $response->assertSessionHas('status', static fn (string $status): bool => str_contains($status, 'Deleted: 1 Fishport payment type(s).'));
+        $this->assertDatabaseMissing('fishport_payment_types', ['id' => $newPaymentType->id]);
+    }
+
+    public function test_admin_can_delete_newly_added_fishport_commodity(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'department' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $classification = FishportCommodityClassification::query()->firstOrFail();
+        $unitId = FishportCommodity::query()->firstOrFail()->default_unit_id;
+
+        $newCommodity = FishportCommodity::query()->create([
+            'name' => 'Temporary Commodity Delete',
+            'classification_id' => $classification->id,
+            'default_unit_id' => $unitId,
+            'default_conversion' => 1.0000,
+            'is_active' => true,
+        ]);
+
+        $payload = $this->fullRatePayload();
+        $payload['delete_fishport_commodity_ids'] = [$newCommodity->id];
+
+        $response = $this->actingAs($admin)->put(route('admin.rates.update'), $payload);
+
+        $response->assertRedirect(route('admin.rates'));
+        $response->assertSessionHasNoErrors();
+        $response->assertSessionHas('status', static fn (string $status): bool => str_contains($status, 'Fishport commodit(ies)'));
+        $this->assertDatabaseMissing('fishport_commodities', ['id' => $newCommodity->id]);
     }
 
     /**

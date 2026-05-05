@@ -2,9 +2,13 @@
 
 @section('content')
 <style>
+    #contentArea {
+        padding-top: 10px;
+    }
+
     .csl-page {
         display: grid;
-        gap: 16px;
+        gap: 10px;
         color: #334155;
         font-family: 'Inter', system-ui, sans-serif;
     }
@@ -14,8 +18,8 @@
         border: 1px solid #dbe6f0;
         background: #155f8f;
         color: #fff;
-        padding: 1.1rem 1.3rem;
-        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.14);
+        padding: 8px 10px;
+        box-shadow: 0 6px 14px rgba(15, 23, 42, 0.14);
         display: grid;
         grid-template-columns: 1fr auto;
         gap: 10px;
@@ -23,16 +27,10 @@
     }
 
     .csl-hero h2 {
-        margin: 0 0 0.25rem;
-        font-size: 1.4rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-    }
-
-    .csl-hero p {
         margin: 0;
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 0.9rem;
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
     }
 
     .csl-add-btn {
@@ -40,9 +38,9 @@
         border-radius: 10px;
         background: rgba(255, 255, 255, 0.18);
         color: #fff;
-        min-height: 40px;
+        min-height: 34px;
         padding: 0 0.95rem;
-        font-size: 0.88rem;
+        font-size: 0.84rem;
         font-weight: 700;
         display: inline-flex;
         align-items: center;
@@ -62,7 +60,7 @@
         border-radius: 11px;
         background: #fff;
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-        padding: 0.7rem 0.8rem;
+        padding: 10px;
     }
 
     .csl-stat span {
@@ -75,7 +73,7 @@
 
     .csl-stat strong {
         display: block;
-        margin-top: 0.28rem;
+        margin-top: 10px;
         color: #0f172a;
         font-size: 1.02rem;
     }
@@ -90,10 +88,10 @@
 
     .csl-card-head {
         border-bottom: 1px solid #e2e8f0;
-        padding: 1rem 1.1rem;
+        padding: 10px;
         background: #f8fafc;
         display: grid;
-        gap: 9px;
+        gap: 10px;
     }
 
     .csl-card-head h3 {
@@ -105,7 +103,7 @@
     .csl-filter-grid {
         display: grid;
         grid-template-columns: 2fr 1fr 1fr auto;
-        gap: 8px;
+        gap: 10px;
     }
 
     .csl-control {
@@ -123,11 +121,6 @@
         outline: none;
         border-color: #155f8f;
         box-shadow: 0 0 0 3px rgba(21, 95, 143, 0.11);
-    }
-
-    .csl-filter-actions {
-        display: inline-flex;
-        gap: 6px;
     }
 
     .csl-btn {
@@ -155,6 +148,19 @@
         color: #334155;
     }
 
+    .csl-btn-export {
+        border-color: #155f8f;
+        background: #155f8f;
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .csl-btn-export:hover {
+        background: #0f4b73;
+        border-color: #0f4b73;
+        color: #fff;
+    }
+
     .csl-table-wrap { overflow: auto; }
 
     .csl-table {
@@ -165,10 +171,10 @@
     .csl-view-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px 14px;
+        gap: 10px;
     }
     .csl-view-grid .csl-view-full { grid-column: 1 / -1; }
-    .csl-view-item { display: grid; gap: 3px; }
+    .csl-view-item { display: grid; gap: 10px; }
     .csl-view-item span {
         font-size: 0.72rem;
         font-weight: 700;
@@ -192,12 +198,12 @@
         text-transform: uppercase;
         letter-spacing: 0.03em;
         text-align: left;
-        padding: 0.74rem 0.7rem;
+        padding: 10px;
     }
 
     .csl-table td {
         border-bottom: 1px solid #eef2f7;
-        padding: 0.7rem;
+        padding: 10px;
         color: #334155;
         font-size: 0.85rem;
         vertical-align: top;
@@ -207,7 +213,7 @@
 
     .csl-muted { color: #64748b; font-size: 0.79rem; }
 
-    .csl-actions { display: inline-flex; gap: 6px; }
+    .csl-actions { display: inline-flex; gap: 10px; }
     .csl-icon-btn {
         width: 32px;
         height: 32px;
@@ -226,10 +232,10 @@
     .csl-pagination {
         border-top: 1px solid #e2e8f0;
         background: #f8fafc;
-        padding: 0.75rem 1rem;
+        padding: 10px;
         display: flex;
         justify-content: flex-end;
-        gap: 8px;
+        gap: 10px;
     }
 
     .csl-page-link {
@@ -263,7 +269,7 @@
         justify-content: center;
         background: rgba(15, 23, 42, 0.56);
         backdrop-filter: blur(3px);
-        padding: 16px;
+        padding: 10px;
     }
     .csl-modal.is-open { display: flex; }
 
@@ -283,7 +289,7 @@
     .csl-modal-head {
         background: #f8fafc;
         border-bottom: 1px solid #e2e8f0;
-        padding: 14px 16px;
+        padding: 10px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -303,18 +309,18 @@
     }
     .csl-modal-close:hover { background: #e2e8f0; color: #0f172a; }
     .csl-modal form { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
-    .csl-modal-body { padding: 16px 20px; overflow-y: auto; min-height: 0; background: #fff; }
+    .csl-modal-body { padding: 10px; overflow-y: auto; min-height: 0; background: #fff; }
     .csl-modal-foot {
         border-top: 1px solid #e2e8f0;
         background: #f8fafc;
-        padding: 12px 16px;
+        padding: 10px;
         display: flex;
         justify-content: flex-end;
         gap: 10px;
     }
 
-    .csl-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
-    .csl-field { display: grid; gap: 6px; }
+    .csl-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .csl-field { display: grid; gap: 10px; }
     .csl-field-full { grid-column: 1 / -1; }
     .csl-field label {
         font-size: 0.8rem;
@@ -332,13 +338,20 @@
         .csl-hero { grid-template-columns: 1fr; }
         .csl-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .csl-filter-grid { grid-template-columns: 1fr 1fr; }
-        .csl-filter-actions { grid-column: 1 / -1; }
     }
 
     @media (max-width: 680px) {
         .csl-stats, .csl-form-grid, .csl-filter-grid { grid-template-columns: 1fr; }
     }
 </style>
+
+@php
+    $exportQuery = [
+        'q' => $search,
+        'cemetery_site_id' => $selectedSiteId > 0 ? $selectedSiteId : '',
+        'cemetery_service_type_id' => $selectedServiceTypeId > 0 ? $selectedServiceTypeId : '',
+    ];
+@endphp
 
 <div
     class="csl-page"
@@ -349,8 +362,7 @@
     data-has-errors="{{ $errors->any() ? '1' : '0' }}">
     <section class="csl-hero">
         <div>
-            <h2>Cemetery Service Logs</h2>
-            <p>Record and monitor interment, burial, renewal, transfer, exhumation, and correction activities.</p>
+            <h2>Service Overview</h2>
         </div>
         <button type="button" id="openCreateServiceLogBtn" class="csl-add-btn">
             <i class="fa-solid fa-plus"></i> Add Service Log
@@ -375,8 +387,8 @@
     <section class="csl-card">
         <div class="csl-card-head">
             <h3>Service Log List</h3>
-            <form method="GET" action="{{ route('cemetery.services') }}" class="csl-filter-grid">
-                <input type="search" name="q" class="csl-control" placeholder="Search deceased, niche/lot, log no, processed by..." value="{{ $search }}">
+            <form id="cslAutoFilterForm" method="GET" action="{{ route('cemetery.services') }}" class="csl-filter-grid">
+                <input id="cslAutoSearch" type="search" name="q" class="csl-control" placeholder="Search deceased, niche/lot, log no, processed by..." value="{{ $search }}">
                 <select name="cemetery_site_id" class="csl-control">
                     <option value="">All Cemeteries</option>
                     @foreach($sites as $site)
@@ -389,10 +401,7 @@
                         <option value="{{ $serviceType->id }}" @selected((string) $selectedServiceTypeId === (string) $serviceType->id)>{{ $serviceType->type_name }}</option>
                     @endforeach
                 </select>
-                <div class="csl-filter-actions">
-                    <button type="submit" class="csl-btn csl-btn-primary"><i class="fa-solid fa-filter"></i> Apply</button>
-                    <a href="{{ route('cemetery.services') }}" class="csl-btn csl-btn-secondary"><i class="fa-solid fa-rotate-left"></i> Reset</a>
-                </div>
+                <a href="{{ route('cemetery.services.csv', $exportQuery) }}" class="csl-btn csl-btn-export"><i class="fa-solid fa-file-csv"></i> Export CSV</a>
             </form>
         </div>
 
@@ -597,9 +606,34 @@
     const oldFormMode = page?.dataset.oldFormMode || '';
     const oldFormServiceLogId = page?.dataset.oldFormServiceLogId || '';
     const hasErrors = (page?.dataset.hasErrors || '0') === '1';
+    const autoFilterForm = document.getElementById('cslAutoFilterForm');
+    const autoSearchInput = document.getElementById('cslAutoSearch');
     let pendingDeleteForm = null;
 
     const allModals = [createModal, editModal, deleteModal, viewModal].filter(Boolean);
+
+    if (autoFilterForm) {
+        const filterSelects = Array.from(autoFilterForm.querySelectorAll('select'));
+        filterSelects.forEach((select) => {
+            select.addEventListener('change', () => autoFilterForm.submit());
+        });
+
+        if (autoSearchInput) {
+            let searchTimer = null;
+            autoSearchInput.addEventListener('input', () => {
+                if (searchTimer) clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => autoFilterForm.submit(), 350);
+            });
+
+            autoSearchInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (searchTimer) clearTimeout(searchTimer);
+                    autoFilterForm.submit();
+                }
+            });
+        }
+    }
 
     const setText = (id, value) => {
         const el = document.getElementById(id);

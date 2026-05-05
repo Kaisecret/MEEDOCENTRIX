@@ -89,7 +89,7 @@
             <div class="atr-field">
                 <label>Booking Status</label>
                 <select name="booking_status" class="atr-input">
-                    @foreach (['reserved','confirmed','completed','cancelled'] as $st)
+                    @foreach (['reserved','confirmed','cancelled'] as $st)
                         <option value="{{ $st }}" {{ old('booking_status', $event->booking_status ?? 'reserved') === $st ? 'selected' : '' }}>{{ ucfirst($st) }}</option>
                     @endforeach
                 </select>

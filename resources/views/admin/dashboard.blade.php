@@ -8,14 +8,14 @@
         /** @var \Illuminate\Support\Collection<int, array<string, mixed>> $recentTransactions */
 
         $money = static fn(float $value): string => 'PHP ' . number_format($value, 2);
-        $growthClass = static fn(float $value): string => $value >= 0 ? 'is-up' : 'is-down';
-        $growthIcon = static fn(float $value): string => $value >= 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down';
-        $growthLabel = static fn(float $value): string => ($value >= 0 ? '+' : '') . number_format($value, 1) . '%';
         $queryParams = [
             'period' => $filters['period'],
             'start_date' => $filters['start_date_input'],
             'end_date' => $filters['end_date_input'],
         ];
+        if ($selectedDepartment) {
+            $queryParams['department'] = $selectedDepartment;
+        }
         $pageTitle = match ($mode) {
             'all' => 'All Department Dashboards',
             'department' => ($selectedDepartmentConfig['name'] ?? 'Department') . ' Dashboard',
@@ -25,6 +25,10 @@
     @endphp
 
     <style>
+        #contentArea {
+            padding-top: 10px;
+        }
+
         .revenue-dashboard {
             --rd-ink: #0f172a;
             --rd-muted: #64748b;
@@ -36,20 +40,20 @@
             --rd-danger: #ef4444;
             --rd-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
             display: grid;
-            gap: 20px;
+            gap: 12px;
         }
 
         .rd-header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-            padding: 10px 16px;
+            justify-content: flex-start;
+            gap: 10px;
+            padding: 10px;
             background: linear-gradient(135deg, #ffffff 0%, #f8fbff 56%, #eef6ff 100%);
             border: 1px solid rgba(148, 163, 184, 0.24);
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
 
         .rd-header > div {
@@ -69,7 +73,7 @@
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            padding: 4px 10px;
+            padding: 3px 9px;
             background: rgba(37, 99, 235, 0.1);
             border-radius: 999px;
             margin: 0;
@@ -89,33 +93,6 @@
             display: none;
         }
 
-        .rd-actions {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            justify-content: flex-end;
-            flex-wrap: wrap;
-        }
-
-        .rd-action-primary {
-            background: #0f172a;
-            color: #ffffff;
-            border-radius: 8px;
-            padding: 7px 12px;
-            font-size: 0.82rem;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
-        }
-
-        .rd-action-primary:hover {
-            background: #1e293b;
-            color: #ffffff;
-            transform: translateY(-1px);
-        }
-
         .rd-filter-panel,
         .rd-panel {
             background: linear-gradient(145deg, #ffffff, #fdfdff);
@@ -130,15 +107,15 @@
         }
 
         .rd-filter-panel {
-            padding: 16px;
+            padding: 12px;
             position: relative;
             overflow: hidden;
         }
 
         .rd-filter-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
-            gap: 12px;
+            grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+            gap: 10px;
             align-items: end;
         }
 
@@ -188,16 +165,16 @@
 
         .rd-summary-grid {
             display: grid;
-            grid-template-columns: repeat(6, minmax(0, 1fr));
-            gap: 14px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
         }
 
         .rd-kpi {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 142px;
-            padding: 16px;
+            min-height: 124px;
+            padding: 12px;
             background: linear-gradient(145deg, #ffffff, #fdfdff);
             border: 1px solid rgba(226, 232, 240, 0.8);
             border-radius: 16px;
@@ -216,7 +193,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 8px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .rd-icon {
@@ -251,36 +228,16 @@
         }
 
         .rd-kpi-note {
-            margin-top: 6px;
+            margin-top: 4px;
             color: var(--rd-muted);
             font-size: 0.75rem;
             font-weight: 500;
         }
 
-        .rd-delta {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 4px 8px;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            font-weight: 800;
-        }
-
-        .rd-delta.is-up {
-            background: #dcfce7;
-            color: #15803d;
-        }
-
-        .rd-delta.is-down {
-            background: #fee2e2;
-            color: #b91c1c;
-        }
-
         .rd-chart-grid {
             display: grid;
             grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.9fr);
-            gap: 20px;
+            gap: 12px;
         }
 
         .rd-chart-grid .rd-panel {
@@ -308,7 +265,7 @@
             align-items: flex-start;
             justify-content: space-between;
             gap: 12px;
-            padding: 22px 22px 0;
+            padding: 16px 16px 0;
         }
 
         .rd-panel-title {
@@ -350,7 +307,7 @@
         .rd-chart-body {
             position: relative;
             height: 340px;
-            padding: 18px 22px 22px;
+            padding: 14px 16px 16px;
         }
 
         .rd-chart-body.is-small {
@@ -639,7 +596,7 @@
         .rd-department-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 18px;
+            gap: 10px;
         }
 
         .rd-department-card {
@@ -872,7 +829,7 @@
 
         @media (max-width: 1400px) {
             .rd-summary-grid {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
             .rd-department-grid {
@@ -888,10 +845,6 @@
                 grid-template-columns: 1fr;
             }
 
-            .rd-actions {
-                justify-content: flex-start;
-            }
-
             .rd-filter-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
@@ -899,7 +852,7 @@
 
         @media (max-width: 720px) {
             .rd-header {
-                padding: 18px;
+                padding: 10px;
             }
 
             .rd-filter-grid,
@@ -925,21 +878,24 @@
                 </span>
                 <h2>{{ $pageTitle }}</h2>
             </div>
-            <div class="rd-actions">
-                <a href="{{ route('admin.dashboard.all', $queryParams) }}" class="btn rd-action-primary">
-                    <i class="fas fa-table-cells-large"></i>
-                    View All Dashboard
-                </a>
-            </div>
         </section>
 
         <section class="rd-filter-panel" id="revenueFilterPanel">
-            <form method="GET" action="{{ url()->current() }}" class="rd-filter-grid" id="revenueFilterForm">
+            <form method="GET" action="{{ route('admin.dashboard') }}" class="rd-filter-grid" id="revenueFilterForm">
                 <div class="rd-field">
                     <label for="period">Date Filter</label>
                     <select id="period" name="period" data-auto-submit>
                         @foreach ($filters['period_options'] as $value => $label)
                             <option value="{{ $value }}" @selected($filters['period'] === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="rd-field">
+                    <label for="department">Department</label>
+                    <select id="department" name="department">
+                        <option value="">All Departments</option>
+                        @foreach ($departments as $code => $department)
+                            <option value="{{ $code }}" @selected($selectedDepartment === $code)>{{ $department['name'] }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -979,22 +935,9 @@
 
             <article class="rd-kpi">
                 <div class="rd-kpi-top">
-                    <span class="rd-icon"><i
-                            class="fas {{ $growthIcon((float) $summaryCards['growth_percentage']) }}"></i></span>
-                    <span class="rd-delta {{ $growthClass((float) $summaryCards['growth_percentage']) }}">
-                        {{ $growthLabel((float) $summaryCards['growth_percentage']) }}
-                    </span>
+                    <span class="rd-icon"><i class="fas fa-chart-line"></i></span>
                 </div>
-                <div class="rd-kpi-label">Revenue Growth</div>
-                <div class="rd-kpi-value">{{ $growthLabel((float) $summaryCards['growth_percentage']) }}</div>
-                <div class="rd-kpi-note">Compared with previous period</div>
-            </article>
-
-            <article class="rd-kpi">
-                <div class="rd-kpi-top">
-                    <span class="rd-icon"><i class="fas fa-crown"></i></span>
-                </div>
-                <div class="rd-kpi-label">Best Department</div>
+                <div class="rd-kpi-label">Highest Revenue</div>
                 <div class="rd-kpi-value">{{ $summaryCards['best_department']['name'] ?? 'N/A' }}</div>
                 <div class="rd-kpi-note">{{ $money((float) ($summaryCards['best_department']['revenue'] ?? 0)) }}</div>
             </article>
@@ -1003,7 +946,7 @@
                 <div class="rd-kpi-top">
                     <span class="rd-icon"><i class="fas fa-arrow-down-short-wide"></i></span>
                 </div>
-                <div class="rd-kpi-label">Lowest Department</div>
+                <div class="rd-kpi-label">Lowest Revenue</div>
                 <div class="rd-kpi-value">{{ $summaryCards['lowest_department']['name'] ?? 'N/A' }}</div>
                 <div class="rd-kpi-note">{{ $money((float) ($summaryCards['lowest_department']['revenue'] ?? 0)) }}</div>
             </article>
@@ -1017,14 +960,6 @@
                 <div class="rd-kpi-note">Across {{ number_format((int) $filters['days']) }} day(s)</div>
             </article>
 
-            <article class="rd-kpi">
-                <div class="rd-kpi-top">
-                    <span class="rd-icon"><i class="fas fa-building-user"></i></span>
-                </div>
-                <div class="rd-kpi-label">Active Departments</div>
-                <div class="rd-kpi-value">{{ number_format((int) $summaryCards['active_departments']) }} / 5</div>
-                <div class="rd-kpi-note">Departments with revenue</div>
-            </article>
         </section>
 
         @unless ($hasAnyRevenueData)
@@ -1094,7 +1029,7 @@
                     </div>
                     @if ($deptCompareTop)
                         <div class="rd-compare-chip is-top" data-chip-color="{{ $deptCompareTop['color'] }}">
-                            <span><i class="fas fa-crown"></i>Top performer</span>
+                            <span>Highest revenue</span>
                             <strong>{{ $deptCompareTop['name'] }}</strong>
                         </div>
                     @endif
@@ -1140,47 +1075,9 @@
                         </div>
                         <div class="rd-compare-legend-foot">
                             <span>{{ number_format($share, 1) }}% share</span>
-                            <span class="rd-delta {{ $growthClass((float) $dept['growth_percentage']) }}">
-                                <i class="fas {{ $growthIcon((float) $dept['growth_percentage']) }}"></i>
-                                {{ $growthLabel((float) $dept['growth_percentage']) }}
-                            </span>
+                            <span>{{ number_format((int) $dept['transaction_count']) }} transactions</span>
                         </div>
                     </div>
-                @endforeach
-            </div>
-        </section>
-
-        <section>
-            <div class="rd-section-title mb-4">
-                <h3>Department Dashboards</h3>
-                <span class="rd-muted-pill"><i class="fas fa-hand-pointer"></i>Click a department to drill down</span>
-            </div>
-            <div class="rd-department-grid">
-                @foreach ($departmentSummaries as $department)
-                    <a class="rd-department-card {{ $selectedDepartment === $department['code'] ? 'is-active' : '' }}"
-                        href="{{ route('admin.dashboard.department', ['department' => $department['code']] + $queryParams) }}"
-                        data-dept-color="{{ $department['color'] }}"
-                        data-dept-surface="{{ $department['surface'] }}">
-                        <div class="rd-dept-head">
-                            <span class="rd-icon">
-                                <i class="{{ $department['icon'] }}"></i>
-                            </span>
-                            <span class="rd-delta {{ $growthClass((float) $department['growth_percentage']) }}">
-                                {{ $growthLabel((float) $department['growth_percentage']) }}
-                            </span>
-                        </div>
-                        <div>
-                            <div class="rd-dept-title">{{ $department['name'] }} Dashboard</div>
-                            <div class="rd-dept-description">{{ $department['description'] }}</div>
-                        </div>
-                        <div>
-                            <div class="rd-dept-value">{{ $money((float) $department['revenue']) }}</div>
-                            <div class="rd-dept-footer">
-                                <span>{{ number_format((int) $department['transaction_count']) }} transactions</span>
-                                <span>{{ number_format((float) $department['share_percentage'], 1) }}% share</span>
-                            </div>
-                        </div>
-                    </a>
                 @endforeach
             </div>
         </section>
@@ -1214,11 +1111,8 @@
                                 <strong>{{ $money((float) $department['revenue']) }}</strong>
                             </div>
                             <div class="rd-mini-kpi">
-                                <span>Growth</span>
-                                <strong
-                                    class="{{ (float) $department['growth_percentage'] >= 0 ? 'text-success' : 'text-danger' }}">
-                                    {{ $growthLabel((float) $department['growth_percentage']) }}
-                                </strong>
+                                <span>Transactions</span>
+                                <strong>{{ number_format((int) $department['transaction_count']) }}</strong>
                             </div>
                             <div class="rd-mini-kpi">
                                 <span>Average Daily</span>
@@ -1710,7 +1604,7 @@
                 if (document.visibilityState === 'visible') {
                     window.location.reload();
                 }
-            }, 10000);
+            }, 120000);
         });
     </script>
 @endsection

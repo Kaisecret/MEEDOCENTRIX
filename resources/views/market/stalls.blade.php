@@ -6,76 +6,77 @@
     @endphp
 
     <style>
+        #contentArea {
+            padding: 10px !important;
+        }
+
         .msr-page {
             display: grid;
-            gap: 16px;
+            gap: 10px;
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             color: #334155;
         }
 
         .msr-hero {
-            background: #155f8f;
-            color: #fff;
+            background: #fff;
+            color: #0f172a;
+            border: 1px solid #e2e8f0;
             border-radius: 12px;
-            padding: 1.45rem 1.6rem;
+            padding: 10px;
             display: flex;
             justify-content: space-between;
             gap: 10px;
             flex-wrap: wrap;
             align-items: center;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -1px rgba(0, 0, 0, .06);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
         }
 
         .msr-hero h2 {
-            margin: 0 0 .4rem;
-            font-size: 1.7rem;
+            margin: 0 0 10px;
+            font-size: 1.5rem;
             font-weight: 700;
             letter-spacing: -.02em;
         }
 
-        .msr-hero p {
-            margin: 0;
-            font-size: .95rem;
-            color: rgba(255, 255, 255, .85);
-        }
-
         .msr-stats {
-            margin-top: .75rem;
+            margin-top: 0;
             display: inline-flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 10px;
         }
 
         .msr-pill {
-            background: rgba(255, 255, 255, .15);
-            border: 1px solid rgba(255, 255, 255, .38);
+            background: #f1f5f9;
+            border: 1px solid #dbe6f2;
             border-radius: 8px;
-            padding: .25rem .75rem;
+            padding: 6px 10px;
             font-size: .85rem;
             font-weight: 600;
+            color: #1e293b;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 10px;
         }
 
         .msr-hero-btn {
-            border: 1px solid rgba(255, 255, 255, .38);
-            background: rgba(255, 255, 255, .15);
+            border: 1px solid #2476a9;
+            background: #2476a9;
             color: #fff;
             border-radius: 10px;
             min-height: 42px;
-            padding: 0 1rem;
+            padding: 0 10px;
             font-size: .95rem;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             text-decoration: none;
             transition: all .2s;
         }
 
         .msr-hero-btn:hover {
-            background: rgba(255, 255, 255, .25);
+            background: #1d648f;
+            border-color: #1d648f;
             color: #fff;
         }
 
@@ -90,10 +91,10 @@
         .msr-head {
             border-bottom: 1px solid #e2e8f0;
             background: #fff;
-            padding: 1.25rem 1.5rem;
+            padding: 10px;
             display: grid;
             grid-template-columns: 1fr auto;
-            gap: 16px;
+            gap: 10px;
             align-items: center;
         }
 
@@ -104,8 +105,41 @@
             color: #0f172a;
         }
 
+        .msr-head-tools {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: nowrap;
+            justify-content: flex-end;
+            width: 100%;
+            max-width: 560px;
+            margin-left: auto;
+        }
+
+        .msr-export-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 40px;
+            border: 1px solid #155f8f;
+            background: #155f8f;
+            color: #fff;
+            border-radius: 10px;
+            padding: 0 12px;
+            font-size: .84rem;
+            font-weight: 800;
+            text-decoration: none;
+            transition: all .15s ease;
+        }
+
+        .msr-export-btn:hover {
+            background: #104f77;
+            border-color: #104f77;
+            color: #fff;
+        }
+
         .msr-head p {
-            margin: .25rem 0 0;
+            margin: 10px 0 0;
             color: #64748b;
             font-size: .9rem;
         }
@@ -114,7 +148,9 @@
             position: relative;
             display: flex;
             align-items: center;
-            min-width: 340px;
+            min-width: 260px;
+            max-width: 390px;
+            flex: 1 1 auto;
         }
 
         .msr-search-wrap i {
@@ -161,12 +197,12 @@
             text-transform: uppercase;
             letter-spacing: .03em;
             font-weight: 700;
-            padding: 1rem 1.25rem;
+            padding: 10px;
             text-align: left;
         }
 
         .msr-table td {
-            padding: .88rem 1.25rem;
+            padding: 10px;
             border-bottom: 1px solid #f1f5f9;
             color: #334155;
             font-size: .93rem;
@@ -229,7 +265,7 @@
 
         .msr-actions {
             display: inline-flex;
-            gap: 6px;
+            gap: 10px;
             flex-wrap: nowrap;
         }
 
@@ -263,16 +299,16 @@
         .msr-pagination {
             border-top: 1px solid #e2e8f0;
             background: #f8fafc;
-            padding: 12px 16px;
+            padding: 10px;
             display: flex;
             justify-content: flex-end;
-            gap: 8px;
+            gap: 10px;
             align-items: center;
         }
 
         .msr-page-link {
             min-height: 34px;
-            padding: 0 12px;
+            padding: 0 10px;
             border-radius: 8px;
             border: 1px solid #cbd5e1;
             background: #fff;
@@ -649,6 +685,11 @@
 
             .msr-search-wrap {
                 min-width: 100%;
+                max-width: 100%;
+            }
+
+            .msr-head-tools {
+                max-width: 100%;
             }
 
             .msr-form-grid {
@@ -695,7 +736,6 @@
         <section class="msr-hero">
             <div>
                 <h2>Master Stall Registry</h2>
-                <p>Manage all market stalls with type-based rates and clean lease records.</p>
                 <div class="msr-stats">
                     <span class="msr-pill"><i class="fa-solid fa-store"></i> Total: {{ $summary['total'] }}</span>
                     <span class="msr-pill"><i class="fa-solid fa-circle-check"></i> Occupied:
@@ -714,13 +754,19 @@
                     <h3>Registered Stalls</h3>
                     <p>{{ number_format($stalls->total()) }} total record{{ $stalls->total() === 1 ? '' : 's' }}.</p>
                 </div>
-                <form id="stallSearchForm" method="GET" action="{{ route('market.stalls') }}">
-                    <div class="msr-search-wrap">
-                        <i class="fas fa-search"></i>
-                        <input id="stallSearchInput" class="msr-search" type="search" name="q" value="{{ $search }}"
-                            placeholder="Search stall no, tenant, location...">
-                    </div>
-                </form>
+                <div class="msr-head-tools">
+                    <a class="msr-export-btn"
+                        href="{{ route('market.stalls.csv', ['q' => $search, 'location_id' => $selectedLocationId, 'status' => $selectedStatus]) }}">
+                        <i class="fa-solid fa-file-excel"></i> Convert to CSV
+                    </a>
+                    <form id="stallSearchForm" method="GET" action="{{ route('market.stalls') }}">
+                        <div class="msr-search-wrap">
+                            <i class="fas fa-search"></i>
+                            <input id="stallSearchInput" class="msr-search" type="search" name="q" value="{{ $search }}"
+                                placeholder="Search stall no, tenant, location...">
+                        </div>
+                    </form>
+                </div>
             </div>
             <div class="msr-table-wrap">
                 <table class="msr-table">
@@ -832,7 +878,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" style="text-align:center; padding:1.65rem;">No stall records found.</td>
+                                <td colspan="9" style="text-align:center; padding:10px;">No stall records found.</td>
                             </tr>
                         @endforelse
                     </tbody>

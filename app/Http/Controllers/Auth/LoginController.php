@@ -14,6 +14,8 @@ use Illuminate\View\View;
 
 class LoginController extends Controller
 {
+    private const GENERIC_LOGIN_ERROR = 'Incorrect email or password. Please try again.';
+
     public function showLogin(Request $request): View|RedirectResponse
     {
         if (Auth::check()) {
@@ -43,17 +45,13 @@ class LoginController extends Controller
 
         if (! $user || ! Hash::check((string) $validated['password'], (string) $user->password)) {
             throw ValidationException::withMessages([
-                'email' => 'Incorrect email or password. Please try again.',
+                'email' => self::GENERIC_LOGIN_ERROR,
             ]);
         }
 
         if ($user->isAdmin()) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
             throw ValidationException::withMessages([
-                'email' => 'This account belongs to an administrator. Please use the Admin Login page.',
+                'email' => self::GENERIC_LOGIN_ERROR,
             ]);
         }
 

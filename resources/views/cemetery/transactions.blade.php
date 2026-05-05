@@ -2,73 +2,15 @@
 
 @section('content')
 <style>
+    #contentArea {
+        padding-top: 10px;
+    }
+
     .ctx-page {
         display: grid;
-        gap: 16px;
+        gap: 10px;
         color: #334155;
         font-family: 'Inter', system-ui, sans-serif;
-    }
-
-    .ctx-hero {
-        border-radius: 12px;
-        border: 1px solid #dbe6f0;
-        background: #155f8f;
-        color: #fff;
-        padding: 1.1rem 1.3rem;
-        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.14);
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 10px;
-        align-items: center;
-    }
-
-    .ctx-hero h2 {
-        margin: 0 0 0.25rem;
-        font-size: 1.4rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-    }
-
-    .ctx-hero p {
-        margin: 0;
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 0.9rem;
-    }
-
-    .ctx-add-btn {
-        border: 1px solid rgba(255, 255, 255, 0.42);
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.18);
-        color: #fff;
-        min-height: 40px;
-        padding: 0 0.95rem;
-        font-size: 0.88rem;
-        font-weight: 700;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .ctx-add-btn:hover { background: rgba(255, 255, 255, 0.28); }
-
-    .ctx-flow-cta {
-        border: 1px solid rgba(255, 255, 255, 0.42);
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.18);
-        color: #fff;
-        min-height: 40px;
-        padding: 0 0.95rem;
-        font-size: 0.88rem;
-        font-weight: 700;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        text-decoration: none;
-    }
-
-    .ctx-flow-cta:hover {
-        background: rgba(255, 255, 255, 0.28);
-        color: #fff;
     }
 
     .ctx-stats {
@@ -82,7 +24,7 @@
         border-radius: 11px;
         background: #fff;
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-        padding: 0.7rem 0.8rem;
+        padding: 10px;
     }
 
     .ctx-stat span {
@@ -95,7 +37,7 @@
 
     .ctx-stat strong {
         display: block;
-        margin-top: 0.28rem;
+        margin-top: 10px;
         color: #0f172a;
         font-size: 1.02rem;
     }
@@ -110,10 +52,10 @@
 
     .ctx-card-head {
         border-bottom: 1px solid #e2e8f0;
-        padding: 1rem 1.1rem;
+        padding: 10px;
         background: #f8fafc;
         display: grid;
-        gap: 9px;
+        gap: 10px;
     }
 
     .ctx-card-head h3 {
@@ -125,7 +67,7 @@
     .ctx-filter-grid {
         display: grid;
         grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
-        gap: 8px;
+        gap: 10px;
     }
 
     .ctx-control {
@@ -145,11 +87,6 @@
         box-shadow: 0 0 0 3px rgba(21, 95, 143, 0.11);
     }
 
-    .ctx-filter-actions {
-        display: inline-flex;
-        gap: 6px;
-    }
-
     .ctx-btn {
         border: 1px solid transparent;
         border-radius: 9px;
@@ -160,7 +97,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
+        gap: 10px;
     }
 
     .ctx-btn-primary {
@@ -175,12 +112,60 @@
         color: #334155;
     }
 
+    .ctx-btn-export {
+        border-color: #155f8f;
+        background: #155f8f;
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .ctx-btn-export:hover {
+        background: #0f4b73;
+        border-color: #0f4b73;
+        color: #fff;
+    }
+
+    .ctx-status-toast {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1700;
+        margin: 0;
+        min-width: min(280px, calc(100vw - 32px));
+        max-width: min(420px, calc(100vw - 32px));
+        border-radius: 10px;
+        border: 1px solid #a7f3d0;
+        background: #ecfdf5;
+        color: #065f46;
+        box-shadow: 0 12px 24px rgba(15, 39, 64, 0.2);
+        padding: 8px 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.82rem;
+        line-height: 1.35;
+        transition: opacity .22s ease, transform .22s ease;
+    }
+
+    .ctx-status-toast.is-hiding {
+        opacity: 0;
+        transform: translateY(-8px);
+        pointer-events: none;
+    }
+
+    .ctx-status-toast a {
+        color: #065f46;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
     .ctx-table-wrap { overflow: auto; }
 
     .ctx-table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 980px;
+        min-width: 0;
     }
 
     .ctx-table th {
@@ -192,18 +177,41 @@
         text-transform: uppercase;
         letter-spacing: 0.03em;
         text-align: left;
-        padding: 0.74rem 0.7rem;
+        padding: 10px;
+        white-space: nowrap;
+        vertical-align: middle;
     }
 
     .ctx-table td {
         border-bottom: 1px solid #eef2f7;
-        padding: 0.7rem;
+        padding: 10px;
         color: #334155;
         font-size: 0.85rem;
         vertical-align: top;
+        line-height: 1.45;
     }
 
-    .ctx-table tbody tr:hover { background: #f8fbff; }
+    .ctx-table tbody tr:nth-child(even) { background: #fbfdff; }
+    .ctx-table tbody tr:hover { background: #f1f7fd; }
+
+    .ctx-table th:nth-child(1), .ctx-table td:nth-child(1) { min-width: 130px; }
+    .ctx-table th:nth-child(2), .ctx-table td:nth-child(2) { min-width: 140px; }
+    .ctx-table th:nth-child(3), .ctx-table td:nth-child(3) { min-width: 190px; }
+    .ctx-table th:nth-child(4), .ctx-table td:nth-child(4) { min-width: 140px; }
+    .ctx-table th:nth-child(5), .ctx-table td:nth-child(5) { min-width: 130px; }
+    .ctx-table th:nth-child(6), .ctx-table td:nth-child(6) { min-width: 120px; text-align: right; }
+    .ctx-table th:nth-child(10), .ctx-table td:nth-child(10) { min-width: 260px; text-align: right; }
+
+    /* Show only important list columns so users do not need horizontal scroll */
+    .ctx-table th:nth-child(7),
+    .ctx-table td:nth-child(7),
+    .ctx-table th:nth-child(8),
+    .ctx-table td:nth-child(8),
+    .ctx-table th:nth-child(9),
+    .ctx-table td:nth-child(9) {
+        display: none;
+    }
+
     .ctx-cell-main {
         font-weight: 700;
         color: #0f172a;
@@ -230,10 +238,19 @@
     .ctx-badge-partial { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
     .ctx-badge-cancelled { border-color: #fecaca; background: #fff1f2; color: #9f1239; }
 
-    .ctx-actions { display: inline-flex; gap: 6px; }
+    .ctx-actions {
+        display: inline-flex;
+        gap: 10px;
+        justify-content: flex-end;
+        align-items: center;
+        flex-wrap: nowrap;
+        width: max-content;
+        margin-left: auto;
+    }
     .ctx-icon-btn {
         width: 32px;
         height: 32px;
+        flex: 0 0 32px;
         border-radius: 8px;
         border: 1px solid #d8e2ef;
         background: #fff;
@@ -256,10 +273,10 @@
     .ctx-pagination {
         border-top: 1px solid #e2e8f0;
         background: #f8fafc;
-        padding: 0.75rem 1rem;
+        padding: 10px;
         display: flex;
         justify-content: flex-end;
-        gap: 8px;
+        gap: 10px;
     }
 
     .ctx-page-link {
@@ -293,7 +310,7 @@
         justify-content: center;
         background: rgba(15, 23, 42, 0.56);
         backdrop-filter: blur(3px);
-        padding: 16px;
+        padding: 10px;
     }
     .ctx-modal.is-open { display: flex; }
 
@@ -314,7 +331,7 @@
     .ctx-modal-head {
         background: #f8fafc;
         border-bottom: 1px solid #e2e8f0;
-        padding: 14px 16px;
+        padding: 10px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -334,18 +351,18 @@
     }
     .ctx-modal-close:hover { background: #e2e8f0; color: #0f172a; }
     .ctx-modal form { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
-    .ctx-modal-body { padding: 16px 20px; overflow-y: auto; min-height: 0; background: #fff; }
+    .ctx-modal-body { padding: 10px; overflow-y: auto; min-height: 0; background: #fff; }
     .ctx-modal-foot {
         border-top: 1px solid #e2e8f0;
         background: #f8fafc;
-        padding: 12px 16px;
+        padding: 10px;
         display: flex;
         justify-content: flex-end;
         gap: 10px;
     }
 
-    .ctx-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
-    .ctx-field { display: grid; gap: 6px; }
+    .ctx-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .ctx-field { display: grid; gap: 10px; }
     .ctx-field-full { grid-column: 1 / -1; }
     .ctx-field label {
         font-size: 0.8rem;
@@ -353,19 +370,19 @@
         color: #334155;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 10px;
     }
     .ctx-control-textarea { min-height: 84px; resize: vertical; }
     .ctx-view-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px 12px;
+        gap: 10px;
     }
     .ctx-view-item {
         border: 1px solid #e2e8f0;
         border-radius: 10px;
         background: #f8fafc;
-        padding: 10px 12px;
+        padding: 10px;
     }
     .ctx-view-item strong {
         display: block;
@@ -387,10 +404,8 @@
     body.ctx-lock-scroll { overflow: hidden; }
 
     @media (max-width: 1120px) {
-        .ctx-hero { grid-template-columns: 1fr; }
         .ctx-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .ctx-filter-grid { grid-template-columns: 1fr 1fr 1fr; }
-        .ctx-filter-actions { grid-column: 1 / -1; }
     }
 
     @media (max-width: 680px) {
@@ -398,6 +413,16 @@
         .ctx-view-grid { grid-template-columns: 1fr; }
     }
 </style>
+
+@php
+    $exportQuery = [
+        'q' => $search,
+        'cemetery_site_id' => $selectedSiteId > 0 ? $selectedSiteId : '',
+        'cemetery_category_id' => $selectedCategoryId > 0 ? $selectedCategoryId : '',
+        'cemetery_transaction_type_id' => $selectedTransactionTypeId > 0 ? $selectedTransactionTypeId : '',
+        'status' => $selectedStatus,
+    ];
+@endphp
 
 <div
     class="ctx-page"
@@ -410,16 +435,6 @@
     data-open-create-modal="{{ $openCreateModal ? '1' : '0' }}"
     data-quick-pay-template="{{ route('cemetery.payments.quick_pay', '__ID__') }}"
     data-last-payment-id="{{ session('last_payment_id', '') }}">
-    <section class="ctx-hero">
-        <div>
-            <h2>Cemetery Transactions</h2>
-            <p>Transactions are created from Occupant Records to keep all records connected and valid.</p>
-        </div>
-        <a href="{{ route('cemetery.records') }}" class="ctx-flow-cta">
-            <i class="fa-solid fa-users"></i> Create from Occupant Records
-        </a>
-    </section>
-
     <section class="ctx-stats">
         <article class="ctx-stat"><span>Total Transactions</span><strong>{{ number_format((int) $summary['total_transactions']) }}</strong></article>
         <article class="ctx-stat"><span>Transactions Today</span><strong>{{ number_format((int) $summary['today_transactions']) }}</strong></article>
@@ -429,16 +444,14 @@
     </section>
 
     @if (session('status'))
-        <div class="alert alert-success" style="margin:0; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div id="ctxStatusToast" class="ctx-status-toast" role="status" aria-live="polite">
             <span><i class="fa-solid fa-circle-check"></i> {{ session('status') }}</span>
             @if (session('last_payment_id'))
                 <a
                     href="{{ route('cemetery.payments.receipt', (int) session('last_payment_id')) }}"
                     target="_blank"
-                    rel="noopener"
-                    class="ctx-btn ctx-btn-secondary"
-                    style="min-height:34px;">
-                    <i class="fa-solid fa-receipt"></i> View Receipt
+                    rel="noopener">
+                    View Receipt
                 </a>
             @endif
         </div>
@@ -450,8 +463,8 @@
     <section class="ctx-card">
         <div class="ctx-card-head">
             <h3>Transaction List</h3>
-            <form method="GET" action="{{ route('cemetery.transactions') }}" class="ctx-filter-grid">
-                <input type="search" name="q" class="ctx-control" placeholder="Search transaction no, deceased, niche/lot..." value="{{ $search }}">
+            <form id="ctxAutoFilterForm" method="GET" action="{{ route('cemetery.transactions') }}" class="ctx-filter-grid">
+                <input id="ctxAutoSearch" type="search" name="q" class="ctx-control" placeholder="Search transaction no, deceased, niche/lot..." value="{{ $search }}">
                 <select name="cemetery_site_id" class="ctx-control">
                     <option value="">All Cemeteries</option>
                     @foreach($sites as $site)
@@ -476,10 +489,7 @@
                         <option value="{{ $statusKey }}" @selected($selectedStatus === $statusKey)>{{ $statusLabel }}</option>
                     @endforeach
                 </select>
-                <div class="ctx-filter-actions">
-                    <button type="submit" class="ctx-btn ctx-btn-primary"><i class="fa-solid fa-filter"></i> Apply</button>
-                    <a href="{{ route('cemetery.transactions') }}" class="ctx-btn ctx-btn-secondary"><i class="fa-solid fa-rotate-left"></i> Reset</a>
-                </div>
+                <a href="{{ route('cemetery.transactions.csv', $exportQuery) }}" class="ctx-btn ctx-btn-export"><i class="fa-solid fa-file-csv"></i> Export CSV</a>
             </form>
         </div>
 
@@ -488,9 +498,7 @@
                 <thead>
                     <tr>
                         <th>Transaction No.</th>
-                        <th>Date</th>
                         <th>Deceased Name</th>
-                        <th>Niche / Lot</th>
                         <th>Cemetery / Category</th>
                         <th>Transaction Type</th>
                         <th>Occupant Record</th>
@@ -506,20 +514,18 @@
                         @php
                             $totalPaid = round((float) ($transaction->total_paid ?? 0), 2);
                             $amountDue = round((float) ($transaction->amount_due ?? 0), 2);
-                            $balance = round((float) ($transaction->remaining_balance ?? max($amountDue - $totalPaid, 0)), 2);
+                            $balance = round(max($amountDue - $totalPaid, 0), 2);
+                            $isReopenedForCollection = in_array((string) $transaction->status, ['pending', 'partial'], true) && $balance <= 0 && $amountDue > 0;
+                            $quickPayTotalPaid = $isReopenedForCollection ? 0.0 : $totalPaid;
+                            $quickPayBalance = $isReopenedForCollection ? $amountDue : $balance;
                             $hasPaymentRecord = ((int) ($transaction->payments_count ?? 0)) > 0;
-                            $isQuickPayAllowed = $transaction->status !== 'cancelled' && $balance > 0;
+                            $isQuickPayAllowed = $transaction->status !== 'cancelled' && $quickPayBalance > 0;
                         @endphp
                         <tr>
                             <td>
                                 <div class="ctx-cell-main">{{ $transaction->transaction_no }}</div>
                             </td>
-                            <td>
-                                <div>{{ optional($transaction->transaction_date)->format('Y-m-d') }}</div>
-                                <div class="ctx-cell-sub">{{ optional($transaction->transaction_date)->format('h:i A') }}</div>
-                            </td>
                             <td class="ctx-cell-main">{{ $transaction->deceased_name }}</td>
-                            <td class="ctx-cell-main">{{ $transaction->plot_reference }}</td>
                             <td>
                                 <div>{{ $transaction->site?->site_name ?: '-' }}</div>
                                 <div class="ctx-cell-sub">{{ $transaction->category?->category_name ?: '-' }}</div>
@@ -528,9 +534,9 @@
                             <td>
                                 @if ($transaction->occupant_record_id)
                                     <span class="ctx-badge ctx-badge-paid">OCCUPANT</span>
-                                    <div class="csl-muted">{{ $transaction->occupantRecord?->record_no ?: '-' }}</div>
+                                    <div class="ctx-cell-sub">{{ $transaction->occupantRecord?->record_no ?: '-' }}</div>
                                 @else
-                                    <span class="csl-muted">-</span>
+                                    <span class="ctx-cell-sub">-</span>
                                 @endif
                             </td>
                             <td><strong>PHP {{ number_format($amountDue, 2) }}</strong></td>
@@ -551,13 +557,22 @@
                                         data-transaction-type-name="{{ $transaction->transactionType?->type_name ?: '-' }}"
                                         data-source-type="Occupant Record"
                                         data-source-reference="{{ $transaction->occupantRecord?->record_no ?: '-' }}"
+                                        data-occupant-record-no="{{ $transaction->occupantRecord?->record_no ?: '-' }}"
+                                        data-contact-person="{{ $transaction->occupantRecord?->contact?->contact_person ?: '-' }}"
+                                        data-contact-number="{{ $transaction->occupantRecord?->contact?->contact_number ?: '-' }}"
+                                        data-contact-address="{{ $transaction->occupantRecord?->contact?->address ?: '-' }}"
                                         data-quantity="{{ $transaction->quantity !== null ? number_format((float) $transaction->quantity, 2) : '-' }}"
                                         data-status="{{ $statusOptions[$transaction->status] ?? strtoupper($transaction->status) }}"
                                         data-amount-due="{{ number_format((float) $transaction->amount_due, 2) }}"
+                                        data-paid-to-date="{{ number_format($totalPaid, 2) }}"
+                                        data-current-balance="{{ number_format($balance, 2) }}"
                                         data-base-fee="{{ number_format((float) ($transaction->base_fee ?? 0), 2) }}"
                                         data-maintenance-fee="{{ number_format((float) ($transaction->maintenance_fee ?? 0), 2) }}"
                                         data-burial-permit-fee="{{ number_format((float) ($transaction->burial_permit_fee ?? 0), 2) }}"
                                         data-other-applicable-fee="{{ number_format((float) ($transaction->other_applicable_fee ?? 0), 2) }}"
+                                        data-maintenance-type="{{ $transaction->maintenance_type ?: 'none' }}"
+                                        data-maintenance-years="{{ $transaction->maintenance_years ?? '-' }}"
+                                        data-has-burial-permit="{{ (int) ($transaction->has_burial_permit ?? 0) }}"
                                         data-remarks="{{ $transaction->remarks ?: '-' }}"
                                         title="View full transaction">
                                         <i class="fa-solid fa-eye"></i>
@@ -570,8 +585,8 @@
                                         data-quick-transaction-no="{{ $transaction->transaction_no }}"
                                         data-quick-deceased-name="{{ $transaction->deceased_name }}"
                                         data-quick-amount-due="{{ number_format($amountDue, 2, '.', '') }}"
-                                        data-quick-total-paid="{{ number_format($totalPaid, 2, '.', '') }}"
-                                        data-quick-balance="{{ number_format($balance, 2, '.', '') }}"
+                                        data-quick-total-paid="{{ number_format($quickPayTotalPaid, 2, '.', '') }}"
+                                        data-quick-balance="{{ number_format($quickPayBalance, 2, '.', '') }}"
                                         data-quick-pay-enabled="{{ $isQuickPayAllowed ? '1' : '0' }}"
                                         title="{{ $isQuickPayAllowed ? 'Collect payment' : 'Already fully paid or cancelled' }}"
                                         @disabled(! $isQuickPayAllowed)>
@@ -586,10 +601,15 @@
                                             title="Open latest receipt">
                                             <i class="fa-solid fa-receipt"></i>
                                         </a>
+                                    @else
+                                        <button type="button" class="ctx-icon-btn" title="No receipt yet" disabled>
+                                            <i class="fa-solid fa-receipt"></i>
+                                        </button>
                                     @endif
                                     <button
                                         type="button"
                                         class="ctx-icon-btn js-open-edit-transaction-btn"
+                                        data-update-action="{{ route('cemetery.transactions.update', $transaction) }}"
                                         data-transaction-id="{{ $transaction->id }}"
                                         data-transaction-no="{{ $transaction->transaction_no }}"
                                         data-transaction-date="{{ optional($transaction->transaction_date)->format('Y-m-d\\TH:i') }}"
@@ -628,7 +648,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="12" style="text-align:center; padding:1.4rem;">No transactions found.</td></tr>
+                        <tr><td colspan="10" style="text-align:center; padding:1.4rem;">No transactions found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -697,12 +717,21 @@
                 <div class="ctx-view-item"><strong>Cemetery Name</strong><span id="viewTxnCemetery">-</span></div>
                 <div class="ctx-view-item"><strong>Cemetery Category</strong><span id="viewTxnCategory">-</span></div>
                 <div class="ctx-view-item"><strong>Source</strong><span id="viewTxnSource">-</span></div>
+                <div class="ctx-view-item"><strong>Connected Occupant Record</strong><span id="viewTxnOccupantRecordNo">-</span></div>
+                <div class="ctx-view-item"><strong>Contact Person</strong><span id="viewTxnContactPerson">-</span></div>
+                <div class="ctx-view-item"><strong>Contact Number</strong><span id="viewTxnContactNumber">-</span></div>
+                <div class="ctx-view-item"><strong>Contact Address</strong><span id="viewTxnContactAddress">-</span></div>
                 <div class="ctx-view-item"><strong>Quantity</strong><span id="viewTxnQuantity">-</span></div>
                 <div class="ctx-view-item"><strong>Amount Due</strong><span id="viewTxnAmountDue">-</span></div>
+                <div class="ctx-view-item"><strong>Paid To Date</strong><span id="viewTxnPaidToDate">-</span></div>
+                <div class="ctx-view-item"><strong>Current Balance</strong><span id="viewTxnCurrentBalance">-</span></div>
                 <div class="ctx-view-item"><strong>Base Fee</strong><span id="viewTxnBaseFee">-</span></div>
                 <div class="ctx-view-item"><strong>Maintenance Fee</strong><span id="viewTxnMaintenanceFee">-</span></div>
                 <div class="ctx-view-item"><strong>Burial Permit Fee</strong><span id="viewTxnPermitFee">-</span></div>
                 <div class="ctx-view-item"><strong>Other Applicable Fee</strong><span id="viewTxnOtherFee">-</span></div>
+                <div class="ctx-view-item"><strong>Maintenance Type</strong><span id="viewTxnMaintenanceType">-</span></div>
+                <div class="ctx-view-item"><strong>Maintenance Years</strong><span id="viewTxnMaintenanceYears">-</span></div>
+                <div class="ctx-view-item"><strong>With Burial Permit</strong><span id="viewTxnHasBurialPermit">-</span></div>
                 <div class="ctx-view-item ctx-view-item-wide"><strong>Remarks</strong><span id="viewTxnRemarks">-</span></div>
             </div>
         </div>
@@ -809,7 +838,7 @@
         </div>
         <div class="ctx-modal-body">
             <p style="margin:0;">Are you sure you want to delete this transaction?</p>
-            <div style="margin-top:12px; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; background:#f8fafc;">
+            <div style="margin-top:10px; border:1px solid #e2e8f0; border-radius:10px; padding:10px; background:#f8fafc;">
                 <div><strong id="deleteTransactionNo">-</strong></div>
                 <div>Deceased: <span id="deleteTransactionDeceased">-</span></div>
             </div>
@@ -845,6 +874,9 @@
     const confirmDeleteButton = document.getElementById('confirmDeleteTransactionBtn');
     const deleteTransactionNo = document.getElementById('deleteTransactionNo');
     const deleteTransactionDeceased = document.getElementById('deleteTransactionDeceased');
+    const autoFilterForm = document.getElementById('ctxAutoFilterForm');
+    const autoSearchInput = document.getElementById('ctxAutoSearch');
+    const statusToast = document.getElementById('ctxStatusToast');
     const oldFormMode = page?.dataset.oldFormMode || '';
     const oldFormTransactionId = page?.dataset.oldFormTransactionId || '';
     const oldQuickTransactionId = page?.dataset.oldQuickTransactionId || '';
@@ -854,6 +886,39 @@
     let pendingDeleteForm = null;
 
     const allModals = [createModal, viewModal, quickPayModal, editModal, deleteModal].filter(Boolean);
+
+    const autoHideStatusToast = () => {
+        if (!statusToast) return;
+        window.setTimeout(() => {
+            statusToast.classList.add('is-hiding');
+            window.setTimeout(() => {
+                statusToast.remove();
+            }, 240);
+        }, 3000);
+    };
+
+    if (autoFilterForm) {
+        const filterSelects = Array.from(autoFilterForm.querySelectorAll('select'));
+        filterSelects.forEach((select) => {
+            select.addEventListener('change', () => autoFilterForm.submit());
+        });
+
+        if (autoSearchInput) {
+            let searchTimer = null;
+            autoSearchInput.addEventListener('input', () => {
+                if (searchTimer) clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => autoFilterForm.submit(), 350);
+            });
+
+            autoSearchInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (searchTimer) clearTimeout(searchTimer);
+                    autoFilterForm.submit();
+                }
+            });
+        }
+    }
 
     const lockBody = () => {
         const hasOpenModal = allModals.some((modal) => modal.classList.contains('is-open'));
@@ -1110,7 +1175,8 @@
         if (!editForm) return;
 
         const transactionId = button.dataset.transactionId || '';
-        editForm.action = editActionTemplate.replace('__ID__', transactionId);
+        const updateAction = button.dataset.updateAction || '';
+        editForm.action = updateAction !== '' ? updateAction : editActionTemplate.replace('__ID__', transactionId);
         setValue('editFormTransactionId', transactionId);
 
         setValue('editTxnTransactionNo', button.dataset.transactionNo);
@@ -1146,12 +1212,24 @@
         setText('viewTxnCemetery', button.dataset.cemeteryName);
         setText('viewTxnCategory', button.dataset.categoryName);
         setText('viewTxnSource', `${button.dataset.sourceType || '-'} (${button.dataset.sourceReference || '-'})`);
+        setText('viewTxnOccupantRecordNo', button.dataset.occupantRecordNo || '-');
+        setText('viewTxnContactPerson', button.dataset.contactPerson || '-');
+        setText('viewTxnContactNumber', button.dataset.contactNumber || '-');
+        setText('viewTxnContactAddress', button.dataset.contactAddress || '-');
         setText('viewTxnQuantity', button.dataset.quantity);
         setText('viewTxnAmountDue', `PHP ${button.dataset.amountDue || '0.00'}`);
+        setText('viewTxnPaidToDate', `PHP ${button.dataset.paidToDate || '0.00'}`);
+        setText('viewTxnCurrentBalance', `PHP ${button.dataset.currentBalance || '0.00'}`);
         setText('viewTxnBaseFee', `PHP ${button.dataset.baseFee || '0.00'}`);
         setText('viewTxnMaintenanceFee', `PHP ${button.dataset.maintenanceFee || '0.00'}`);
         setText('viewTxnPermitFee', `PHP ${button.dataset.burialPermitFee || '0.00'}`);
         setText('viewTxnOtherFee', `PHP ${button.dataset.otherApplicableFee || '0.00'}`);
+        const maintenanceTypeLabel = (button.dataset.maintenanceType || 'none')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (m) => m.toUpperCase());
+        setText('viewTxnMaintenanceType', maintenanceTypeLabel);
+        setText('viewTxnMaintenanceYears', button.dataset.maintenanceYears || '-');
+        setText('viewTxnHasBurialPermit', button.dataset.hasBurialPermit === '1' ? 'Yes' : 'No');
         setText('viewTxnRemarks', button.dataset.remarks || '-');
         openModal(viewModal);
     };
@@ -1160,6 +1238,7 @@
     bindOccupantSource('editTxn');
     bindFeeComputation('newTxn');
     bindFeeComputation('editTxn');
+    autoHideStatusToast();
 
     if (quickPayAmountPaidInput) {
         const recalcQuickPay = () => {
@@ -1230,6 +1309,24 @@
             pendingDeleteForm.dataset.confirmed = '1';
             pendingDeleteForm.submit();
             pendingDeleteForm = null;
+        });
+    }
+
+    if (editForm) {
+        editForm.addEventListener('submit', (event) => {
+            const transactionId = String(document.getElementById('editFormTransactionId')?.value || '').trim();
+            const action = String(editForm.getAttribute('action') || '').trim();
+            if (transactionId !== '' && action === '' && editActionTemplate !== '') {
+                editForm.action = editActionTemplate.replace('__ID__', transactionId);
+                return;
+            }
+
+            if (transactionId === '' || action === '' || action.includes('__ID__')) {
+                event.preventDefault();
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Unable to update: transaction target is missing.', 'error');
+                }
+            }
         });
     }
 

@@ -18,6 +18,7 @@
         'collector' => 'Collector',
         'cashier' => 'Cashier',
     ];
+    $displayTimezone = 'Asia/Manila';
 
     $unassignedCollectorCount = max($collectorAccounts->count() - $assignedCollectorCount, 0);
 @endphp
@@ -98,7 +99,7 @@
                 </div>
                 <div class="um-search-wrap">
                     <i class="fas fa-search"></i>
-                    <input id="userSearchInput" type="text" placeholder="Search users..." autocomplete="off">
+                    <input id="userSearchInput" type="text" placeholder="Search" autocomplete="off">
                     <button id="userSearchClear" type="button" onclick="clearUserSearch()" aria-label="Clear search">
                         <i class="fas fa-times"></i>
                     </button>
@@ -151,7 +152,9 @@
                                         <span class="um-pill um-pill-danger">Inactive</span>
                                     @endif
                                 </td>
-                                <td class="um-sub">{{ $user->created_at?->format('M d, Y h:i A') }}</td>
+                                <td class="um-sub">
+                                    {{ $user->created_at?->copy()->timezone($displayTimezone)->format('M d, Y h:i A') }}
+                                </td>
                             </tr>
                         @empty
                             <tr>
@@ -359,7 +362,9 @@
                                     </td>
                                     <td>{{ $departmentName ?: 'Not assigned' }}</td>
                                     <td class="um-sub">{{ $assignedBy ?: '-' }}</td>
-                                    <td class="um-sub">{{ $assignment?->updated_at?->format('M d, Y h:i A') ?: '-' }}</td>
+                                    <td class="um-sub">
+                                        {{ $assignment?->updated_at?->copy()->timezone($displayTimezone)->format('M d, Y h:i A') ?: '-' }}
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
@@ -405,6 +410,10 @@
 </div>
 
 <style>
+    #contentArea {
+        padding-top: 4px;
+    }
+
     .um-page {
         max-width: 1400px;
         margin: 0 auto;
@@ -1244,6 +1253,76 @@
             padding-left: 0.85rem;
             padding-right: 0.85rem;
         }
+    }
+
+    /* Compact spacing pass: keep key page spacing at 10px */
+    .um-page {
+        display: grid;
+        gap: 8px;
+        padding-top: 0;
+    }
+
+    .um-hero {
+        margin: 0;
+    }
+
+    .um-hero-metrics {
+        gap: 10px;
+    }
+
+    .um-kpi {
+        gap: 10px;
+        padding: 10px;
+    }
+
+    .um-alert {
+        margin-bottom: 10px;
+        padding: 10px;
+    }
+
+    .um-tabs {
+        gap: 10px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+
+    .um-tab-btn {
+        padding: 10px;
+    }
+
+    .um-card-head {
+        padding: 10px;
+        gap: 10px;
+    }
+
+    .um-form,
+    .um-form-modern {
+        padding: 10px;
+        gap: 10px;
+    }
+
+    .um-form-grid,
+    .um-form-grid-modern,
+    .um-form-intro,
+    .um-stat-row,
+    .um-assign-form,
+    .um-modal-foot {
+        gap: 10px;
+    }
+
+    .um-form-actions {
+        padding-top: 10px;
+        gap: 10px;
+    }
+
+    .um-assignment-box {
+        margin: 0 10px 10px;
+        padding: 10px;
+    }
+
+    .um-table thead th,
+    .um-table tbody td {
+        padding: 10px;
     }
 </style>
 

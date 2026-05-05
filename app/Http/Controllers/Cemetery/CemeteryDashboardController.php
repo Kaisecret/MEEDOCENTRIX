@@ -19,7 +19,7 @@ class CemeteryDashboardController extends Controller
     {
         $today = Carbon::today();
         $period = strtolower((string) $request->query('period', 'month'));
-        $allowedPeriods = ['today', 'month', 'range'];
+        $allowedPeriods = ['today', 'week', 'month', 'range'];
         if (! in_array($period, $allowedPeriods, true)) {
             $period = 'month';
         }
@@ -33,6 +33,12 @@ class CemeteryDashboardController extends Controller
             $dateFrom = $today->toDateString();
             $dateTo = $today->toDateString();
             $filterLabel = 'Today';
+        } elseif ($period === 'week') {
+            $rangeStart = $today->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
+            $rangeEnd = $today->copy()->endOfDay();
+            $dateFrom = $rangeStart->toDateString();
+            $dateTo = $rangeEnd->toDateString();
+            $filterLabel = 'This Week';
         } elseif ($period === 'range' && $parsedFrom && $parsedTo && $parsedFrom->lte($parsedTo)) {
             $rangeStart = $parsedFrom->copy()->startOfDay();
             $rangeEnd = $parsedTo->copy()->endOfDay();

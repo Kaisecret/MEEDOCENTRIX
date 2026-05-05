@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\CollectionDispatch;
 use App\Models\CollectionDispatchItem;
 use App\Models\CollectorDepartmentAssignment;
+use App\Support\AppNotificationService;
+use App\Support\MarketDueLogService;
+use App\Support\MarketQueueLifecycle;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +23,10 @@ class CollectorCollectionController extends Controller
     {
         $assignment = $this->collectorAssignment($request);
         $departmentCode = $assignment?->department?->code;
+        if ($departmentCode === 'market') {
+            MarketQueueLifecycle::autoCancelStaleSentItems();
+            MarketDueLogService::sync();
+        }
         if (! $departmentCode) {
             return view('collector.dashboard', [
                 'assignment' => $assignment,
@@ -38,9 +45,10 @@ class CollectorCollectionController extends Controller
                 'allCount' => 0,
                 'allTotal' => 0,
                 'chartLabels' => [],
-                'chartSubmitted' => [],
+                'chartPending' => [],
                 'chartAccepted' => [],
                 'chartRejected' => [],
+                'recentTransactions' => collect(),
             ]);
         }
         $period = (string) $request->query('period', 'month');
@@ -97,15 +105,15 @@ class CollectorCollectionController extends Controller
         }
 
         $chartLabels = [];
-        $chartSubmitted = [];
+        $chartPending = [];
         $chartAccepted = [];
         $chartRejected = [];
 
         foreach ($chartDateKeys as $dateKey) {
             $rows = $groupedByDay->get($dateKey, collect());
             $chartLabels[] = Carbon::parse($dateKey)->format('m/d');
-            $chartSubmitted[] = (float) $rows
-                ->whereIn('status', ['collected_pending_confirmation', 'accepted', 'rejected'])
+            $chartPending[] = (float) $rows
+                ->where('status', 'sent')
                 ->sum('amount_snapshot');
             $chartAccepted[] = (float) $rows
                 ->where('status', 'accepted')
@@ -114,6 +122,82 @@ class CollectorCollectionController extends Controller
                 ->where('status', 'rejected')
                 ->sum('amount_snapshot');
         }
+
+        $recentItemsQuery = CollectionDispatchItem::query()
+            ->whereHas('dispatch', static function ($query) use ($departmentCode, $request): void {
+                $query->where('collector_user_id', (int) $request->user()?->id);
+                if ($departmentCode) {
+                    $query->where('department_code', $departmentCode);
+                }
+            });
+
+        $this->applyQueueDateFilter($recentItemsQuery, $fromDate, $toDate);
+
+        if ($departmentCode === 'market') {
+            $recentItemsQuery->with([
+                'marketStallLease:id,market_stall_id,market_tenant_id,contract_number',
+                'marketStallLease.stall:id,stall_no',
+                'marketStallLease.tenant:id,first_name,last_name,middle_name',
+                'marketPaymentCollection:id,payment_number',
+            ]);
+        } else {
+            $recentItemsQuery->with([
+                'fishportLog:id,log_number',
+                'paymentRecord:id,payment_number',
+            ]);
+        }
+
+        $recentTransactions = $recentItemsQuery
+            ->orderByDesc('updated_at')
+            ->limit(10)
+            ->get()
+            ->map(function (CollectionDispatchItem $item) use ($departmentCode): array {
+                $statusLabel = match ((string) $item->status) {
+                    'sent' => 'Pending',
+                    'collected_pending_confirmation' => 'Awaiting',
+                    'accepted' => 'Accepted',
+                    'rejected' => 'Rejected',
+                    'cancelled' => 'Cancelled',
+                    default => ucfirst(str_replace('_', ' ', (string) $item->status)),
+                };
+
+                $statusClass = match ((string) $item->status) {
+                    'accepted' => 'accepted',
+                    'rejected' => 'rejected',
+                    'collected_pending_confirmation' => 'awaiting',
+                    default => 'pending',
+                };
+
+                if ($departmentCode === 'market') {
+                    $reference = (string) (
+                        $item->marketPaymentCollection?->payment_number
+                        ?? $item->marketStallLease?->contract_number
+                        ?? '-'
+                    );
+                    $source = (string) (
+                        $item->marketStallLease?->stall?->stall_no
+                        ?? $item->marketStallLease?->tenant?->fullName()
+                        ?? '-'
+                    );
+                } else {
+                    $reference = (string) (
+                        $item->paymentRecord?->payment_number
+                        ?? $item->fishportLog?->log_number
+                        ?? '-'
+                    );
+                    $source = (string) ($item->fishportLog?->log_number ?? '-');
+                }
+
+                return [
+                    'date' => optional($item->updated_at)->format('m/d/Y h:i A') ?? '-',
+                    'reference' => $reference,
+                    'source' => $source,
+                    'status' => $statusLabel,
+                    'status_class' => $statusClass,
+                    'amount' => (float) $item->amount_snapshot,
+                    'payer' => (string) ($item->payer_name ?: '-'),
+                ];
+            });
 
         return view('collector.dashboard', [
             'assignment' => $assignment,
@@ -132,9 +216,10 @@ class CollectorCollectionController extends Controller
             'allCount' => $allCount,
             'allTotal' => $allTotal,
             'chartLabels' => $chartLabels,
-            'chartSubmitted' => $chartSubmitted,
+            'chartPending' => $chartPending,
             'chartAccepted' => $chartAccepted,
             'chartRejected' => $chartRejected,
+            'recentTransactions' => $recentTransactions,
         ]);
     }
 
@@ -142,6 +227,10 @@ class CollectorCollectionController extends Controller
     {
         $assignment = $this->collectorAssignment($request);
         $departmentCode = $assignment?->department?->code;
+        if ($departmentCode === 'market') {
+            MarketQueueLifecycle::autoCancelStaleSentItems();
+            MarketDueLogService::sync();
+        }
         if (! $departmentCode) {
             return view('collector.pending_collections', [
                 'assignment' => $assignment,
@@ -282,21 +371,12 @@ class CollectorCollectionController extends Controller
                 return redirect()->back()->with('error', 'Unable to upload proof image. Please try again.');
             }
         } else {
-            $existingProofPath = trim((string) $dispatchItem->proof_image_path);
-            $canReuseExistingProof = (string) $dispatchItem->status === 'rejected'
-                && $existingProofPath !== ''
-                && Storage::disk('public')->exists($existingProofPath);
-
-            if ($canReuseExistingProof) {
-                $proofPath = $existingProofPath;
-            } else {
-                return redirect()
-                    ->back()
-                    ->withInput()
-                    ->withErrors([
-                        'proof_image' => 'Upload a proof photo or capture one using camera.',
-                    ]);
-            }
+            return redirect()
+                ->back()
+                ->withInput()
+                ->withErrors([
+                    'proof_image' => 'Upload a proof photo or capture one using camera.',
+                ]);
         }
 
         DB::transaction(function () use ($request, $dispatchItem, $validated, $proofPath): void {
@@ -325,6 +405,8 @@ class CollectorCollectionController extends Controller
             $item->dispatch?->update([
                 'status' => 'awaiting_confirmation',
             ]);
+
+            AppNotificationService::notifyCollectorSubmitted($item, $request->user()?->id);
         });
 
         return redirect()
@@ -384,6 +466,7 @@ class CollectorCollectionController extends Controller
             }
 
             $this->refreshDispatchStatus((int) $item->collection_dispatch_id);
+            AppNotificationService::notifyDispatchItemReviewed($item, 'cancelled', $request->user()?->id);
         });
 
         return redirect()
@@ -404,7 +487,7 @@ class CollectorCollectionController extends Controller
             ->groupBy('status')
             ->pluck('aggregate', 'status');
 
-        $pendingCount = (int) ($statusCounts['sent'] ?? 0);
+        $pendingCount = (int) ($statusCounts['sent'] ?? 0) + (int) ($statusCounts['rejected'] ?? 0);
         $forApprovalCount = (int) ($statusCounts['collected_pending_confirmation'] ?? 0);
 
         if ($pendingCount === 0 && $forApprovalCount === 0) {
@@ -433,6 +516,10 @@ class CollectorCollectionController extends Controller
     {
         $assignment = $this->collectorAssignment($request);
         $departmentCode = $assignment?->department?->code;
+        if ($departmentCode === 'market') {
+            MarketQueueLifecycle::autoCancelStaleSentItems();
+            MarketDueLogService::sync();
+        }
         if (! $departmentCode) {
             return view('collector.payments', [
                 'assignment' => $assignment,

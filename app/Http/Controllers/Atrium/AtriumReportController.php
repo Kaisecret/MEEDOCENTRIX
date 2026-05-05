@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Atrium;
 use App\Http\Controllers\Controller;
 use App\Models\AtriumEvent;
 use App\Models\AtriumEventPayment;
-use App\Models\AtriumSuppliesOrder;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -82,6 +81,266 @@ class AtriumReportController extends Controller
         ])->download($filename);
     }
 
+    public function csv(Request $request)
+    {
+        [$report, $period, $rangeStart, $rangeEnd, $dateFrom, $dateTo, $rangeLabel] = $this->resolveFilters($request);
+        $payload = $this->buildReportPayload($report, $rangeStart, $rangeEnd);
+        $filename = 'atrium-' . $report . '-report-' . $rangeStart->format('Ymd') . '-' . $rangeEnd->format('Ymd') . '.xls';
+
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+        ];
+
+        return response()->streamDownload(function () use ($payload, $report, $rangeStart, $rangeEnd, $rangeLabel): void {
+            echo "\xEF\xBB\xBF";
+            echo $this->renderExcelHtml($payload, $report, $rangeStart, $rangeEnd, $rangeLabel);
+        }, $filename, $headers);
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     */
+    private function renderExcelHtml(array $payload, string $report, Carbon $rangeStart, Carbon $rangeEnd, string $rangeLabel): string
+    {
+        $esc = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $money = static fn ($value): string => 'PHP ' . number_format((float) $value, 2);
+        $rows = $payload['rows'] ?? collect();
+        if (! $rows instanceof Collection) {
+            $rows = collect($rows);
+        }
+
+        $metricValue = (float) ($payload['metricValue'] ?? 0);
+        $metricText = ($payload['metricIsCurrency'] ?? false)
+            ? $money($metricValue)
+            : number_format($metricValue);
+
+        $css = '
+            body { font-family: Calibri, "Segoe UI", Arial, sans-serif; color:#0f172a; }
+            table { border-collapse: collapse; width: 100%; }
+            .title { font-size:18pt; font-weight:bold; color:#0c3a5b; }
+            .subtitle { font-size:11pt; color:#475569; }
+            .meta { font-size:10pt; color:#475569; }
+            .section-title {
+                background:#0c3a5b; color:#ffffff; font-weight:bold;
+                padding:6pt 10pt; font-size:11pt; letter-spacing:1pt;
+            }
+            .info th {
+                background:#eaf2f9; color:#0c3a5b; text-align:left;
+                font-weight:bold; padding:6pt 10pt; border:1px solid #cbd5e1;
+            }
+            .info td {
+                background:#f8fafc; padding:6pt 10pt;
+                border:1px solid #cbd5e1; font-weight:bold;
+            }
+            .data th {
+                background:#155f8f; color:#ffffff; font-weight:bold;
+                padding:6pt 8pt; border:1px solid #0c3a5b;
+                text-align:left; font-size:10pt;
+            }
+            .data td {
+                padding:5pt 8pt; border:1px solid #cbd5e1; font-size:10pt;
+                vertical-align:top;
+            }
+            .data tr.alt td { background:#f8fafc; }
+            .num { mso-number-format:"#,##0.00"; text-align:right; }
+            .int { mso-number-format:"#,##0"; text-align:right; }
+            .center { text-align:center; }
+            .good { color:#047857; font-weight:bold; }
+            .warn { color:#b45309; font-weight:bold; }
+            .bad { color:#b91c1c; font-weight:bold; }
+            .footer { font-size:9pt; color:#64748b; font-style:italic; padding-top:8pt; }
+        ';
+
+        ob_start();
+        ?>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="UTF-8">
+    <title>Atrium Report</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>Atrium Report</x:Name>
+                    <x:WorksheetOptions>
+                        <x:DisplayGridlines/>
+                    </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+    <style><?= $css ?></style>
+</head>
+<body>
+
+<table>
+    <tr><td colspan="10" class="title">Atrium Hall Management Office</td></tr>
+    <tr><td colspan="10" class="subtitle"><?= $esc((string) ($payload['reportTitle'] ?? 'Atrium Report')) ?></td></tr>
+    <tr><td colspan="10" class="meta">Generated: <?= $esc(now()->format('F d, Y h:i A')) ?></td></tr>
+    <tr><td colspan="10">&nbsp;</td></tr>
+</table>
+
+<table class="info">
+    <tr>
+        <th style="width:18%;">Period</th>
+        <td style="width:32%;"><?= $esc($rangeLabel) ?></td>
+        <th style="width:18%;">Total Records</th>
+        <td style="width:32%;"><?= number_format((int) ($payload['totalRecords'] ?? 0)) ?> record(s)</td>
+    </tr>
+    <tr>
+        <th>Date From</th>
+        <td><?= $esc($rangeStart->format('F d, Y')) ?></td>
+        <th>Date To</th>
+        <td><?= $esc($rangeEnd->format('F d, Y')) ?></td>
+    </tr>
+</table>
+
+<br>
+<table>
+    <tr><td colspan="4" class="section-title">SUMMARY</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <tr>
+            <th>Total Records</th>
+            <th><?= $esc((string) ($payload['primaryLabel'] ?? 'Primary')) ?></th>
+            <th><?= $esc((string) ($payload['secondaryLabel'] ?? 'Secondary')) ?></th>
+            <th><?= $esc((string) ($payload['metricLabel'] ?? 'Metric')) ?></th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="int center"><?= number_format((int) ($payload['totalRecords'] ?? 0)) ?></td>
+            <td class="int center good"><?= number_format((int) ($payload['primaryCount'] ?? 0)) ?></td>
+            <td class="int center warn"><?= number_format((int) ($payload['secondaryCount'] ?? 0)) ?></td>
+            <td class="center" style="font-weight:bold;color:#0c3a5b;"><?= $esc($metricText) ?></td>
+        </tr>
+    </tbody>
+</table>
+
+<br>
+<table>
+    <tr><td colspan="5" class="section-title">WEEKLY SUMMARY</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <tr>
+            <th>Week</th>
+            <th class="int">Records</th>
+            <th class="int"><?= $esc((string) ($payload['primaryLabel'] ?? 'Primary')) ?></th>
+            <th class="int"><?= $esc((string) ($payload['secondaryLabel'] ?? 'Secondary')) ?></th>
+            <th class="num"><?= $esc((string) ($payload['summaryTotalLabel'] ?? 'Total')) ?></th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $i = 0; foreach (($payload['weeklySummary'] ?? collect()) as $row): $i++; ?>
+            <tr<?= $i % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($row['label'] ?? '-') ?></strong></td>
+                <td class="int"><?= number_format((int) ($row['records'] ?? 0)) ?></td>
+                <td class="int"><?= number_format((int) ($row['primary'] ?? 0)) ?></td>
+                <td class="int"><?= number_format((int) ($row['secondary'] ?? 0)) ?></td>
+                <td class="num"><?= ($payload['metricIsCurrency'] ?? false) ? $money($row['total'] ?? 0) : number_format((float) ($row['total'] ?? 0)) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if (($payload['weeklySummary'] ?? collect())->isEmpty()): ?>
+            <tr><td colspan="5" class="center" style="color:#94a3b8;font-style:italic;">No weekly records found.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+
+<br>
+<table>
+    <tr><td colspan="5" class="section-title">MONTHLY SUMMARY</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <tr>
+            <th>Month</th>
+            <th class="int">Records</th>
+            <th class="int"><?= $esc((string) ($payload['primaryLabel'] ?? 'Primary')) ?></th>
+            <th class="int"><?= $esc((string) ($payload['secondaryLabel'] ?? 'Secondary')) ?></th>
+            <th class="num"><?= $esc((string) ($payload['summaryTotalLabel'] ?? 'Total')) ?></th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $i = 0; foreach (($payload['monthlySummary'] ?? collect()) as $row): $i++; ?>
+            <tr<?= $i % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($row['label'] ?? '-') ?></strong></td>
+                <td class="int"><?= number_format((int) ($row['records'] ?? 0)) ?></td>
+                <td class="int"><?= number_format((int) ($row['primary'] ?? 0)) ?></td>
+                <td class="int"><?= number_format((int) ($row['secondary'] ?? 0)) ?></td>
+                <td class="num"><?= ($payload['metricIsCurrency'] ?? false) ? $money($row['total'] ?? 0) : number_format((float) ($row['total'] ?? 0)) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if (($payload['monthlySummary'] ?? collect())->isEmpty()): ?>
+            <tr><td colspan="5" class="center" style="color:#94a3b8;font-style:italic;">No monthly records found.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+
+<br>
+<table>
+    <tr><td colspan="10" class="section-title">DETAILED REPORT</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <?php if ($report === 'booking'): ?>
+            <tr><th>Code</th><th>Date</th><th>Contact</th><th>Hall</th><th class="num">Hours</th><th class="num">Due</th><th>Status</th></tr>
+        <?php else: ?>
+            <tr><th>OR Number</th><th>Date</th><th>Event</th><th class="num">Amount</th><th>Status</th><th>Recorded By</th></tr>
+        <?php endif; ?>
+    </thead>
+    <tbody>
+        <?php $i = 0; foreach ($rows as $row): $i++; ?>
+            <tr<?= $i % 2 === 0 ? ' class="alt"' : '' ?>>
+                <?php if ($report === 'booking'): ?>
+                    <td><strong><?= $esc($row['code'] ?? '-') ?></strong></td>
+                    <td><?= $esc($row['date'] ?? '-') ?></td>
+                    <td><?= $esc($row['contact'] ?? '-') ?></td>
+                    <td><?= $esc($row['hall'] ?? '-') ?></td>
+                    <td class="num"><?= number_format((float) ($row['hours'] ?? 0), 2) ?></td>
+                    <td class="num"><?= $money($row['amount'] ?? 0) ?></td>
+                    <td class="<?= match ((string) ($row['status'] ?? '')) {
+                        'confirmed', 'completed' => 'good',
+                        'cancelled' => 'bad',
+                        default => 'warn',
+                    } ?>"><?= $esc($row['status_label'] ?? '-') ?></td>
+                <?php else: ?>
+                    <td><strong><?= $esc($row['or_number'] ?? '-') ?></strong></td>
+                    <td><?= $esc($row['date'] ?? '-') ?></td>
+                    <td><?= $esc($row['event'] ?? '-') ?></td>
+                    <td class="num"><?= $money($row['amount'] ?? 0) ?></td>
+                    <td class="<?= match ((string) ($row['status'] ?? '')) {
+                        'paid' => 'good',
+                        'unpaid' => 'bad',
+                        default => 'warn',
+                    } ?>"><?= $esc($row['status_label'] ?? '-') ?></td>
+                    <td><?= $esc($row['recorded_by'] ?? '-') ?></td>
+                <?php endif; ?>
+            </tr>
+        <?php endforeach; ?>
+        <?php if ($rows->isEmpty()): ?>
+            <tr><td colspan="10" class="center" style="color:#94a3b8;font-style:italic;">No records found in selected range.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+
+<table>
+    <tr><td colspan="10" class="footer">Atrium Hall Management System · Confidential Report · Generated <?= $esc(now()->format('F d, Y h:i A')) ?></td></tr>
+</table>
+</body>
+</html>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
     /**
      * @return array{0:string,1:string,2:Carbon,3:Carbon,4:string,5:string,6:string}
      */
@@ -96,7 +355,7 @@ class AtriumReportController extends Controller
     private function resolveReportType(string $report): string
     {
         $value = strtolower(trim($report));
-        if (! in_array($value, ['booking', 'collection', 'supplies'], true)) {
+        if (! in_array($value, ['booking', 'collection'], true)) {
             return 'booking';
         }
 
@@ -180,7 +439,6 @@ class AtriumReportController extends Controller
     {
         return match ($report) {
             'collection' => $this->collectionReport($rangeStart, $rangeEnd),
-            'supplies' => $this->suppliesReport($rangeStart, $rangeEnd),
             default => $this->bookingReport($rangeStart, $rangeEnd),
         };
     }
@@ -329,76 +587,6 @@ class AtriumReportController extends Controller
     }
 
     /**
-     * @return array<string,mixed>
-     */
-    private function suppliesReport(Carbon $rangeStart, Carbon $rangeEnd): array
-    {
-        $orders = AtriumSuppliesOrder::query()
-            ->with(['event.functionHall:id,name,code', 'requestedBy:id,name'])
-            ->whereBetween('created_at', [$rangeStart->copy()->startOfDay(), $rangeEnd->copy()->endOfDay()])
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get();
-
-        $rows = $orders->map(function (AtriumSuppliesOrder $order): array {
-            $createdAt = $order->created_at ? Carbon::parse($order->created_at) : null;
-            $status = (string) ($order->request_status ?? 'pending');
-
-            return [
-                'date' => $createdAt?->format('m/d/Y') ?? '-',
-                'event' => (string) ($order->event?->event_code ?? '-') . ' - ' . (string) ($order->event?->name_contact_person ?? '-'),
-                'time_needed' => (string) ($order->time_needed ?? '-'),
-                'supplies' => (string) ($order->requested_supplies ?? '-'),
-                'status' => $status,
-                'status_label' => ucfirst($status),
-                'status_class' => $this->statusClassForSupply($status),
-                'requested_by' => (string) ($order->requestedBy?->name ?? '-'),
-                'week_key' => $createdAt?->copy()->startOfWeek()->toDateString() ?? 'n/a',
-                'month_key' => $createdAt?->format('Y-m') ?? 'n/a',
-            ];
-        })->values();
-
-        $statusCounts = [
-            'pending' => (int) $rows->where('status', 'pending')->count(),
-            'approved' => (int) $rows->where('status', 'approved')->count(),
-            'fulfilled' => (int) $rows->where('status', 'fulfilled')->count(),
-            'rejected' => (int) $rows->where('status', 'rejected')->count(),
-        ];
-
-        $weeklySummary = $this->buildWeeklySummary(
-            $rows,
-            fn (Collection $group): int => (int) $group->where('status', 'fulfilled')->count(),
-            fn (Collection $group): int => (int) $group->whereIn('status', ['pending', 'approved'])->count(),
-            fn (Collection $group): float => (float) $group->count()
-        );
-
-        $monthlySummary = $this->buildMonthlySummary(
-            $rows,
-            fn (Collection $group): int => (int) $group->where('status', 'fulfilled')->count(),
-            fn (Collection $group): int => (int) $group->whereIn('status', ['pending', 'approved'])->count(),
-            fn (Collection $group): float => (float) $group->count()
-        );
-
-        return [
-            'reportTitle' => 'Atrium Supplies Report',
-            'reportDescription' => 'Monitor supply requests and fulfillment workload.',
-            'rows' => $rows,
-            'totalRecords' => (int) $rows->count(),
-            'primaryLabel' => 'Fulfilled',
-            'primaryCount' => $statusCounts['fulfilled'],
-            'secondaryLabel' => 'Pending + Approved',
-            'secondaryCount' => $statusCounts['pending'] + $statusCounts['approved'],
-            'metricLabel' => 'Total Requests',
-            'metricIsCurrency' => false,
-            'metricValue' => (float) $rows->count(),
-            'summaryTotalLabel' => 'Requests',
-            'weeklySummary' => $weeklySummary,
-            'monthlySummary' => $monthlySummary,
-            'statusCounts' => $statusCounts,
-        ];
-    }
-
-    /**
      * @param callable(Collection):int $primaryCounter
      * @param callable(Collection):int $secondaryCounter
      * @param callable(Collection):float $totalResolver
@@ -472,12 +660,4 @@ class AtriumReportController extends Controller
         };
     }
 
-    private function statusClassForSupply(string $status): string
-    {
-        return match ($status) {
-            'fulfilled' => 'ar-tag-good',
-            'rejected' => 'ar-tag-bad',
-            default => 'ar-tag-warn',
-        };
-    }
 }

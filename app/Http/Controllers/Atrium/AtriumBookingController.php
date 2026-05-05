@@ -53,7 +53,7 @@ class AtriumBookingController extends Controller
 
         $events = $query
             ->orderByDesc('date_of_event')
-            ->paginate(15)
+            ->paginate(10)
             ->withQueryString();
 
         $halls = AtriumFunctionHall::query()
@@ -86,7 +86,7 @@ class AtriumBookingController extends Controller
 
     public function show(AtriumEvent $event): View
     {
-        $event->load(['functionHall', 'addOns', 'payments.recordedBy:id,name', 'suppliesOrders']);
+        $event->load(['functionHall', 'addOns', 'payments.recordedBy:id,name']);
 
         return view('atrium.booking_show', [
             'event' => $event,
@@ -242,7 +242,7 @@ class AtriumBookingController extends Controller
             'hall_payment' => ['required', 'numeric', 'min:0'],
             'miscellaneous_payment' => ['nullable', 'numeric', 'min:0'],
             'accommodation_payment' => ['nullable', 'numeric', 'min:0'],
-            'booking_status' => ['nullable', 'in:reserved,confirmed,completed,cancelled'],
+            'booking_status' => ['nullable', 'in:reserved,confirmed,cancelled'],
             'add_ons' => ['nullable', 'array'],
             'add_ons.*.description' => ['nullable', 'string', 'max:200'],
             'add_ons.*.amount' => ['nullable', 'numeric', 'min:0'],

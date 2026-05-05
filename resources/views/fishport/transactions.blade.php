@@ -4,23 +4,37 @@
     @php
         $isEditing = $editingLog !== null;
         $formAction = $isEditing ? route('fishport.records.update', $editingLog) : route('fishport.records.store');
-        $unitLookup = $units->map(static fn($unit) => ['id' => $unit->id, 'name' => $unit->name])->values();
+        $banyeraUnit = $units->first(static function ($unit): bool {
+            $name = strtolower(trim((string) $unit->name));
+            return in_array($name, ['banyera', 'banyeras', 'tub'], true);
+        });
+
+        $piecesUnit = $units->first(static function ($unit): bool {
+            $name = strtolower(trim((string) $unit->name));
+            return in_array($name, ['pieces', 'piece', 'pcs', 'pc', 'box', 'block'], true);
+        });
+
+        $unitLookup = collect([
+            $banyeraUnit ? ['id' => $banyeraUnit->id, 'name' => 'Banyera'] : null,
+            $piecesUnit ? ['id' => $piecesUnit->id, 'name' => 'Pieces'] : null,
+        ])->filter()->values();
+        if ($unitLookup->isEmpty() && $units->isNotEmpty()) {
+            $fallbackUnit = $units->first();
+            $unitLookup = collect([['id' => $fallbackUnit->id, 'name' => 'Banyera']]);
+        }
         $paymentTypeLookup = $paymentTypes->map(static fn($paymentType) => [
             'id' => $paymentType->id,
             'code' => $paymentType->code,
             'name' => $paymentType->name,
             'fee' => (float) $paymentType->default_fee,
         ])->values();
-        $manualPaymentTypes = $paymentTypes
-            ->whereIn('code', ['ENTRANCE', 'DOCKING'])
-            ->values();
         $hasPendingLogs = count($pendingLogs) > 0;
         $paymentNumberPreview = $isEditing
-            ? ($editingLog->paymentRecord?->payment_number ?? 'Auto-generated on save')
-            : 'Auto-generated on save';
+            ? ($editingLog->paymentRecord?->payment_number ?? 'Auto on save')
+            : 'Auto on save';
         $linkedVesselNamePreview = $isEditing
-            ? ($editingLog->vessel?->name ?? 'Select logged entry first')
-            : 'Select logged entry first';
+            ? ($editingLog->vessel?->name ?? 'Select log first')
+            : 'Select log first';
         $clientState = [
             'commodities' => $commodityLookup,
             'units' => $unitLookup,
@@ -43,6 +57,10 @@
     @endphp
 
     <style>
+        #contentArea {
+            padding-top: 4px;
+        }
+
         .fishport-page {
             --fp-bg: #f3f7fb;
             --fp-panel: #ffffff;
@@ -62,33 +80,11 @@
             background: var(--fp-bg);
             border: 1px solid #e1e8f0;
             border-radius: 18px;
-            padding: 22px;
+            padding: 10px;
             max-width: 1320px;
             margin: 0 auto;
         }
 
-        .fishport-hero {
-            background: linear-gradient(140deg, #0f3f66 0%, #1a6d95 100%);
-            color: #fff;
-            border-radius: 16px;
-            padding: 20px 24px;
-            box-shadow: 0 16px 26px rgba(12, 47, 74, 0.2);
-            margin-bottom: 18px;
-        }
-
-        .fishport-hero h2 {
-            margin: 0;
-            font-size: 1.85rem;
-            line-height: 1.1;
-            font-weight: 800;
-            letter-spacing: 0.01em;
-        }
-
-        .fishport-hero p {
-            margin: 8px 0 0;
-            color: rgba(255, 255, 255, 0.88);
-            font-size: 0.98rem;
-        }
 
         .fishport-alert {
             border-radius: 12px;
@@ -141,8 +137,8 @@
 
         .fishport-form-stack {
             display: grid;
-            gap: 18px;
-            margin-bottom: 18px;
+            gap: 10px;
+            margin-bottom: 10px;
         }
 
         .fishport-panel {
@@ -154,12 +150,12 @@
         }
 
         .fishport-panel-head {
-            padding: 14px 18px;
+            padding: 10px;
             border-bottom: 1px solid var(--fp-line);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 12px;
+            gap: 10px;
             flex-wrap: wrap;
             background: #fbfdff;
         }
@@ -184,12 +180,12 @@
         }
 
         .fishport-panel-body {
-            padding: 18px;
+            padding: 10px;
         }
 
         .fishport-fields {
             display: grid;
-            gap: 14px;
+            gap: 10px;
             grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
         }
 
@@ -222,6 +218,14 @@
             color: #12314d;
             background: #fff;
             transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        }
+
+        .fishport-select {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding-right: 34px;
         }
 
         .fishport-input:focus,
@@ -260,6 +264,12 @@
             color: #38536f;
         }
 
+        .fishport-preview-input {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
         .fishport-table-wrap {
             overflow: auto;
             border-top: 1px solid var(--fp-line);
@@ -275,7 +285,7 @@
         .fishport-table th,
         .fishport-table td {
             border-bottom: 1px solid #e5edf6;
-            padding: 10px 12px;
+            padding: 10px;
             vertical-align: middle;
         }
 
@@ -323,7 +333,7 @@
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
-            padding: 14px 18px 16px;
+            padding: 10px;
             background: #fbfdff;
         }
 
@@ -362,7 +372,7 @@
             align-items: center;
             gap: 10px;
             flex-wrap: wrap;
-            padding: 14px 18px;
+            padding: 10px;
             color: var(--fp-muted);
             background: #fbfdff;
         }
@@ -687,14 +697,15 @@
         }
 
         .fishport-tabs {
-            display: inline-flex;
+            display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            padding: 6px;
+            width: 100%;
+            gap: 10px;
+            padding: 10px;
             background: #f8fafc;
             border: 1px solid var(--fp-line);
             border-radius: 14px;
-            margin: 6px 0 24px;
+            margin: 0 0 10px;
         }
 
         .fishport-tab {
@@ -704,7 +715,7 @@
             border-radius: 10px;
             padding: 10px 16px;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.98rem;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
@@ -1042,14 +1053,6 @@
                 border-radius: 12px;
             }
 
-            .fishport-hero {
-                padding: 16px;
-            }
-
-            .fishport-hero h2 {
-                font-size: 1.5rem;
-            }
-
             .fishport-panel-head,
             .fishport-panel-body,
             .fishport-metrics,
@@ -1163,12 +1166,7 @@
         }
     </style>
 
-    <div class="fishport-page" data-server-rendered-page="fishport_records" data-page-title="Fishport Data Management">
-        <section class="fishport-hero">
-            <h2>Fishport Data Management</h2>
-            <p>Record vessel movement, commodity details, and payment computation in one readable transaction flow.</p>
-        </section>
-
+    <div class="fishport-page" data-server-rendered-page="fishport_records" data-page-title="Fishport Transactions">
         @if (session('status'))
             <div id="fishportStatusToast" class="fishport-alert fishport-alert-success fishport-toast" role="status"
                 aria-live="polite">{{ session('status') }}</div>
@@ -1214,7 +1212,6 @@
                     <div class="fishport-panel-head">
                         <div>
                             <h3><i class="fa-solid fa-file-invoice"></i> 1. Log Header</h3>
-                            <p class="fishport-panel-sub">Basic trip information before commodity and payment details.</p>
                         </div>
                     </div>
                     <div class="fishport-panel-body">
@@ -1224,7 +1221,7 @@
                                 <div class="fishport-icon-wrap">
                                     <i class="fa-solid fa-list-check"></i>
                                     <select id="sourceLogSelect" class="fishport-select" @if($isEditing) disabled @endif>
-                                        <option value="">Select logged vessel entry first</option>
+                                        <option value="">Select log first</option>
                                         @foreach ($pendingLogs as $pendingLog)
                                             <option value="{{ $pendingLog['id'] }}"
                                                 data-payment-number="{{ $pendingLog['payment_number'] ?? '' }}"
@@ -1235,20 +1232,18 @@
                                                 data-vessel-id="{{ $pendingLog['vessel_id'] }}"
                                                 data-vessel-name="{{ $pendingLog['vessel_name'] }}"
                                                 data-origin-id="{{ $pendingLog['origin_id'] }}"
-                                                data-remarks="{{ $pendingLog['remarks'] }}">
-                                                {{ $pendingLog['log_number'] }} - {{ $pendingLog['vessel_name'] }} ({{ $pendingLog['arr_dep'] }}) {{ $pendingLog['log_date'] }} {{ $pendingLog['log_time'] }}
+                                                data-remarks="{{ $pendingLog['remarks'] }}"
+                                                title="{{ $pendingLog['log_number'] }} - {{ $pendingLog['vessel_name'] }} ({{ $pendingLog['arr_dep'] }}) {{ $pendingLog['log_date'] }} {{ $pendingLog['log_time'] }}">
+                                                {{ $pendingLog['log_number'] }} | {{ \Illuminate\Support\Str::limit($pendingLog['vessel_name'], 22) }} | {{ $pendingLog['arr_dep'] }} | {{ $pendingLog['log_date'] }} {{ $pendingLog['log_time'] }}
                                             </option>
                                         @endforeach
                                     </select>
-                                </div>
-                                <div class="fishport-field-hint">
-                                    You must pick a vessel from Vessel Logs first. Transaction will be linked to that exact Log ID.
                                 </div>
                             </div>
                             @if (!$isEditing && ! $hasPendingLogs)
                                 <div class="fishport-field full-width">
                                     <div class="fishport-alert fishport-alert-warning" style="margin:0;">
-                                        <span>No pending vessel logs found. Please go to <strong>Vessel Logs</strong> and log a vessel first.</span>
+                                        <span>No vessel logs found in today's active window. Please go to <strong>Vessel Logs</strong> and log a vessel first.</span>
                                         <a href="{{ route('fishport.vessel_logs') }}" class="fishport-btn fishport-btn-sm fishport-btn-outline">Open Vessel Logs</a>
                                     </div>
                                 </div>
@@ -1257,7 +1252,7 @@
                                 <label for="paymentNumberPreview">Payment Number</label>
                                 <div class="fishport-icon-wrap">
                                     <i class="fa-solid fa-hashtag"></i>
-                                    <input id="paymentNumberPreview" class="fishport-input"
+                                    <input id="paymentNumberPreview" class="fishport-input fishport-preview-input"
                                         value="{{ $paymentNumberPreview }}" readonly>
                                 </div>
                             </div>
@@ -1265,8 +1260,8 @@
                                 <label for="logNumberPreview">Linked Log Number</label>
                                 <div class="fishport-icon-wrap">
                                     <i class="fa-solid fa-link"></i>
-                                    <input id="logNumberPreview" class="fishport-input"
-                                        value="{{ $isEditing ? $editingLog->log_number : 'Select logged entry first' }}" readonly>
+                                    <input id="logNumberPreview" class="fishport-input fishport-preview-input"
+                                        value="{{ $isEditing ? $editingLog->log_number : 'Select log first' }}" readonly>
                                 </div>
                             </div>
                             <div class="fishport-field">
@@ -1301,7 +1296,7 @@
                                 <label for="vesselNamePreview">Vessel (from selected log)</label>
                                 <div class="fishport-icon-wrap">
                                     <i class="fa-solid fa-ship"></i>
-                                    <input id="vesselNamePreview" class="fishport-input" value="{{ $linkedVesselNamePreview }}" readonly>
+                                    <input id="vesselNamePreview" class="fishport-input fishport-preview-input" value="{{ $linkedVesselNamePreview }}" readonly>
                                 </div>
                                 <input id="vesselId" name="vessel_id" type="hidden" value="{{ old('vessel_id', $isEditing ? $editingLog->fishport_vessel_id : '') }}">
                             </div>
@@ -1319,15 +1314,8 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="fishport-field full-width">
-                                <label for="remarks">Remarks</label>
-                                <div class="fishport-icon-wrap">
-                                    <i class="fa-regular fa-comment-dots"></i>
-                                    <input id="remarks" name="remarks" class="fishport-input"
-                                        value="{{ old('remarks', $isEditing ? $editingLog->remarks : '') }}"
-                                        placeholder="Optional notes regarding the payload or weather conditions">
-                                </div>
-                            </div>
+                            <input id="remarks" name="remarks" type="hidden"
+                                value="{{ old('remarks', $isEditing ? $editingLog->remarks : '') }}">
                         </div>
                     </div>
                 </section>
@@ -1336,8 +1324,6 @@
                     <div class="fishport-panel-head">
                         <div>
                             <h3><i class="fa-solid fa-boxes-stacked"></i> 2. Commodity Entries</h3>
-                            <p class="fishport-panel-sub">Add all commodity lines for this transaction. Volume updates
-                                automatically.</p>
                         </div>
                         <button type="button" id="addCommodityRowBtn"
                             class="fishport-btn fishport-btn-sm fishport-btn-primary">Add Commodity</button>
@@ -1351,8 +1337,6 @@
                                     <th>Classification</th>
                                     <th>Qty</th>
                                     <th>Unit</th>
-                                    <th>Conv.</th>
-                                    <th>Volume</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -1370,18 +1354,6 @@
                     <div class="fishport-panel-head">
                         <div>
                             <h3><i class="fa-solid fa-calculator"></i> 3. Auto Payment Breakdown</h3>
-                            <p class="fishport-panel-sub">Fees are generated from ARR/DEP and commodity quantities, using
-                                admin-controlled rates.</p>
-                        </div>
-                        <div class="payment-toolbar">
-                            <select id="paymentTypeToAdd" class="fishport-select fishport-select-sm payment-add-select">
-                                <option value="">Add payment item...</option>
-                                @foreach ($manualPaymentTypes as $paymentType)
-                                    <option value="{{ $paymentType->id }}">{{ $paymentType->name }}</option>
-                                @endforeach
-                            </select>
-                            <button type="button" id="addPaymentTypeBtn"
-                                class="fishport-btn fishport-btn-sm fishport-btn-outline">Add Payment</button>
                         </div>
                     </div>
                     <div class="fishport-table-wrap">
@@ -1400,7 +1372,6 @@
                         </table>
                     </div>
                     <div class="fishport-breakdown-foot">
-                        <span>Auto-based on ARR/DEP and commodity inputs.</span>
                         <strong>Grand Total: PHP <span id="grandTotalValue">0.00</span></strong>
                     </div>
                 </section>
@@ -1430,7 +1401,7 @@
                         <input type="hidden" name="saved_status" id="savedStatusInput" value="{{ $savedStatusFilter }}">
                         <input id="savedSearchInput" name="saved_search" type="text" value="{{ $savedSearchQuery }}"
                             class="fishport-input fishport-input-sm saved-search-input"
-                            placeholder="Search payment no., log no., vessel, date, origin, ARR/DEP...">
+                            placeholder="Search log no., vessel, date/time, route...">
                         <input id="savedDateFromInput" name="saved_from" type="date" value="{{ $savedFromDate }}"
                             class="fishport-input fishport-input-sm saved-date-input" title="From date">
                         <input id="savedDateToInput" name="saved_to" type="date" value="{{ $savedToDate }}"
@@ -1464,13 +1435,9 @@
                         <thead>
                             <tr>
                                 <th>Log No.</th>
-                                <th>Payment No.</th>
                                 <th>Date/Time</th>
                                 <th>Vessel</th>
-                                <th>ARR/DEP</th>
-                                <th>Origin</th>
-                                <th>Lines</th>
-                                <th>Volume</th>
+                                <th>Route</th>
                                 <th>Total</th>
                                 <th>Payment</th>
                                 <th>Actions</th>
@@ -1487,15 +1454,11 @@
                                 <tr data-saved-log-row data-log-date="{{ optional($log->log_date)->format('Y-m-d') }}"
                                     data-paid="{{ $log->is_paid ? '1' : '0' }}">
                                     <td><strong>{{ $log->log_number }}</strong></td>
-                                    <td>{{ $log->paymentRecord?->payment_number ?? '-' }}</td>
                                     <td>{{ optional($log->log_date)->format('m/d/Y') }}
                                         {{ substr((string) $log->log_time, 0, 5) }}
                                     </td>
                                     <td>{{ $log->vessel?->name ?? '-' }}</td>
-                                    <td>{{ $log->arr_dep }}</td>
-                                    <td>{{ $log->origin?->name ?? '-' }}</td>
-                                    <td class="text-right">{{ $log->items->count() }}</td>
-                                    <td class="text-right">{{ number_format((float) $log->items->sum('volume'), 2) }}</td>
+                                    <td>{{ $log->origin?->name ?? '-' }} ({{ $log->arr_dep }})</td>
                                     <td class="text-right">PHP {{ number_format($rowTotal, 2) }}</td>
                                     <td>
                                         <span
@@ -1550,7 +1513,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="11" class="fishport-empty">No saved transactions match your current filters.
+                                    <td colspan="7" class="fishport-empty">No saved transactions match your current filters.
                                     </td>
                                 </tr>
                             @endforelse
@@ -1767,8 +1730,6 @@
                     const paymentRows = document.getElementById('paymentRows');
                     const arrDepSelect = document.getElementById('arrDep');
                     const addBtn = document.getElementById('addCommodityRowBtn');
-                    const addPaymentTypeBtn = document.getElementById('addPaymentTypeBtn');
-                    const paymentTypeToAdd = document.getElementById('paymentTypeToAdd');
                     const openSaveActionBtn = document.getElementById('openSaveActionBtn');
                     const saveActionModal = document.getElementById('saveActionModal');
                     const saveOnlyBtn = document.getElementById('saveOnlyBtn');
@@ -1882,6 +1843,38 @@
                     const paymentTypeById = (id) => paymentTypes.find((item) => String(item.id) === String(id));
                     const typeByCode = (code) => paymentTypes.find((type) => type.code === code);
                     const pendingLogById = (id) => pendingLogs.find((item) => String(item.id) === String(id));
+                    const banyeraUnit = units.find((unit) => String(unit.name || '').toLowerCase().includes('banyera')) || units[0] || null;
+                    const piecesUnit = units.find((unit) => String(unit.name || '').toLowerCase().includes('piece')) || units[1] || units[0] || null;
+                    const setPreviewValue = (element, text) => {
+                        if (!element) return;
+                        const safeText = String(text || '').trim();
+                        element.value = safeText;
+                        element.title = safeText;
+                    };
+                    const unitFromClassification = (classificationText) => {
+                        const classification = String(classificationText || '').toLowerCase();
+                        if (classification.includes('ice')) return piecesUnit || banyeraUnit;
+                        return banyeraUnit || piecesUnit;
+                    };
+                    const setCommoditySelectDisplay = (selectElement, typedName = '') => {
+                        if (!selectElement) return;
+                        const firstOption = selectElement.querySelector('option[value=""]');
+                        if (!firstOption) return;
+                        const cleanName = String(typedName || '').trim();
+                        firstOption.textContent = cleanName !== '' ? cleanName : 'Select';
+                    };
+                    const applyAutoUnit = (row, commodity = null) => {
+                        if (!row) return;
+                        const classInput = row.querySelector('.class-name');
+                        const unitIdInput = row.querySelector('.unit-id');
+                        const unitLabelInput = row.querySelector('.unit-label');
+                        const typedClass = String(classInput?.value || '').trim();
+                        const fallbackClass = String(commodity?.classification || '').trim();
+                        const pickedUnit = unitFromClassification(typedClass || fallbackClass);
+
+                        if (unitIdInput) unitIdInput.value = pickedUnit ? String(pickedUnit.id) : '';
+                        if (unitLabelInput) unitLabelInput.value = pickedUnit ? String(pickedUnit.name || '') : '';
+                    };
                     const parseArr = (value) => {
                         if (Array.isArray(value)) return value;
                         if (typeof value !== 'string' || value.trim() === '') return null;
@@ -1933,6 +1926,10 @@
                             // Ignore storage errors.
                         }
                     };
+
+                    setPreviewValue(paymentNumberPreview, paymentNumberPreview?.value || '');
+                    setPreviewValue(logNumberPreview, logNumberPreview?.value || '');
+                    setPreviewValue(vesselNamePreview, vesselNamePreview?.value || '');
 
                     function setActiveFishportTab(tabId, persist = true) {
                         const normalizedTab = tabId === 'saved' ? 'saved' : 'entry';
@@ -2378,7 +2375,7 @@
                     function buildReceiptHtml(data) {
                         const lines = Array.isArray(data?.charges) ? data.charges : [];
                         const lineRows = lines.length > 0
-                            ? lines.map((line) => `<tr><td>${esc(line.item)}</td><td style="text-align:center;">${qty(line.qty)}</td><td style="text-align:right;">${money(line.total)}</td></tr>`).join('')
+                            ? lines.map((line) => `<tr><td>${esc(line.item)}</td><td class="q">${qty(line.qty)}</td><td class="n">${money(line.total)}</td></tr>`).join('')
                             : `<tr><td colspan="3" style="text-align:center;">No charges</td></tr>`;
 
                         return `<!doctype html>
@@ -2392,8 +2389,13 @@
             h1{font-size:34px;letter-spacing:.03em;text-align:center;margin:0 0 8px}
             .m{text-align:center;line-height:1.35;margin-bottom:10px}
             .hr{border-top:2px dashed #222;margin:10px 0}
-            table{width:100%;border-collapse:collapse}
-            th,td{padding:4px 0;font-size:27px}
+            table{width:100%;border-collapse:collapse;table-layout:fixed}
+            th,td{padding:4px 6px;font-size:20px}
+            th{border-bottom:1px dashed #222}
+            th.i,td.i{text-align:left}
+            th.q,td.q{text-align:center;width:52px}
+            th.n,td.n{text-align:right;width:96px}
+            td.i{word-break:break-word}
             .s td{padding-top:8px}
             .t{font-size:44px;font-weight:700}
             @media print {body{background:#fff;padding:0}.r{border:none;max-width:none}}
@@ -2412,7 +2414,7 @@
             <div>Origin: ${esc(data?.origin || '-')} (${esc(data?.arr_dep || '-')})</div>
             <div class="hr"></div>
             <table>
-            <thead><tr><th style="text-align:left;">Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Total</th></tr></thead>
+            <thead><tr><th class="i">Item</th><th class="q">Qty</th><th class="n">Total</th></tr></thead>
             <tbody>${lineRows}</tbody>
             </table>
             <div class="hr"></div>
@@ -2421,7 +2423,7 @@
             <tr><td class="t">Total Due:</td><td class="t" style="text-align:right;">${money(data?.total_due)}</td></tr>
             </table>
             <div class="hr"></div>
-            <div class="m" style="margin-top:12px">Thank you!<br>Please come again.</div>
+            <div class="m" style="margin-top:12px">Safe voyage to your vessel.<br>Thank you.</div>
             </div>
             </body>
             </html>`;
@@ -2464,7 +2466,7 @@
 
                         const state = collectItems();
                         if (state.invalidCommodityRows.length > 0) {
-                            alert(`Please select a valid commodity from the dropdown for row(s): ${state.invalidCommodityRows.join(', ')}`);
+                            alert(`Please enter a commodity name for row(s): ${state.invalidCommodityRows.join(', ')}`);
                             return false;
                         }
 
@@ -2492,14 +2494,14 @@
                         if (!defaultCommodity) return;
                         const qty = toNum(initial?.quantity ?? 0);
                         const conv = toNum(initial?.unit_conversion ?? defaultCommodity.default_conversion);
-                        const unitId = initial?.unit_id ?? defaultCommodity.default_unit_id ?? units[0]?.id;
                         const commodityName = String(initial?.commodity_name || defaultCommodity.name || '');
                         const classification = String(initial?.classification || defaultCommodity.classification || '');
                         const isClassManual = Boolean(initial?.class_manual) && String(initial?.classification || '').trim() !== '';
                         const row = document.createElement('tr');
                         row.dataset.classManual = isClassManual ? '1' : '0';
-                        row.innerHTML = `<td class="row-no"></td><td><div class="commodity-picker"><input type="text" class="fishport-input fishport-input-sm commodity-name" list="commodityOptionsList" autocomplete="off" spellcheck="false" value="${commodityName}" placeholder="Type commodity"><select class="fishport-select fishport-select-sm commodity-id"><option value="">Select</option>${commodities.map(c => `<option value="${c.id}" ${String(c.id) === String(defaultCommodity.id) ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div></td><td><input class="fishport-input fishport-input-sm class-name" value="${classification}" placeholder="Auto/Type classification"></td><td><input type="number" class="fishport-input fishport-input-sm qty" min="0" step="0.01" value="${qty}"></td><td><select class="fishport-select fishport-select-sm unit-id">${units.map(u => `<option value="${u.id}" ${String(u.id) === String(unitId) ? 'selected' : ''}>${u.name}</option>`).join('')}</select></td><td><input type="number" class="fishport-input fishport-input-sm conv" min="0" step="0.0001" value="${conv}"></td><td><input class="fishport-input fishport-input-sm vol text-right" readonly></td><td><button type="button" class="fishport-btn fishport-btn-sm fishport-btn-danger remove-row">Remove</button></td>`;
+                        row.innerHTML = `<td class="row-no"></td><td><div class="commodity-picker"><input type="text" class="fishport-input fishport-input-sm commodity-name" list="commodityOptionsList" autocomplete="off" spellcheck="false" value="${commodityName}" placeholder="Type commodity"><select class="fishport-select fishport-select-sm commodity-id"><option value="">Select</option>${commodities.map(c => `<option value="${c.id}" ${String(c.id) === String(defaultCommodity.id) ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div></td><td><input class="fishport-input fishport-input-sm class-name" value="${classification}" placeholder="Auto/Type classification"></td><td><input type="number" class="fishport-input fishport-input-sm qty" min="0" step="0.01" value="${qty}"><input type="hidden" class="vol" value="0"></td><td><input class="fishport-input fishport-input-sm unit-label" readonly><input type="hidden" class="unit-id" value=""><input type="hidden" class="conv" value="${conv}"></td><td><button type="button" class="fishport-btn fishport-btn-sm fishport-btn-danger remove-row">Remove</button></td>`;
                         commodityRows.appendChild(row);
+                        applyAutoUnit(row, defaultCommodity);
                         refreshNumbers();
                         recalc();
                     }
@@ -2512,7 +2514,6 @@
                         const idSelect = row.querySelector('.commodity-id');
                         const classInput = row.querySelector('.class-name');
                         const qtyInput = row.querySelector('.qty');
-                        const unitSelect = row.querySelector('.unit-id');
                         const convInput = row.querySelector('.conv');
                         const volInput = row.querySelector('.vol');
 
@@ -2522,7 +2523,6 @@
                             nameInput.value = fallbackCommodity.name;
                             idSelect.value = String(fallbackCommodity.id);
                             classInput.value = fallbackCommodity.classification || '';
-                            if (fallbackCommodity.default_unit_id) unitSelect.value = String(fallbackCommodity.default_unit_id);
                             convInput.value = toNum(fallbackCommodity.default_conversion);
                         } else {
                             nameInput.value = '';
@@ -2533,12 +2533,13 @@
 
                         qtyInput.value = 0;
                         volInput.value = fmt(0, 4);
+                        applyAutoUnit(row, fallbackCommodity);
                     }
 
                     function syncCommoditySelection(row, source = 'input', applyDefaults = false) {
                         const nameInput = row.querySelector('.commodity-name');
                         const idInput = row.querySelector('.commodity-id');
-                        const unitSelect = row.querySelector('.unit-id');
+                        const selectElement = row.querySelector('.commodity-id');
                         const convInput = row.querySelector('.conv');
                         const classInput = row.querySelector('.class-name');
                         const commodity = source === 'select'
@@ -2546,11 +2547,18 @@
                             : commodityByName(nameInput.value);
 
                         if (!commodity) {
-                            if (source === 'input' && !nameInput.value.trim()) idInput.value = '';
+                            if (source === 'input') {
+                                idInput.value = '';
+                                setCommoditySelectDisplay(selectElement, nameInput.value);
+                            } else {
+                                setCommoditySelectDisplay(selectElement, '');
+                            }
                             if (row.dataset.classManual !== '1') classInput.value = '';
+                            applyAutoUnit(row, null);
                             return null;
                         }
 
+                        setCommoditySelectDisplay(selectElement, '');
                         idInput.value = String(commodity.id);
                         nameInput.value = commodity.name;
                         if (applyDefaults) {
@@ -2561,10 +2569,11 @@
                             row.dataset.classManual = '0';
                         }
 
-                        if (applyDefaults && unitSelect && convInput) {
-                            if (commodity.default_unit_id) unitSelect.value = String(commodity.default_unit_id);
+                        if (applyDefaults && convInput) {
                             convInput.value = toNum(commodity.default_conversion);
                         }
+
+                        applyAutoUnit(row, commodity);
 
                         return commodity;
                     }
@@ -2581,6 +2590,7 @@
                                 commodity = syncCommoditySelection(row, 'input', false);
                                 commodityId = row.querySelector('.commodity-id').value;
                             }
+                            applyAutoUnit(row, commodity);
                             const unitId = row.querySelector('.unit-id').value;
                             const qty = toNum(row.querySelector('.qty').value);
                             const conv = toNum(row.querySelector('.conv').value);
@@ -2593,10 +2603,20 @@
                             if (classification.includes('ice')) iceQty += qty;
                             else if (classification.includes('marine')) marineQty += qty;
                             if (qty > 0) {
-                                if (!commodity || !commodityId) {
+                                if (!commodityId && !commodityName.trim()) {
                                     invalidCommodityRows.push(row.querySelector('.row-no').textContent || '?');
                                 } else {
-                                    items.push({ commodity_id: Number(commodityId), unit_id: Number(unitId), quantity: Number(qty.toFixed(2)), unit_conversion: Number(conv.toFixed(4)) });
+                                    const normalizedCommodityId = /^\d+$/.test(String(commodityId || '').trim())
+                                        ? Number(commodityId)
+                                        : null;
+                                    items.push({
+                                        commodity_id: normalizedCommodityId,
+                                        commodity_name: commodityName.trim(),
+                                        classification: classification || 'marine',
+                                        unit_id: Number(unitId),
+                                        quantity: Number(qty.toFixed(2)),
+                                        unit_conversion: Number(conv.toFixed(4)),
+                                    });
                                 }
                             }
                         });
@@ -2745,16 +2765,16 @@
                     function applySourceLogToHeader(sourceLog) {
                         if (!sourceLog) {
                             if (sourceLogIdInput) sourceLogIdInput.value = '';
-                            if (logNumberPreview && !isEditing) logNumberPreview.value = 'Select logged entry first';
-                            if (paymentNumberPreview && !isEditing) paymentNumberPreview.value = 'Auto-generated on save';
-                            if (vesselNamePreview && !isEditing) vesselNamePreview.value = 'Select logged entry first';
+                            if (!isEditing) setPreviewValue(logNumberPreview, 'Select log first');
+                            if (!isEditing) setPreviewValue(paymentNumberPreview, 'Auto on save');
+                            if (!isEditing) setPreviewValue(vesselNamePreview, 'Select log first');
                             return;
                         }
 
                         if (sourceLogIdInput) sourceLogIdInput.value = String(sourceLog.id);
-                        if (logNumberPreview && !isEditing) logNumberPreview.value = sourceLog.log_number || 'Select logged entry first';
-                        if (paymentNumberPreview && !isEditing) paymentNumberPreview.value = sourceLog.payment_number || 'Auto-generated on save';
-                        if (vesselNamePreview && !isEditing) vesselNamePreview.value = sourceLog.vessel_name || 'Select logged entry first';
+                        if (!isEditing) setPreviewValue(logNumberPreview, sourceLog.log_number || 'Select log first');
+                        if (!isEditing) setPreviewValue(paymentNumberPreview, sourceLog.payment_number || 'Auto on save');
+                        if (!isEditing) setPreviewValue(vesselNamePreview, sourceLog.vessel_name || 'Select log first');
                         if (logDateInput && sourceLog.log_date) logDateInput.value = sourceLog.log_date;
                         if (logTimeInput && sourceLog.log_time) logTimeInput.value = sourceLog.log_time;
                         if (arrDepSelect && sourceLog.arr_dep) arrDepSelect.value = sourceLog.arr_dep;
@@ -2920,7 +2940,6 @@
                     commodityRows.addEventListener('change', (e) => {
                         if (e.target.matches('.commodity-name')) { syncCommoditySelection(e.target.closest('tr'), 'input', true); recalc(); }
                         if (e.target.matches('.commodity-id')) { syncCommoditySelection(e.target.closest('tr'), 'select', true); recalc(); }
-                        if (e.target.matches('.unit-id')) recalc();
                     });
                     commodityRows.addEventListener('click', (e) => {
                         if (!e.target.matches('.remove-row')) return;
@@ -3125,16 +3144,6 @@
                         recalcPaymentsOnly();
                     });
                     addBtn.addEventListener('click', () => addCommodityRow());
-                    addPaymentTypeBtn.addEventListener('click', () => {
-                        const typeId = paymentTypeToAdd.value;
-                        if (!typeId) return;
-                        const type = paymentTypes.find((item) => String(item.id) === String(typeId));
-                        if (!type || !manualPaymentCodes.has(type.code)) return;
-                        removedPaymentTypeIds.delete(String(typeId));
-                        manualPaymentTypeIds.add(String(typeId));
-                        paymentTypeToAdd.value = '';
-                        recalcPaymentsOnly();
-                    });
                     arrDepSelect.addEventListener('change', () => recalcPaymentsOnly());
                     if (sourceLogSelect && !isEditing) {
                         sourceLogSelect.addEventListener('change', () => {
@@ -3156,13 +3165,12 @@
                         form.reset();
                         removedPaymentTypeIds.clear();
                         manualPaymentTypeIds.clear();
-                        paymentTypeToAdd.value = '';
                         if (printReceiptInput) printReceiptInput.value = '0';
                         if (sourceLogSelect) sourceLogSelect.value = '';
                         if (sourceLogIdInput) sourceLogIdInput.value = '';
-                        if (logNumberPreview && !isEditing) logNumberPreview.value = 'Select logged entry first';
-                        if (paymentNumberPreview && !isEditing) paymentNumberPreview.value = 'Auto-generated on save';
-                        if (vesselNamePreview && !isEditing) vesselNamePreview.value = 'Select logged entry first';
+                        if (!isEditing) setPreviewValue(logNumberPreview, 'Select log first');
+                        if (!isEditing) setPreviewValue(paymentNumberPreview, 'Auto on save');
+                        if (!isEditing) setPreviewValue(vesselNamePreview, 'Select log first');
                         clearDraft();
                         commodityRows.innerHTML = '';
                         addCommodityRow();
@@ -3176,7 +3184,7 @@
                         const state = collectItems();
                         if (state.invalidCommodityRows.length > 0) {
                             e.preventDefault();
-                            alert(`Please select a valid commodity from the dropdown for row(s): ${state.invalidCommodityRows.join(', ')}`);
+                            alert(`Please enter a commodity name for row(s): ${state.invalidCommodityRows.join(', ')}`);
                             return;
                         }
                         if (state.items.length === 0) { e.preventDefault(); alert('Please enter at least one commodity with quantity.'); return; }

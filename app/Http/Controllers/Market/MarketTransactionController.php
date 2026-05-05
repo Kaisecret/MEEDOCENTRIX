@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Market;
 
 use App\Http\Controllers\Controller;
 use App\Models\CollectionDispatchItem;
+use App\Support\MarketDueLogService;
+use App\Support\MarketQueueLifecycle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -12,6 +14,9 @@ class MarketTransactionController extends Controller
 {
     public function index(Request $request): View
     {
+        MarketQueueLifecycle::autoCancelStaleSentItems();
+        MarketDueLogService::sync();
+
         $search = trim((string) $request->query('q', ''));
         $status = trim((string) $request->query('status', 'all'));
         $validStatuses = ['all', 'sent', 'collected_pending_confirmation', 'accepted', 'rejected', 'cancelled'];
@@ -75,7 +80,7 @@ class MarketTransactionController extends Controller
 
         $items = $itemsQuery
             ->orderByDesc('updated_at')
-            ->paginate(15)
+            ->paginate(10)
             ->withQueryString();
 
         $baseSummaryQuery = CollectionDispatchItem::query()
@@ -148,4 +153,3 @@ class MarketTransactionController extends Controller
         }
     }
 }
-

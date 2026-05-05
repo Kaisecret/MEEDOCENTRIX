@@ -51,6 +51,7 @@ class FishportVesselRegistryController extends Controller
         $search = trim((string) $request->query('search', ''));
 
         $vesselQuery = FishportVessel::query()
+            ->where('is_active', true)
             ->with([
                 'ownerProfile',
                 'operatorProfile',

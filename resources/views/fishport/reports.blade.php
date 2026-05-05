@@ -2,36 +2,49 @@
 
 @section('content')
 <style>
-.fr, .fr-modal {--pri:#155f8f;--pri2:#0f4b73;--bd:#e2e8f0;--soft:#f8fafc;--text:#334155;--mut:#64748b;--head:#0f172a;}
-.fr{display:grid;gap:16px;font-family:'Inter',system-ui,sans-serif;color:var(--text);position:relative;z-index:1}
-.fr-hero{border-radius:14px;padding:1.25rem 1.4rem;color:#fff;background:linear-gradient(135deg,#0a3d6b 0%,#155f8f 55%,#1c85c8 100%);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;position:relative;z-index:2;pointer-events:auto}
-.fr-hero h2{margin:0 0 4px;font-size:1.45rem;font-weight:800;letter-spacing:-.02em}
+.fr, .fr-modal {--pri:var(--sidebar-bg);--pri2:#104f77;--bd:#e2e8f0;--soft:#f8fafc;--text:#334155;--mut:#64748b;--head:#0f172a;}
+.fr{display:grid;gap:14px;font-family:'Inter',system-ui,sans-serif;color:var(--text);position:relative;z-index:1;margin-top:-14px}
+.fr-hero{border-radius:14px;padding:1.25rem 1.4rem;color:#fff;background:var(--pri);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;position:relative;z-index:2;pointer-events:auto;box-shadow:0 6px 18px rgba(21,95,143,.18)}
+.fr-hero h2{margin:0;font-size:1.45rem;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center}
 .fr-hero p{margin:0;font-size:.9rem;opacity:.9}
-.fr-btn{display:inline-flex;align-items:center;gap:7px;border-radius:10px;min-height:40px;padding:0 .95rem;border:1px solid transparent;background:#fff;color:#155f8f;font-size:.84rem;font-weight:800;text-decoration:none;cursor:pointer;position:relative;z-index:2}
-.fr-btn:hover{background:#f0f7fd}
-.fr-card{border:1px solid var(--bd);border-radius:12px;background:#fff;overflow:hidden}
-.fr-head{border-bottom:1px solid var(--bd);padding:.92rem 1.15rem;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.fr-head h3{margin:0;font-size:1rem;font-weight:800;color:var(--head)}
+.fr-hero-actions{display:flex;gap:8px;flex-wrap:wrap}
+.fr-btn{display:inline-flex;align-items:center;gap:7px;border-radius:10px;min-height:40px;padding:0 1rem;border:1px solid transparent;background:#fff;color:var(--pri);font-size:.84rem;font-weight:800;text-decoration:none;cursor:pointer;position:relative;z-index:2;transition:all .15s ease}
+.fr-btn:hover{background:#f0f7fd;transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,.08)}
+.fr-card{border:1px solid var(--bd);border-radius:12px;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.fr-head{border-bottom:1px solid var(--bd);padding:.85rem 1.15rem;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:linear-gradient(180deg,#fbfdff 0%,#ffffff 100%)}
+.fr-head h3{margin:0;font-size:1rem;font-weight:800;color:var(--head);display:flex;align-items:center;gap:8px}
+.fr-head h3::before{content:"";display:inline-block;width:4px;height:18px;border-radius:3px;background:var(--pri)}
+.fr-head-meta{font-size:.78rem;color:#64748b;font-weight:600}
 .fr-body{padding:1rem 1.15rem}
 .fr-filter{display:grid;grid-template-columns:180px 1fr 1fr auto auto;gap:10px;align-items:end}
 .fr-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);font-weight:700;margin-bottom:5px;display:block}
-.fr-input{width:100%;min-height:40px;border:1.5px solid #cbd5e1;border-radius:9px;background:#fff;padding:.5rem .72rem;color:#0f172a}
+.fr-input{width:100%;min-height:40px;border:1.5px solid #cbd5e1;border-radius:9px;background:#fff;padding:.5rem .72rem;color:#0f172a;transition:border-color .15s ease,box-shadow .15s ease}
 .fr-input:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px rgba(21,95,143,.12)}
-.fr-btn-apply{border:1px solid var(--pri);background:var(--pri);color:#fff;border-radius:9px;min-height:40px;padding:0 .95rem;font-size:.84rem;font-weight:800;cursor:pointer}
+.fr-btn-apply{border:1px solid var(--pri);background:var(--pri);color:#fff;border-radius:9px;min-height:40px;padding:0 1rem;font-size:.84rem;font-weight:800;cursor:pointer;transition:background .15s ease}
 .fr-btn-apply:hover{background:var(--pri2)}
 .fr-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-.fr-kpi{border:1px solid var(--bd);border-radius:10px;background:var(--soft);padding:.9rem 1rem;display:grid;gap:4px}
-.fr-kpi span{font-size:.73rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);font-weight:700}
-.fr-kpi strong{font-size:1.4rem;color:var(--head);font-weight:800}
-.fr-kpi b{font-size:.84rem;color:var(--mut);font-weight:700}
+.fr-kpi{position:relative;border:1px solid var(--bd);border-radius:12px;background:#fff;padding:1rem 1.15rem;display:grid;gap:6px;overflow:hidden;transition:transform .15s ease,box-shadow .15s ease}
+.fr-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pri)}
+.fr-kpi:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(15,23,42,.06)}
+.fr-kpi span{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);font-weight:700}
+.fr-kpi strong{font-size:1.55rem;color:var(--head);font-weight:800;letter-spacing:-.01em;line-height:1.1}
+.fr-kpi b{font-size:.78rem;color:var(--mut);font-weight:600}
+.fr-kpi.fr-kpi-paid::before{background:#047857}
+.fr-kpi.fr-kpi-amount::before{background:#b45309}
 .fr-tables{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fr-tables > .fr-card:only-child{grid-column:1 / -1}
 .fr-table-wrap{overflow:auto}
 .fr-table{width:100%;border-collapse:collapse;min-width:620px}
-.fr-table th{background:#eef5fb;color:#103250;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;font-weight:800;text-align:left;padding:.72rem .8rem;border-bottom:1px solid var(--bd)}
-.fr-table td{padding:.72rem .8rem;border-bottom:1px solid #f1f5f9;font-size:.86rem;vertical-align:top}
-.fr-paid{display:inline-flex;padding:.15rem .5rem;border-radius:999px;font-size:.68rem;font-weight:800;border:1px solid #a7f3d0;background:#ecfdf5;color:#047857}
-.fr-unpaid{display:inline-flex;padding:.15rem .5rem;border-radius:999px;font-size:.68rem;font-weight:800;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c}
-.fr-empty{padding:1rem;color:#64748b;font-size:.86rem}
+.fr-table th{background:#eef5fb;color:#103250;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;font-weight:800;text-align:left;padding:.78rem .9rem;border-bottom:2px solid #d6e6f3;white-space:nowrap}
+.fr-table td{padding:.72rem .9rem;border-bottom:1px solid #f1f5f9;font-size:.86rem;vertical-align:middle}
+.fr-table tbody tr{transition:background .12s ease}
+.fr-table tbody tr:nth-child(even) td{background:#fbfdff}
+.fr-table tbody tr:hover td{background:#f0f7fd}
+.fr-table tbody tr:last-child td{border-bottom:none}
+.fr-table .fr-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fr-paid{display:inline-flex;padding:.18rem .55rem;border-radius:999px;font-size:.68rem;font-weight:800;border:1px solid #a7f3d0;background:#ecfdf5;color:#047857;letter-spacing:.02em}
+.fr-unpaid{display:inline-flex;padding:.18rem .55rem;border-radius:999px;font-size:.68rem;font-weight:800;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;letter-spacing:.02em}
+.fr-empty{padding:1.5rem 1rem;color:#94a3b8;font-size:.86rem;text-align:center;font-style:italic}
 .fr-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(10,25,45,.65);z-index:2400;backdrop-filter:blur(6px);font-family:'Inter',system-ui,sans-serif;color:var(--text)}
 .fr-modal.is-open{display:flex;animation: fr-fade-in .2s ease-out forwards}
 .fr-modal-card{width:min(1000px,100%);max-height:calc(100vh - 36px);background:#fff;border-radius:20px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,.3);animation: fr-slide-up .3s ease-out forwards}
@@ -54,11 +67,15 @@
     <section class="fr-hero">
         <div>
             <h2><i class="fa-solid fa-file-lines" style="margin-right:8px;opacity:.88;"></i>Fishport Reports</h2>
-            <p>Generate weekly/monthly transaction reports and export a printable PDF report.</p>
         </div>
-        <button class="fr-btn" type="button" id="frOpenPreview" onclick="if(window.__openReportPreview){window.__openReportPreview();}">
-            <i class="fa-solid fa-file-pdf"></i> Preview & Save
-        </button>
+        <div class="fr-hero-actions">
+            <a class="fr-btn" id="frExportCsv" href="{{ route('fishport.reports.csv', ['period' => $period, 'date_from' => $dateFrom, 'date_to' => $dateTo]) }}">
+                <i class="fa-solid fa-file-excel"></i> Export Excel
+            </a>
+            <button class="fr-btn" type="button" id="frOpenPreview" onclick="if(window.__openReportPreview){window.__openReportPreview();}">
+                <i class="fa-solid fa-file-pdf"></i> Preview & Save
+            </button>
+        </div>
     </section>
 
     <section class="fr-card">
@@ -68,6 +85,7 @@
                 <div>
                     <label class="fr-label">Period</label>
                     <select class="fr-input" name="period" id="frPeriod">
+                        <option value="day" {{ $period === 'day' ? 'selected' : '' }}>This Day</option>
                         <option value="week" {{ $period === 'week' ? 'selected' : '' }}>This Week</option>
                         <option value="month" {{ $period === 'month' ? 'selected' : '' }}>This Month</option>
                         <option value="range" {{ $period === 'range' ? 'selected' : '' }}>Custom Range</option>
@@ -89,63 +107,69 @@
 
     <section class="fr-grid">
         <article class="fr-kpi"><span>Total Transactions</span><strong>{{ number_format($totalTransactions) }}</strong><b>Within selected range</b></article>
-        <article class="fr-kpi"><span>Paid / Not Paid</span><strong>{{ number_format($paidTransactions) }} / {{ number_format($notPaidTransactions) }}</strong><b>Collection status count</b></article>
-        <article class="fr-kpi"><span>Total / Paid / Not Paid Amount</span><strong>PHP {{ number_format($totalAmount, 2) }}</strong><b>Paid: PHP {{ number_format($paidAmount, 2) }} • Unpaid: PHP {{ number_format($notPaidAmount, 2) }}</b></article>
+        <article class="fr-kpi fr-kpi-paid"><span>Paid / Not Paid</span><strong>{{ number_format($paidTransactions) }} / {{ number_format($notPaidTransactions) }}</strong><b>Collection status count</b></article>
+        <article class="fr-kpi fr-kpi-amount"><span>Total / Paid / Not Paid Amount</span><strong>PHP {{ number_format($totalAmount, 2) }}</strong><b>Paid: PHP {{ number_format($paidAmount, 2) }} • Unpaid: PHP {{ number_format($notPaidAmount, 2) }}</b></article>
     </section>
 
-    <section class="fr-tables">
-        <article class="fr-card">
-            <div class="fr-head"><h3>Weekly Summary</h3></div>
-            <div class="fr-table-wrap">
-                <table class="fr-table">
-                    <thead><tr><th>Week</th><th>Transactions</th><th>Paid</th><th>Not Paid</th><th>Total</th></tr></thead>
-                    <tbody>
-                        @forelse($weeklySummary as $row)
-                            <tr>
-                                <td>{{ $row['label'] }}</td>
-                                <td>{{ number_format($row['transactions']) }}</td>
-                                <td>{{ number_format($row['paid']) }}</td>
-                                <td>{{ number_format($row['not_paid']) }}</td>
-                                <td>PHP {{ number_format($row['total'], 2) }}</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="5" class="fr-empty">No weekly data in selected range.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </article>
+    @if (in_array($period, ['week', 'month'], true))
+        <section class="fr-tables">
+            @if ($period === 'week')
+                <article class="fr-card">
+                    <div class="fr-head"><h3>Weekly Summary</h3></div>
+                    <div class="fr-table-wrap">
+                        <table class="fr-table">
+                            <thead><tr><th>Week</th><th class="fr-num">Transactions</th><th class="fr-num">Paid</th><th class="fr-num">Not Paid</th><th class="fr-num">Total</th></tr></thead>
+                            <tbody>
+                                @forelse($weeklySummary as $row)
+                                    <tr>
+                                        <td><strong>{{ $row['label'] }}</strong></td>
+                                        <td class="fr-num">{{ number_format($row['transactions']) }}</td>
+                                        <td class="fr-num">{{ number_format($row['paid']) }}</td>
+                                        <td class="fr-num">{{ number_format($row['not_paid']) }}</td>
+                                        <td class="fr-num">PHP {{ number_format($row['total'], 2) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="5" class="fr-empty">No weekly data in selected range.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+            @endif
 
-        <article class="fr-card">
-            <div class="fr-head"><h3>Monthly Summary</h3></div>
-            <div class="fr-table-wrap">
-                <table class="fr-table">
-                    <thead><tr><th>Month</th><th>Transactions</th><th>Paid</th><th>Not Paid</th><th>Total</th></tr></thead>
-                    <tbody>
-                        @forelse($monthlySummary as $row)
-                            <tr>
-                                <td>{{ $row['label'] }}</td>
-                                <td>{{ number_format($row['transactions']) }}</td>
-                                <td>{{ number_format($row['paid']) }}</td>
-                                <td>{{ number_format($row['not_paid']) }}</td>
-                                <td>PHP {{ number_format($row['total'], 2) }}</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="5" class="fr-empty">No monthly data in selected range.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </article>
-    </section>
+            @if ($period === 'month')
+                <article class="fr-card">
+                    <div class="fr-head"><h3>Monthly Summary</h3></div>
+                    <div class="fr-table-wrap">
+                        <table class="fr-table">
+                            <thead><tr><th>Month</th><th class="fr-num">Transactions</th><th class="fr-num">Paid</th><th class="fr-num">Not Paid</th><th class="fr-num">Total</th></tr></thead>
+                            <tbody>
+                                @forelse($monthlySummary as $row)
+                                    <tr>
+                                        <td><strong>{{ $row['label'] }}</strong></td>
+                                        <td class="fr-num">{{ number_format($row['transactions']) }}</td>
+                                        <td class="fr-num">{{ number_format($row['paid']) }}</td>
+                                        <td class="fr-num">{{ number_format($row['not_paid']) }}</td>
+                                        <td class="fr-num">PHP {{ number_format($row['total'], 2) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="5" class="fr-empty">No monthly data in selected range.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+            @endif
+        </section>
+    @endif
 
     <section class="fr-card">
-        <div class="fr-head"><h3>Detailed Transactions Report</h3><div style="font-size:.8rem;color:#64748b;">Includes date and time per transaction</div></div>
+        <div class="fr-head"><h3>Detailed Transactions Report</h3><div class="fr-head-meta">Includes date and time per transaction</div></div>
         <div class="fr-table-wrap">
             <table class="fr-table">
                 <thead>
                     <tr>
-                        <th>Log ID</th><th>Payment No.</th><th>Date</th><th>Time</th><th>Vessel</th><th>ARR/DEP</th><th>Origin</th><th>Status</th><th>Total</th><th>Payer</th><th>Encoder</th>
+                        <th>Log ID</th><th>Payment No.</th><th>Date</th><th>Time</th><th>Vessel</th><th>ARR/DEP</th><th>Origin</th><th>Status</th><th class="fr-num">Total</th><th>Payer</th><th>Encoder</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -159,7 +183,7 @@
                             <td>{{ $row['arr_dep'] }}</td>
                             <td>{{ $row['origin'] }}</td>
                             <td>@if($row['is_paid'])<span class="fr-paid">Paid</span>@else<span class="fr-unpaid">Not Paid</span>@endif</td>
-                            <td>PHP {{ number_format($row['total'], 2) }}</td>
+                            <td class="fr-num">PHP {{ number_format($row['total'], 2) }}</td>
                             <td>{{ $row['payer_name'] }}</td>
                             <td>{{ $row['encoder'] }}</td>
                         </tr>
@@ -211,18 +235,39 @@ window.addEventListener('DOMContentLoaded', () => {
     toggleCustom();
 
     const previewBtn = document.getElementById('frOpenPreview');
+    const exportCsv = document.getElementById('frExportCsv');
     const previewModal = document.getElementById('frPreviewModal');
     const previewFrame = document.getElementById('frPreviewFrame');
     const closePreview = document.getElementById('frClosePreview');
     const printPreview = document.getElementById('frPrintPreview');
     const downloadPreview = document.getElementById('frDownloadPreview');
 
-    const previewUrl = "{{ route('fishport.reports.preview', ['period' => $period, 'date_from' => $dateFrom, 'date_to' => $dateTo]) }}";
-    const downloadUrl = "{{ route('fishport.reports.pdf', ['period' => $period, 'date_from' => $dateFrom, 'date_to' => $dateTo]) }}";
+    const previewBaseUrl = "{{ route('fishport.reports.preview') }}";
+    const downloadBaseUrl = "{{ route('fishport.reports.pdf') }}";
+    const csvBaseUrl = "{{ route('fishport.reports.csv') }}";
+
+    const buildReportUrl = (baseUrl) => {
+        const url = new URL(baseUrl, window.location.origin);
+        const periodValue = period ? period.value : '';
+        const fromValue = from ? from.value : '';
+        const toValue = to ? to.value : '';
+
+        if (periodValue) {
+            url.searchParams.set('period', periodValue);
+        }
+        if (fromValue) {
+            url.searchParams.set('date_from', fromValue);
+        }
+        if (toValue) {
+            url.searchParams.set('date_to', toValue);
+        }
+
+        return url.toString();
+    };
 
     const openPreview = () => {
         if (!previewModal || !previewFrame) return;
-        previewFrame.src = previewUrl;
+        previewFrame.src = buildReportUrl(previewBaseUrl);
         previewModal.classList.add('is-open');
         document.body.style.overflow = 'hidden';
     };
@@ -256,8 +301,18 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     if (downloadPreview) {
         downloadPreview.addEventListener('click', () => {
-            window.location.href = downloadUrl;
+            window.location.href = buildReportUrl(downloadBaseUrl);
         });
+    }
+    if (exportCsv) {
+        const syncCsvHref = () => {
+            exportCsv.href = buildReportUrl(csvBaseUrl);
+        };
+
+        syncCsvHref();
+        period.addEventListener('change', syncCsvHref);
+        from.addEventListener('change', syncCsvHref);
+        to.addEventListener('change', syncCsvHref);
     }
 });
 </script>

@@ -19,28 +19,25 @@
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
         color: var(--tm-text);
         display: grid;
-        gap: 16px;
+        gap: 10px;
     }
 
     .tm-hero {
-        background:
-            radial-gradient(circle at 86% 8%, rgba(255,255,255,.16) 0, transparent 42%),
-            radial-gradient(circle at 12% 84%, rgba(255,255,255,.09) 0, transparent 36%),
-            linear-gradient(135deg, #0a3d6b 0%, #0f5fa8 55%, #1a7fd4 100%);
-        color: #fff;
-        border-radius: 16px;
-        padding: 1.35rem 1.45rem;
+        background: transparent;
+        color: var(--tm-head);
+        border-radius: 0;
+        padding: 10px 0;
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
-        gap: 12px;
-        box-shadow: 0 8px 26px rgba(10,63,168,.22);
+        gap: 10px;
+        box-shadow: none;
     }
-    .tm-hero h2 { margin: 0 0 .35rem; font-size: 1.55rem; font-weight: 800; letter-spacing: -.02em; }
-    .tm-hero p { margin: 0; font-size: .92rem; color: rgba(255,255,255,.88); max-width: 680px; }
-    .tm-hero-meta { display: grid; justify-items: end; gap: 2px; }
-    .tm-hero-clock { font-size: 1.42rem; font-weight: 800; letter-spacing: -.01em; }
+    .tm-hero h2 { margin: 0 0 10px; font-size: 1.55rem; font-weight: 800; letter-spacing: -.02em; }
+    .tm-hero p { margin: 0; font-size: .92rem; color: var(--tm-muted); max-width: 680px; }
+    .tm-hero-meta { display: grid; justify-items: end; gap: 10px; }
+    .tm-hero-clock { font-size: 1.42rem; font-weight: 800; letter-spacing: -.01em; color: var(--tm-head); }
 
     .tm-flash {
         background: #f0fdf4;

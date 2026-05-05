@@ -7,6 +7,8 @@ use App\Models\CollectionDispatchItem;
 use App\Models\MarketStall;
 use App\Models\MarketStallLease;
 use App\Models\MarketTenant;
+use App\Support\MarketDueLogService;
+use App\Support\MarketQueueLifecycle;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -16,9 +18,12 @@ class MarketDashboardController extends Controller
 {
     public function index(Request $request): View
     {
+        MarketQueueLifecycle::autoCancelStaleSentItems();
+        MarketDueLogService::sync();
+
         $today = Carbon::today();
         $period = strtolower((string) $request->query('period', 'month'));
-        $allowedPeriods = ['today', 'month', 'range'];
+        $allowedPeriods = ['today', 'week', 'month', 'range'];
         if (! in_array($period, $allowedPeriods, true)) {
             $period = 'month';
         }
@@ -32,6 +37,12 @@ class MarketDashboardController extends Controller
             $dateFrom = $today->toDateString();
             $dateTo = $today->toDateString();
             $filterLabel = 'Today';
+        } elseif ($period === 'week') {
+            $rangeStart = $today->copy()->startOfWeek()->startOfDay();
+            $rangeEnd = $today->copy()->endOfDay();
+            $dateFrom = $rangeStart->toDateString();
+            $dateTo = $rangeEnd->toDateString();
+            $filterLabel = 'This Week';
         } elseif ($period === 'range' && $parsedFrom && $parsedTo && $parsedFrom->lte($parsedTo)) {
             $rangeStart = $parsedFrom->copy()->startOfDay();
             $rangeEnd = $parsedTo->copy()->endOfDay();
@@ -85,11 +96,11 @@ class MarketDashboardController extends Controller
             : 0;
 
         $openQueueCount = (int) (clone $dispatchBaseQuery)
-            ->whereIn('status', ['sent', 'collected_pending_confirmation'])
+            ->whereIn('status', ['sent', 'rejected', 'collected_pending_confirmation'])
             ->count();
 
         $openLeaseIds = CollectionDispatchItem::query()
-            ->whereIn('status', ['sent', 'collected_pending_confirmation'])
+            ->whereIn('status', ['sent', 'rejected', 'collected_pending_confirmation'])
             ->whereNotNull('market_stall_lease_id')
             ->whereHas('dispatch', static function ($query): void {
                 $query->where('department_code', 'market');

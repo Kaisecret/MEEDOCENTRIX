@@ -1,8 +1,8 @@
 <style>
     .atr {
-        --atr-primary: #0f5fa8;
-        --atr-primary-deep: #0a4880;
-        --atr-accent: #1a7fd4;
+        --atr-primary: var(--sidebar-bg, #155e8f);
+        --atr-primary-deep: #124b73;
+        --atr-accent: #3b93da;
         --atr-surface: #ffffff;
         --atr-soft: #f8fafc;
         --atr-border: #e2e8f0;
@@ -21,12 +21,10 @@
 
     .atr-hero {
         background:
-            radial-gradient(circle at 86% 8%, rgba(255,255,255,.16) 0, transparent 42%),
-            radial-gradient(circle at 12% 84%, rgba(255,255,255,.09) 0, transparent 36%),
-            linear-gradient(135deg, #0a3d6b 0%, #0f5fa8 55%, #1a7fd4 100%);
-        color: #fff; border-radius: 16px; padding: 1.35rem 1.45rem;
+            linear-gradient(90deg, var(--atr-primary-deep) 0%, var(--atr-primary) 58%, var(--atr-accent) 100%);
+        color: #fff; border-radius: 20px; padding: 1.35rem 1.45rem;
         display: flex; justify-content: space-between; align-items: center;
-        flex-wrap: wrap; gap: 12px; box-shadow: 0 8px 26px rgba(10,63,168,.22);
+        flex-wrap: wrap; gap: 12px; box-shadow: 0 8px 22px rgba(21, 94, 143, .24);
     }
     .atr-hero h2 { margin: 0 0 .35rem; font-size: 1.55rem; font-weight: 800; letter-spacing: -.02em; }
     .atr-hero p { margin: 0; font-size: .92rem; color: rgba(255,255,255,.88); max-width: 680px; }

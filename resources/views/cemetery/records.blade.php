@@ -2,9 +2,13 @@
 
 @section('content')
 <style>
+    #contentArea {
+        padding-top: 10px;
+    }
+
     .cor-page {
         display: grid;
-        gap: 16px;
+        gap: 10px;
         color: #334155;
         font-family: 'Inter', system-ui, sans-serif;
     }
@@ -14,8 +18,8 @@
         border: 1px solid #dbe6f0;
         background: #155f8f;
         color: #fff;
-        padding: 1.1rem 1.3rem;
-        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.14);
+        padding: 8px 10px;
+        box-shadow: 0 6px 14px rgba(15, 23, 42, 0.14);
         display: grid;
         grid-template-columns: 1fr auto;
         gap: 10px;
@@ -23,26 +27,26 @@
     }
 
     .cor-hero h2 {
-        margin: 0 0 0.25rem;
-        font-size: 1.4rem;
+        margin: 0;
+        font-size: 1rem;
         font-weight: 700;
-        letter-spacing: -0.02em;
+        letter-spacing: -0.01em;
     }
 
     .cor-hero p {
         margin: 0;
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.92);
+        font-size: 0.84rem;
     }
 
     .cor-add-btn {
-        border: 1px solid rgba(255, 255, 255, 0.42);
+        border: 1px solid rgba(255, 255, 255, 0.45);
         border-radius: 10px;
-        background: rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.16);
         color: #fff;
-        min-height: 40px;
+        min-height: 34px;
         padding: 0 0.95rem;
-        font-size: 0.88rem;
+        font-size: 0.84rem;
         font-weight: 700;
         display: inline-flex;
         align-items: center;
@@ -62,7 +66,7 @@
         border-radius: 11px;
         background: #fff;
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-        padding: 0.7rem 0.8rem;
+        padding: 10px;
     }
 
     .cor-stat span {
@@ -75,7 +79,7 @@
 
     .cor-stat strong {
         display: block;
-        margin-top: 0.28rem;
+        margin-top: 10px;
         color: #0f172a;
         font-size: 1.02rem;
     }
@@ -90,10 +94,10 @@
 
     .cor-card-head {
         border-bottom: 1px solid #e2e8f0;
-        padding: 1rem 1.1rem;
+        padding: 10px;
         background: #f8fafc;
         display: grid;
-        gap: 9px;
+        gap: 10px;
     }
 
     .cor-card-head h3 {
@@ -102,10 +106,14 @@
         color: #0f172a;
     }
 
+    .cor-card-head h3 + .cor-filter-grid {
+        margin-top: 0;
+    }
+
     .cor-filter-grid {
         display: grid;
         grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
-        gap: 8px;
+        gap: 10px;
     }
 
     .cor-control {
@@ -127,7 +135,7 @@
 
     .cor-filter-actions {
         display: inline-flex;
-        gap: 6px;
+        gap: 10px;
     }
 
     .cor-btn {
@@ -155,6 +163,19 @@
         color: #334155;
     }
 
+    .cor-btn-export {
+        border-color: #155f8f;
+        background: #155f8f;
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .cor-btn-export:hover {
+        background: #0f4b73;
+        border-color: #0f4b73;
+        color: #fff;
+    }
+
     .cor-table-wrap { overflow: auto; }
 
     .cor-table {
@@ -172,12 +193,12 @@
         text-transform: uppercase;
         letter-spacing: 0.03em;
         text-align: left;
-        padding: 0.74rem 0.7rem;
+        padding: 10px;
     }
 
     .cor-table td {
         border-bottom: 1px solid #eef2f7;
-        padding: 0.7rem;
+        padding: 10px;
         color: #334155;
         font-size: 0.85rem;
         vertical-align: top;
@@ -210,7 +231,7 @@
     .cor-badge-status-transferred,
     .cor-badge-maint-overdue { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
 
-    .cor-actions { display: inline-flex; gap: 6px; }
+    .cor-actions { display: inline-flex; gap: 10px; }
     .cor-icon-btn {
         width: 32px;
         height: 32px;
@@ -250,10 +271,10 @@
     .cor-pagination {
         border-top: 1px solid #e2e8f0;
         background: #f8fafc;
-        padding: 0.75rem 1rem;
+        padding: 10px;
         display: flex;
         justify-content: flex-end;
-        gap: 8px;
+        gap: 10px;
     }
 
     .cor-page-link {
@@ -327,7 +348,7 @@
     }
     .cor-modal-close:hover { background: #e2e8f0; color: #0f172a; }
     .cor-modal form { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
-    .cor-modal-body { padding: 16px 20px; overflow-y: auto; min-height: 0; background: #fff; }
+    .cor-modal-body { padding: 10px; overflow-y: auto; min-height: 0; background: #fff; }
     .cor-modal-foot {
         border-top: 1px solid #e2e8f0;
         background: #f8fafc;
@@ -337,8 +358,8 @@
         gap: 10px;
     }
 
-    .cor-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 14px; }
-    .cor-field { display: grid; gap: 6px; }
+    .cor-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .cor-field { display: grid; gap: 10px; }
     .cor-field-full { grid-column: 1 / -1; }
     .cor-field label {
         font-size: 0.8rem;
@@ -375,6 +396,16 @@
     }
 </style>
 
+@php
+    $exportQuery = [
+        'q' => $search,
+        'cemetery_site_id' => $selectedSiteId > 0 ? $selectedSiteId : '',
+        'cemetery_category_id' => $selectedCategoryId > 0 ? $selectedCategoryId : '',
+        'status' => $selectedStatus,
+        'maintenance_fee_status' => $selectedMaintenanceStatus,
+    ];
+@endphp
+
 <div
     class="cor-page"
     data-server-rendered-page="cemetery_records"
@@ -385,7 +416,6 @@
     <section class="cor-hero">
         <div>
             <h2>Cemetery Occupant Records</h2>
-            <p>Official office encoding and monitoring of cemetery occupant, niche, and lot records.</p>
         </div>
         <button type="button" id="openCreateRecordBtn" class="cor-add-btn">
             <i class="fa-solid fa-plus"></i> Add Occupant Record
@@ -410,13 +440,8 @@
     <section class="cor-card">
         <div class="cor-card-head">
             <h3>Occupant Records List</h3>
-            @if($hasActiveFilters)
-                <div class="alert alert-info" style="margin:0; padding:.55rem .75rem; font-size:.84rem;">
-                    <i class="fa-solid fa-filter"></i> Filters are active. Showing only matching records.
-                </div>
-            @endif
-            <form method="GET" action="{{ route('cemetery.records') }}" class="cor-filter-grid">
-                <input type="search" name="q" class="cor-control" placeholder="Search deceased, niche/lot, contact..." value="{{ $search }}">
+            <form id="corAutoFilterForm" method="GET" action="{{ route('cemetery.records') }}" class="cor-filter-grid">
+                <input id="corAutoSearch" type="search" name="q" class="cor-control" placeholder="Search deceased, niche/lot, contact..." value="{{ $search }}">
                 <select name="cemetery_site_id" class="cor-control">
                     <option value="">All Cemeteries</option>
                     @foreach($sites as $site)
@@ -442,8 +467,7 @@
                     @endforeach
                 </select>
                 <div class="cor-filter-actions">
-                    <button type="submit" class="cor-btn cor-btn-primary"><i class="fa-solid fa-filter"></i> Apply</button>
-                    <a href="{{ route('cemetery.records') }}" class="cor-btn cor-btn-secondary"><i class="fa-solid fa-rotate-left"></i> Reset</a>
+                    <a href="{{ route('cemetery.records.csv', $exportQuery) }}" class="cor-btn cor-btn-export"><i class="fa-solid fa-file-csv"></i> Export CSV</a>
                 </div>
             </form>
         </div>
@@ -720,6 +744,8 @@
     const oldFormMode = page?.dataset.oldFormMode || '';
     const oldFormRecordId = page?.dataset.oldFormRecordId || '';
     const hasErrors = (page?.dataset.hasErrors || '0') === '1';
+    const autoFilterForm = document.getElementById('corAutoFilterForm');
+    const autoSearchInput = document.getElementById('corAutoSearch');
     let pendingDeleteForm = null;
 
     const allModals = [createModal, editModal, deleteModal, viewModal].filter(Boolean);
@@ -981,6 +1007,48 @@
         openModal(editModal);
     };
 
+    const bindAutoFilters = () => {
+        if (!autoFilterForm) return;
+
+        const submitFilters = () => {
+            autoFilterForm.requestSubmit();
+        };
+
+        const selectFields = Array.from(autoFilterForm.querySelectorAll('select'));
+        selectFields.forEach((field) => {
+            field.addEventListener('change', submitFilters);
+        });
+
+        if (!autoSearchInput) return;
+
+        let searchTimer = null;
+        autoSearchInput.dataset.lastSubmitted = autoSearchInput.value || '';
+
+        const submitSearch = () => {
+            const currentValue = autoSearchInput.value || '';
+            if (currentValue === (autoSearchInput.dataset.lastSubmitted || '')) return;
+            autoSearchInput.dataset.lastSubmitted = currentValue;
+            submitFilters();
+        };
+
+        autoSearchInput.addEventListener('input', () => {
+            if (searchTimer) {
+                window.clearTimeout(searchTimer);
+            }
+            searchTimer = window.setTimeout(submitSearch, 350);
+        });
+
+        autoSearchInput.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            if (searchTimer) {
+                window.clearTimeout(searchTimer);
+            }
+            submitSearch();
+        });
+    };
+
+    bindAutoFilters();
     bindCreateTransactionFields();
 
     if (openCreateButton) {

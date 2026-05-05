@@ -57,10 +57,18 @@
             <div class="atr-card-body">
                 @if ($event)
                     <table style="width:100%;font-size:.88rem;">
+                        @php
+                            $bookingStatusTag = match ($event->booking_status) {
+                                'confirmed' => 'atr-tag-confirmed',
+                                'completed' => 'atr-tag-completed',
+                                'cancelled' => 'atr-tag-cancelled',
+                                default => 'atr-tag-reserved',
+                            };
+                        @endphp
                         <tr><td style="padding:.4rem 0;color:var(--atr-muted);">Event code</td><td><b>{{ $event->event_code }}</b></td></tr>
                         <tr><td style="padding:.4rem 0;color:var(--atr-muted);">Contact</td><td>{{ $event->name_contact_person }}</td></tr>
                         <tr><td style="padding:.4rem 0;color:var(--atr-muted);">Hall</td><td>{{ $event->functionHall?->name }}</td></tr>
-                        <tr><td style="padding:.4rem 0;color:var(--atr-muted);">Total due</td><td><b>PHP {{ number_format((float) $event->actual_due, 2) }}</b></td></tr>
+                        <tr><td style="padding:.4rem 0;color:var(--atr-muted);">Booking status</td><td><span class="atr-tag {{ $bookingStatusTag }}">{{ ucfirst($event->booking_status) }}</span></td></tr>
                         <tr><td style="padding:.4rem 0;color:var(--atr-muted);">Total paid</td><td>PHP {{ number_format($totalPaid, 2) }}</td></tr>
                         <tr><td style="padding:.4rem 0;color:var(--atr-muted);">Balance</td><td><b>PHP {{ number_format($balance, 2) }}</b></td></tr>
                     </table>

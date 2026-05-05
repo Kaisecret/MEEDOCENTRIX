@@ -73,14 +73,6 @@
     @if(session('error'))<div class="cpm-alert cpm-alert-error"><i class="fa-solid fa-circle-exclamation"></i>{{ session('error') }}</div>@endif
     @if($errors->any())<div class="cpm-alert cpm-alert-error"><i class="fa-solid fa-triangle-exclamation"></i>{{ $errors->first() }}</div>@endif
 
-    <section class="cpm-hero">
-        <div class="cpm-hero-left">
-            <h1><i class="fa-solid fa-hand-holding-dollar"></i>Market Collection Updates</h1>
-            <p>Track collected proofs, accepted payments, and rejected submissions for Public Market queue items.</p>
-        </div>
-        <div class="cpm-dept-badge"><i class="fa-solid fa-building"></i>{{ $assignment?->department?->name ?? 'No Department' }}</div>
-    </section>
-
     <section class="cpm-tabs">
         <a href="{{ route('collector.payments', ['status' => 'all']) }}" class="cpm-tab {{ $statusFilter === 'all' ? 'active' : '' }}"><i class="fa-solid fa-table-list"></i>All<span>{{ $counts['all'] ?? 0 }}</span></a>
         <a href="{{ route('collector.payments', ['status' => 'awaiting']) }}" class="cpm-tab {{ $statusFilter === 'awaiting' ? 'active' : '' }}"><i class="fa-regular fa-hourglass-half"></i>Awaiting<span>{{ $counts['awaiting'] ?? 0 }}</span></a>
@@ -286,18 +278,15 @@ function cpmSetFile(input, labelId, subId) {
             contractTag.textContent = 'Contract: ' + (button.dataset.contract || '-');
             payerName.value = button.dataset.payerName || '';
             collectorNote.value = button.dataset.collectorNote || '';
-            proofHint.innerHTML = button.dataset.hasProof === '1'
-                ? '<i class="fa-solid fa-circle-info"></i> Existing proof is saved. You may keep it or upload a new one.'
-                : '<i class="fa-solid fa-circle-info"></i> Upload or capture a new proof photo.';
+            proofHint.innerHTML = '<i class="fa-solid fa-circle-info"></i> Upload or capture a new proof photo (required).';
             openModal();
         });
     });
 
     resendForm.addEventListener('submit', (event) => {
-        const hasExistingProof = resendForm.getAttribute('data-has-existing-proof') === '1';
         const hasUpload = (proofUpload?.files?.length || 0) > 0;
         const hasCamera = (proofCamera?.files?.length || 0) > 0;
-        if (!hasExistingProof && !hasUpload && !hasCamera) {
+        if (!hasUpload && !hasCamera) {
             event.preventDefault();
             if (proofUpload) {
                 proofUpload.setCustomValidity('Upload a proof photo or capture one using camera.');

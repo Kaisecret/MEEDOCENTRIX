@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Atrium;
 use App\Http\Controllers\Controller;
 use App\Models\AtriumEvent;
 use App\Models\AtriumEventPayment;
-use App\Models\AtriumSuppliesOrder;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -16,29 +15,70 @@ class AtriumDashboardController extends Controller
     public function index(Request $request): View
     {
         $today = Carbon::today();
-        $monthStart = $today->copy()->startOfMonth();
-        $monthEnd = $today->copy()->endOfMonth();
+        $period = strtolower((string) $request->query('period', 'month'));
+        $allowedPeriods = ['today', 'week', 'month', 'range'];
+        if (! in_array($period, $allowedPeriods, true)) {
+            $period = 'month';
+        }
 
-        $eventsThisMonthCollection = AtriumEvent::query()
-            ->whereBetween('date_of_event', [$monthStart->toDateString(), $monthEnd->toDateString()])
+        $parsedFrom = $this->parseDate($request->query('date_from'));
+        $parsedTo = $this->parseDate($request->query('date_to'));
+
+        if ($period === 'today') {
+            $rangeStart = $today->copy()->startOfDay();
+            $rangeEnd = $today->copy()->endOfDay();
+            $dateFrom = $today->toDateString();
+            $dateTo = $today->toDateString();
+            $filterLabel = 'Today';
+        } elseif ($period === 'week') {
+            $rangeStart = $today->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
+            $rangeEnd = $today->copy()->endOfWeek(Carbon::SUNDAY)->endOfDay();
+            $dateFrom = $rangeStart->toDateString();
+            $dateTo = $rangeEnd->toDateString();
+            $filterLabel = 'This Week';
+        } elseif ($period === 'range' && $parsedFrom && $parsedTo && $parsedFrom->lte($parsedTo)) {
+            $rangeStart = $parsedFrom->copy()->startOfDay();
+            $rangeEnd = $parsedTo->copy()->endOfDay();
+            $dateFrom = $rangeStart->toDateString();
+            $dateTo = $rangeEnd->toDateString();
+            $filterLabel = 'Custom Range';
+        } else {
+            $period = 'month';
+            $rangeStart = $today->copy()->startOfMonth();
+            $rangeEnd = $today->copy()->endOfMonth()->endOfDay();
+            $dateFrom = $rangeStart->toDateString();
+            $dateTo = $rangeEnd->toDateString();
+            $filterLabel = 'This Month';
+        }
+
+        $displayRange = $rangeStart->isSameDay($rangeEnd)
+            ? $rangeStart->format('F j, Y')
+            : $rangeStart->format('F j, Y') . ' to ' . $rangeEnd->format('F j, Y');
+
+        $eventsInRangeCollection = AtriumEvent::query()
+            ->whereDate('date_of_event', '>=', $rangeStart->toDateString())
+            ->whereDate('date_of_event', '<=', $rangeEnd->toDateString())
             ->get(['date_of_event', 'booking_status', 'actual_due']);
 
-        $totalEvents = AtriumEvent::query()->count();
-        $eventsThisMonth = $eventsThisMonthCollection->count();
+        $totalEvents = $eventsInRangeCollection->count();
+        $eventsThisMonth = $eventsInRangeCollection->count();
+        // Upcoming should always reflect true future reservations, not just the current summary range.
         $upcomingEvents = AtriumEvent::query()
             ->whereDate('date_of_event', '>=', $today)
             ->where('booking_status', '!=', 'cancelled')
             ->count();
-        $completedEvents = AtriumEvent::query()
-            ->where('booking_status', 'completed')
-            ->count();
+        $completedEvents = (int) $eventsInRangeCollection->where('booking_status', 'completed')->count();
 
-        $totalCollected = (float) AtriumEventPayment::query()->sum('payment_amount');
+        $totalCollected = (float) AtriumEventPayment::query()
+            ->whereDate('date_of_payment', '>=', $rangeStart->toDateString())
+            ->whereDate('date_of_payment', '<=', $rangeEnd->toDateString())
+            ->sum('payment_amount');
         $collectedThisMonth = (float) AtriumEventPayment::query()
-            ->whereBetween('date_of_payment', [$monthStart, $monthEnd])
+            ->whereDate('date_of_payment', '>=', $rangeStart->toDateString())
+            ->whereDate('date_of_payment', '<=', $rangeEnd->toDateString())
             ->sum('payment_amount');
 
-        $totalDue = (float) AtriumEvent::query()->sum('actual_due');
+        $totalDue = (float) $eventsInRangeCollection->sum('actual_due');
         $outstanding = max(0.0, $totalDue - $totalCollected);
         $collectionProgressPercent = $totalDue > 0
             ? (int) min(100, round(($totalCollected / $totalDue) * 100))
@@ -46,25 +86,25 @@ class AtriumDashboardController extends Controller
         $outstandingPercent = 100 - $collectionProgressPercent;
 
         $statusCounts = [
-            'reserved' => (int) $eventsThisMonthCollection->where('booking_status', 'reserved')->count(),
-            'confirmed' => (int) $eventsThisMonthCollection->where('booking_status', 'confirmed')->count(),
-            'completed' => (int) $eventsThisMonthCollection->where('booking_status', 'completed')->count(),
-            'cancelled' => (int) $eventsThisMonthCollection->where('booking_status', 'cancelled')->count(),
+            'reserved' => (int) $eventsInRangeCollection->where('booking_status', 'reserved')->count(),
+            'confirmed' => (int) $eventsInRangeCollection->where('booking_status', 'confirmed')->count(),
+            'completed' => (int) $eventsInRangeCollection->where('booking_status', 'completed')->count(),
+            'cancelled' => (int) $eventsInRangeCollection->where('booking_status', 'cancelled')->count(),
         ];
 
         $dailyRaw = AtriumEvent::query()
             ->selectRaw('DATE(date_of_event) as event_day')
             ->selectRaw('COUNT(*) as bookings_count')
             ->selectRaw("SUM(CASE WHEN booking_status = 'completed' THEN 1 ELSE 0 END) as completed_count")
-            ->whereDate('date_of_event', '>=', $monthStart->toDateString())
-            ->whereDate('date_of_event', '<=', $today->toDateString())
+            ->whereDate('date_of_event', '>=', $rangeStart->toDateString())
+            ->whereDate('date_of_event', '<=', $rangeEnd->toDateString())
             ->groupBy('event_day')
             ->orderBy('event_day')
             ->get()
             ->keyBy('event_day');
 
         $dailyBookingStats = collect();
-        foreach (CarbonPeriod::create($monthStart->copy()->startOfDay(), $today->copy()->startOfDay()) as $day) {
+        foreach (CarbonPeriod::create($rangeStart->copy()->startOfDay(), $rangeEnd->copy()->startOfDay()) as $day) {
             $dayKey = $day->toDateString();
             $dailyItem = $dailyRaw->get($dayKey);
 
@@ -79,13 +119,13 @@ class AtriumDashboardController extends Controller
             $dailyBookingStats = $dailyBookingStats->slice(-31)->values();
         }
 
-        $revenueStart = $today->copy()->startOfMonth()->subMonths(5);
-        $revenueEnd = $today->copy()->endOfMonth();
+        $revenueStart = $rangeStart->copy()->startOfMonth();
+        $revenueEnd = $rangeEnd->copy()->endOfMonth();
         $revenueRaw = AtriumEventPayment::query()
             ->selectRaw("DATE_FORMAT(date_of_payment, '%Y-%m') as ym")
             ->selectRaw('SUM(payment_amount) as total_amount')
             ->whereDate('date_of_payment', '>=', $revenueStart->toDateString())
-            ->whereDate('date_of_payment', '<=', $revenueEnd->toDateString())
+            ->whereDate('date_of_payment', '<=', $rangeEnd->toDateString())
             ->groupBy('ym')
             ->orderBy('ym')
             ->get()
@@ -93,7 +133,7 @@ class AtriumDashboardController extends Controller
 
         $monthlyRevenue = collect();
         $monthCursor = $revenueStart->copy()->startOfMonth();
-        $monthLimit = $today->copy()->startOfMonth();
+        $monthLimit = $rangeEnd->copy()->startOfMonth();
         while ($monthCursor->lte($monthLimit)) {
             $monthKey = $monthCursor->format('Y-m');
             $monthlyRevenue->push([
@@ -104,13 +144,10 @@ class AtriumDashboardController extends Controller
             $monthCursor->addMonth();
         }
 
-        $pendingSupplies = AtriumSuppliesOrder::query()
-            ->where('request_status', 'pending')
-            ->count();
-
         $nextEvents = AtriumEvent::query()
             ->with('functionHall:id,name,code')
-            ->whereDate('date_of_event', '>=', $today)
+            ->whereDate('date_of_event', '>=', $rangeStart->toDateString())
+            ->whereDate('date_of_event', '<=', $rangeEnd->toDateString())
             ->where('booking_status', '!=', 'cancelled')
             ->orderBy('date_of_event')
             ->limit(6)
@@ -130,8 +167,29 @@ class AtriumDashboardController extends Controller
             'statusCounts' => $statusCounts,
             'dailyBookingStats' => $dailyBookingStats,
             'monthlyRevenue' => $monthlyRevenue,
-            'pendingSupplies' => $pendingSupplies,
             'nextEvents' => $nextEvents,
+            'period' => $period,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'filterLabel' => $filterLabel,
+            'displayRange' => $displayRange,
         ]);
+    }
+
+    private function parseDate(null|string $value): ?Carbon
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', trim($value))->startOfDay();
+        } catch (\Throwable) {
+            try {
+                return Carbon::parse(trim($value))->startOfDay();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
     }
 }

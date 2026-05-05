@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AtriumPaymentController extends Controller
@@ -49,7 +50,7 @@ class AtriumPaymentController extends Controller
 
         $payments = $query->orderByDesc('date_of_payment')
             ->orderByDesc('id')
-            ->paginate(15)
+            ->paginate(10)
             ->withQueryString();
 
         $summary = [
@@ -61,12 +62,7 @@ class AtriumPaymentController extends Controller
                 ->count(),
         ];
 
-        $eventsForSelect = AtriumEvent::query()
-            ->with('functionHall:id,name,code')
-            ->whereIn('booking_status', ['reserved', 'confirmed', 'completed'])
-            ->orderByDesc('date_of_event')
-            ->limit(100)
-            ->get();
+        $eventsForSelect = $this->payableEvents();
 
         return view('atrium.payments', [
             'payments' => $payments,
@@ -87,13 +83,7 @@ class AtriumPaymentController extends Controller
         $eventId = (int) $request->query('event', 0);
         $event = $eventId > 0 ? AtriumEvent::with(['functionHall', 'payments'])->find($eventId) : null;
 
-        $eventsForSelect = AtriumEvent::query()
-            ->with('functionHall:id,name,code')
-            ->withSum('payments as total_paid', 'payment_amount')
-            ->whereIn('booking_status', ['reserved', 'confirmed', 'completed'])
-            ->orderByDesc('date_of_event')
-            ->limit(200)
-            ->get();
+        $eventsForSelect = $this->payableEvents($event?->id);
 
         return view('atrium.payment_form', [
             'event' => $event,
@@ -110,6 +100,7 @@ class AtriumPaymentController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $this->validatePayment($request);
+        $this->assertPaymentWithinBalance((int) $validated['atrium_event_id'], (float) $validated['payment_amount']);
 
         $payment = DB::transaction(function () use ($validated, $request): AtriumEventPayment {
             $event = AtriumEvent::with('payments')->findOrFail($validated['atrium_event_id']);
@@ -152,13 +143,7 @@ class AtriumPaymentController extends Controller
     {
         $payment->load('event.functionHall');
 
-        $eventsForSelect = AtriumEvent::query()
-            ->with('functionHall:id,name,code')
-            ->withSum('payments as total_paid', 'payment_amount')
-            ->whereIn('booking_status', ['reserved', 'confirmed', 'completed'])
-            ->orderByDesc('date_of_event')
-            ->limit(200)
-            ->get();
+        $eventsForSelect = $this->payableEvents($payment->atrium_event_id, $payment->id);
 
         return view('atrium.payment_form', [
             'event' => $payment->event,
@@ -171,6 +156,7 @@ class AtriumPaymentController extends Controller
     public function update(Request $request, AtriumEventPayment $payment): RedirectResponse
     {
         $validated = $this->validatePayment($request, $payment->id);
+        $this->assertPaymentWithinBalance((int) $validated['atrium_event_id'], (float) $validated['payment_amount'], $payment->id);
 
         DB::transaction(function () use ($validated, $payment): void {
             $event = AtriumEvent::with('payments')->findOrFail($validated['atrium_event_id']);
@@ -231,6 +217,65 @@ class AtriumPaymentController extends Controller
             return 'paid';
         }
         return 'partial';
+    }
+
+    private function assertPaymentWithinBalance(int $eventId, float $amount, ?int $ignorePaymentId = null): void
+    {
+        $event = AtriumEvent::query()->findOrFail($eventId);
+
+        $existingPaid = (float) AtriumEventPayment::query()
+            ->where('atrium_event_id', $event->id)
+            ->when($ignorePaymentId, fn ($q) => $q->where('id', '!=', $ignorePaymentId))
+            ->sum('payment_amount');
+
+        $due = (float) $event->actual_due;
+        $remaining = max(0.0, $due - $existingPaid);
+
+        if ($remaining <= 0.0) {
+            throw ValidationException::withMessages([
+                'payment_amount' => 'This booking has no remaining balance.',
+            ]);
+        }
+
+        if ($amount > $remaining + 0.009) {
+            throw ValidationException::withMessages([
+                'payment_amount' => 'Payment amount cannot be greater than remaining balance (PHP ' . number_format($remaining, 2) . ').',
+            ]);
+        }
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, AtriumEvent>
+     */
+    private function payableEvents(?int $includeEventId = null, ?int $ignorePaymentId = null)
+    {
+        return AtriumEvent::query()
+            ->with('functionHall:id,name,code')
+            ->withSum('payments as total_paid', 'payment_amount')
+            ->whereIn('booking_status', ['reserved', 'confirmed', 'completed'])
+            ->orderByDesc('date_of_event')
+            ->limit(300)
+            ->get()
+            ->filter(function (AtriumEvent $event) use ($includeEventId, $ignorePaymentId): bool {
+                $totalPaid = (float) ($event->total_paid ?? 0);
+
+                if ($ignorePaymentId) {
+                    $ignored = (float) AtriumEventPayment::query()
+                        ->where('id', $ignorePaymentId)
+                        ->where('atrium_event_id', $event->id)
+                        ->value('payment_amount');
+                    $totalPaid -= $ignored;
+                }
+
+                $balance = (float) $event->actual_due - $totalPaid;
+
+                if ($includeEventId && (int) $event->id === (int) $includeEventId) {
+                    return true;
+                }
+
+                return $balance > 0.009;
+            })
+            ->values();
     }
 
     private function generateOrNumber(): string

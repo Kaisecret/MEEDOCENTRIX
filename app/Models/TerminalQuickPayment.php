@@ -12,6 +12,10 @@ class TerminalQuickPayment extends Model
 
     protected $fillable = [
         'payer_name',
+        'ticket_number',
+        'vehicle_kind',
+        'route_name',
+        'route_code',
         'total_payment',
         'payment_date',
         'remarks',

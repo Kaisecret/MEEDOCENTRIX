@@ -9,11 +9,48 @@
     /** @var \Illuminate\Support\Collection<int, \App\Models\Department> $collectorDepartments */
     /** @var \Illuminate\Support\Collection<int, \App\Models\RoleAuditLog> $recentAuditLogs */
 
-    $selectedRoleId = (int) request('role', $roles->first()?->id ?? 0);
-    $selectedRole = $roles->firstWhere('id', $selectedRoleId) ?? $roles->first();
+    $manageableRoles = $roles
+        ->filter(static fn (\App\Models\SystemRole $role): bool => ! $role->isAdministrator() && $role->guard_name !== 'cashier')
+        ->values();
+    $selectedRoleId = (int) request('role', 0);
+    $selectedRole = $selectedRoleId > 0
+        ? $manageableRoles->firstWhere('id', $selectedRoleId)
+        : null;
     $selectedPermissionIds = $selectedRole
         ? $selectedRole->permissions->pluck('id')->map(static fn ($id): int => (int) $id)->all()
         : [];
+    $permissionPrefixes = [];
+    if ($selectedRole) {
+        if ($selectedRole->guard_name === 'personnel' && $selectedRole->department_scope) {
+            $permissionPrefixes[] = (string) $selectedRole->department_scope;
+        } elseif ($selectedRole->guard_name === 'collector') {
+            $permissionPrefixes[] = 'collector';
+        } elseif ($selectedRole->guard_name === 'cashier') {
+            $permissionPrefixes[] = 'cashier';
+        } elseif ($selectedRole->guard_name === 'admin') {
+            $permissionPrefixes[] = 'admin';
+        }
+    }
+    $matrixPermissions = $permissions
+        ->map(static function (\Illuminate\Support\Collection $modulePermissions) use ($permissionPrefixes): \Illuminate\Support\Collection {
+            if ($permissionPrefixes === []) {
+                return $modulePermissions->values();
+            }
+
+            return $modulePermissions
+                ->filter(static function ($permission) use ($permissionPrefixes): bool {
+                    $key = (string) ($permission->key ?? '');
+                    foreach ($permissionPrefixes as $prefix) {
+                        if (str_starts_with($key, $prefix . '.')) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                })
+                ->values();
+        })
+        ->filter(static fn (\Illuminate\Support\Collection $modulePermissions): bool => $modulePermissions->isNotEmpty());
     $guardLabels = [
         'admin' => 'Administrator',
         'personnel' => 'Department Personnel',
@@ -24,39 +61,8 @@
 @endphp
 
 <div class="rpm-page" data-server-rendered-page="roles" data-page-title="Roles & Permissions">
-    <section class="rpm-stats" aria-label="Role and permission summary">
-        <div>
-            <span class="rpm-stat-icon"><i class="fas fa-id-badge"></i></span>
-            <div>
-                <span>Roles</span>
-                <strong>{{ number_format((int) $stats['roles']) }}</strong>
-            </div>
-        </div>
-        <div>
-            <span class="rpm-stat-icon rpm-stat-icon-teal"><i class="fas fa-key"></i></span>
-            <div>
-                <span>Permissions</span>
-                <strong>{{ number_format((int) $stats['permissions']) }}</strong>
-            </div>
-        </div>
-        <div>
-            <span class="rpm-stat-icon rpm-stat-icon-green"><i class="fas fa-user-shield"></i></span>
-            <div>
-                <span>Assigned</span>
-                <strong>{{ number_format((int) $stats['assigned_users']) }}</strong>
-            </div>
-        </div>
-        <div>
-            <span class="rpm-stat-icon rpm-stat-icon-amber"><i class="fas fa-wand-magic-sparkles"></i></span>
-            <div>
-                <span>Custom</span>
-                <strong>{{ number_format((int) $stats['custom_roles']) }}</strong>
-            </div>
-        </div>
-    </section>
-
     @if (session('status'))
-        <div class="rpm-alert rpm-alert-success"><i class="fas fa-circle-check"></i><span>{{ session('status') }}</span></div>
+        <div class="rpm-alert rpm-alert-success rpm-toast" data-autohide-ms="3000"><i class="fas fa-circle-check"></i><span>{{ session('status') }}</span></div>
     @endif
 
     @if (session('error'))
@@ -77,7 +83,7 @@
             </div>
 
             <div class="rpm-role-list">
-                @foreach ($roles->where('guard_name', '!=', 'cashier') as $role)
+                @foreach ($manageableRoles as $role)
                     @php
                         $roleIsSelected = $selectedRole && $selectedRole->id === $role->id;
                         $scopeLabel = $role->department_scope
@@ -107,68 +113,6 @@
                 <section class="rpm-panel">
                     <div class="rpm-panel-head rpm-panel-head-row">
                         <div>
-                            <h3>{{ $selectedRole->name }}</h3>
-                            <p>{{ $selectedRole->description ?: 'No description yet.' }}</p>
-                        </div>
-                        <span class="rpm-chip {{ $selectedRole->is_active ? 'is-good' : 'is-muted' }}">
-                            {{ $selectedRole->is_active ? 'Active Role' : 'Inactive Role' }}
-                        </span>
-                    </div>
-
-                    <form method="POST" action="{{ route('admin.roles.update', $selectedRole) }}" class="rpm-settings-form">
-                        @csrf
-                        @method('PUT')
-                        <div class="rpm-form-grid">
-                            <label>
-                                <span>Role Name</span>
-                                <input type="text" name="name" value="{{ old('name', $selectedRole->name) }}" required>
-                            </label>
-                            <label>
-                                <span>Role Type</span>
-                                <select name="guard_name" {{ $selectedRole->is_system ? 'disabled' : '' }} required>
-                                    @foreach (array_filter($guardOptions, static fn ($g) => $g !== 'cashier') as $guard)
-                                        <option value="{{ $guard }}" @selected(old('guard_name', $selectedRole->guard_name) === $guard)>{{ $guardLabels[$guard] ?? ucfirst($guard) }}</option>
-                                    @endforeach
-                                </select>
-                                @if ($selectedRole->is_system)
-                                    <input type="hidden" name="guard_name" value="{{ $selectedRole->guard_name }}">
-                                @endif
-                            </label>
-                            <label>
-                                <span>Department Scope</span>
-                                <select name="department_scope" {{ $selectedRole->is_system ? 'disabled' : '' }}>
-                                    <option value="">Flexible</option>
-                                    @foreach ($departments as $department)
-                                        <option value="{{ $department->code }}" @selected(old('department_scope', $selectedRole->department_scope) === $department->code)>{{ $department->name }}</option>
-                                    @endforeach
-                                </select>
-                                @if ($selectedRole->is_system)
-                                    <input type="hidden" name="department_scope" value="{{ $selectedRole->department_scope }}">
-                                @endif
-                            </label>
-                            <label class="rpm-switch-field">
-                                <span>Status</span>
-                                <input type="hidden" name="is_active" value="{{ $selectedRole->isAdministrator() ? '1' : '0' }}">
-                                <label class="rpm-switch">
-                                    <input type="checkbox" name="is_active" value="1" @checked(old('is_active', $selectedRole->is_active) && ! $selectedRole->isAdministrator()) {{ $selectedRole->isAdministrator() ? 'checked disabled' : '' }}>
-                                    <span></span>
-                                    <b>{{ $selectedRole->isAdministrator() ? 'Always active' : 'Role is active' }}</b>
-                                </label>
-                            </label>
-                            <label class="rpm-span-2">
-                                <span>Description</span>
-                                <textarea name="description" rows="3">{{ old('description', $selectedRole->description) }}</textarea>
-                            </label>
-                        </div>
-                        <div class="rpm-actions">
-                            <button type="submit" class="rpm-btn rpm-btn-secondary"><i class="fas fa-floppy-disk"></i>Save Role Settings</button>
-                        </div>
-                    </form>
-                </section>
-
-                <section class="rpm-panel">
-                    <div class="rpm-panel-head rpm-panel-head-row">
-                        <div>
                             <h3>Permission Matrix</h3>
                             <p>Toggle what this role can view, create, update, approve, collect, or export.</p>
                         </div>
@@ -180,39 +124,51 @@
                     <form method="POST" action="{{ route('admin.roles.permissions.update', $selectedRole) }}">
                         @csrf
                         @method('PUT')
-                        <div class="rpm-permission-grid">
-                            @foreach ($permissions as $module => $modulePermissions)
-                                <article class="rpm-permission-card">
-                                    <header>
-                                        <h4>{{ $module }}</h4>
-                                        <button type="button" class="rpm-link-btn" data-toggle-module="{{ \Illuminate\Support\Str::slug($module) }}" {{ $selectedRole->isAdministrator() ? 'disabled' : '' }}>Toggle</button>
-                                    </header>
-                                    <div class="rpm-permission-list" data-module="{{ \Illuminate\Support\Str::slug($module) }}">
-                                        @foreach ($modulePermissions as $permission)
-                                            <label class="rpm-check">
-                                                <input
-                                                    type="checkbox"
-                                                    name="permission_ids[]"
-                                                    value="{{ $permission->id }}"
-                                                    @checked($selectedRole->isAdministrator() || in_array((int) $permission->id, $selectedPermissionIds, true))
-                                                    {{ $selectedRole->isAdministrator() ? 'disabled' : '' }}
-                                                >
-                                                <span>
-                                                    <strong>{{ $permission->label }}</strong>
-                                                    <small>{{ $permission->key }}</small>
-                                                </span>
-                                            </label>
-                                        @endforeach
-                                    </div>
-                                </article>
-                            @endforeach
-                        </div>
+                        @if ($matrixPermissions->isNotEmpty())
+                            <div class="rpm-permission-grid {{ $matrixPermissions->count() === 1 ? 'rpm-permission-grid-single' : '' }}">
+                                @foreach ($matrixPermissions as $module => $modulePermissions)
+                                    <article class="rpm-permission-card">
+                                        <header>
+                                            <h4>{{ $module }}</h4>
+                                            <button type="button" class="rpm-link-btn" data-toggle-module="{{ \Illuminate\Support\Str::slug($module) }}" {{ $selectedRole->isAdministrator() ? 'disabled' : '' }}>Toggle</button>
+                                        </header>
+                                        <div class="rpm-permission-list" data-module="{{ \Illuminate\Support\Str::slug($module) }}">
+                                            @foreach ($modulePermissions as $permission)
+                                                <label class="rpm-check">
+                                                    <input
+                                                        type="checkbox"
+                                                        name="permission_ids[]"
+                                                        value="{{ $permission->id }}"
+                                                        @checked($selectedRole->isAdministrator() || in_array((int) $permission->id, $selectedPermissionIds, true))
+                                                        {{ $selectedRole->isAdministrator() ? 'disabled' : '' }}
+                                                    >
+                                                    <span>
+                                                        <strong>{{ $permission->label }}</strong>
+                                                        <small>{{ $permission->key }}</small>
+                                                    </span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                    </article>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="rpm-empty">No permissions mapped for this selected role.</div>
+                        @endif
                         <div class="rpm-actions">
                             <button type="submit" class="rpm-btn rpm-btn-primary" {{ $selectedRole->isAdministrator() ? 'disabled' : '' }}>
                                 <i class="fas fa-shield-halved"></i>Save Permission Matrix
                             </button>
                         </div>
                     </form>
+                </section>
+            @else
+                <section class="rpm-panel">
+                    <div class="rpm-panel-head">
+                        <h3>Permission Matrix</h3>
+                        <p>Select a department role from the left list to load role permissions.</p>
+                    </div>
+                    <div class="rpm-empty">No role selected yet.</div>
                 </section>
             @endif
 
@@ -251,6 +207,16 @@
 </div>
 
 <style>
+    .topbar {
+        height: 56px;
+        padding: 0 16px;
+    }
+
+    #contentArea,
+    .content-area {
+        padding-top: 10px;
+    }
+
     .rpm-page {
         --rpm-ink: #0b1a2c;
         --rpm-ink-soft: #2a3e57;
@@ -268,8 +234,11 @@
         --rpm-radius-sm: 10px;
         --rpm-shadow-sm: 0 1px 2px rgba(15, 35, 60, 0.04);
         --rpm-shadow-md: 0 4px 14px rgba(15, 35, 60, 0.06);
+        max-width: 1480px;
+        margin: 0 auto;
+        padding: 10px 0 16px;
         display: grid;
-        gap: 18px;
+        gap: 10px;
         color: var(--rpm-ink);
     }
 
@@ -277,7 +246,7 @@
         background: var(--rpm-panel);
         border: 1px solid var(--rpm-line);
         border-radius: var(--rpm-radius);
-        box-shadow: var(--rpm-shadow-md);
+        box-shadow: var(--rpm-shadow-sm);
     }
 
     .rpm-panel h3,
@@ -294,101 +263,14 @@
         line-height: 1.5;
     }
 
-    .rpm-stats {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 14px;
-    }
-
-    .rpm-stats > div {
-        position: relative;
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 16px 18px;
-        background: var(--rpm-panel);
-        border: 1px solid var(--rpm-line);
-        border-radius: var(--rpm-radius);
-        box-shadow: var(--rpm-shadow-sm);
-        overflow: hidden;
-        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-    }
-
-    .rpm-stats > div::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        background: linear-gradient(90deg, #2563eb, #60a5fa);
-    }
-
-    .rpm-stats > div:nth-child(2)::before {
-        background: linear-gradient(90deg, #14b8a6, #2dd4bf);
-    }
-
-    .rpm-stats > div:nth-child(3)::before {
-        background: linear-gradient(90deg, #16a34a, #4ade80);
-    }
-
-    .rpm-stats > div:nth-child(4)::before {
-        background: linear-gradient(90deg, #f59e0b, #fbbf24);
-    }
-
-    .rpm-stats > div:hover {
-        transform: translateY(-2px);
-        border-color: var(--rpm-line-strong);
-        box-shadow: var(--rpm-shadow-md);
-    }
-
-    .rpm-stat-icon {
-        width: 44px;
-        height: 44px;
-        flex-shrink: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 11px;
-        background: rgba(37, 99, 235, 0.1);
-        color: #2563eb;
-        font-size: 1.05rem;
-    }
-
-    .rpm-stat-icon-teal {
-        background: rgba(20, 184, 166, 0.1);
-        color: #14b8a6;
-    }
-
-    .rpm-stat-icon-green {
-        background: rgba(22, 163, 74, 0.1);
-        color: #16a34a;
-    }
-
-    .rpm-stat-icon-amber {
-        background: rgba(245, 158, 11, 0.1);
-        color: #f59e0b;
-    }
-
-    .rpm-stats span,
     .rpm-table small,
     .rpm-audit-item small {
         display: block;
         color: var(--rpm-muted);
-        font-size: 0.7rem;
+        font-size: 0.69rem;
         font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
-    }
-
-    .rpm-stats strong {
-        display: block;
-        margin-top: 4px;
-        font-size: 1.5rem;
-        font-weight: 850;
-        line-height: 1;
-        letter-spacing: -0.01em;
-        color: var(--rpm-ink);
+        letter-spacing: 0.05em;
     }
 
     .rpm-alert {
@@ -417,19 +299,54 @@
         border: 1px solid #f3c0bf;
     }
 
+    .rpm-toast {
+        position: fixed;
+        top: 86px;
+        right: 14px;
+        z-index: 1200;
+        width: min(360px, calc(100vw - 22px));
+        min-height: 40px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        box-shadow: 0 10px 26px rgba(15, 35, 60, 0.18);
+        animation: rpmToastIn 0.18s ease;
+    }
+
+    .rpm-toast.is-hiding {
+        opacity: 0;
+        transform: translateX(8px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    @keyframes rpmToastIn {
+        from {
+            opacity: 0;
+            transform: translateX(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
     .rpm-grid {
         display: grid;
-        grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-        gap: 18px;
+        grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+        gap: 10px;
         align-items: start;
     }
 
     .rpm-role-panel {
-        position: sticky;
-        top: 1rem;
+        position: static;
+        top: auto;
         display: flex;
         flex-direction: column;
-        max-height: calc(100vh - 2rem);
+        max-height: none;
+        border: 1px solid #bcd0e4;
+        background: #dfeaf6;
+        border-radius: 16px;
+        padding: 10px;
+        box-shadow: none;
     }
 
     .rpm-role-panel .rpm-panel-head {
@@ -444,7 +361,7 @@
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
-        padding-right: 10px;
+        padding-right: 4px;
         scrollbar-gutter: stable;
     }
 
@@ -463,7 +380,7 @@
 
     .rpm-main {
         display: grid;
-        gap: 18px;
+        gap: 10px;
     }
 
     .rpm-panel {
@@ -472,13 +389,19 @@
     }
 
     .rpm-panel:hover {
-        box-shadow: 0 8px 22px rgba(15, 35, 60, 0.08);
+        box-shadow: var(--rpm-shadow-md);
     }
 
     .rpm-panel-head {
-        padding: 18px 22px;
+        padding: 10px;
         border-bottom: 1px solid var(--rpm-line);
-        background: linear-gradient(180deg, #ffffff, var(--rpm-soft));
+        background: #ffffff;
+    }
+
+    .rpm-role-panel .rpm-panel-head {
+        border-bottom: 0;
+        background: transparent;
+        padding: 2px 2px 8px;
     }
 
     .rpm-panel-head h3 {
@@ -501,7 +424,7 @@
     .rpm-panel-head-row {
         display: flex;
         justify-content: space-between;
-        gap: 14px;
+        gap: 10px;
         align-items: flex-start;
         flex-wrap: wrap;
     }
@@ -509,7 +432,7 @@
     .rpm-role-list {
         display: grid;
         gap: 8px;
-        padding: 14px;
+        padding: 0 0 2px;
     }
 
     .rpm-role-item {
@@ -517,12 +440,12 @@
         grid-template-columns: auto minmax(0, 1fr) auto;
         gap: 10px;
         align-items: center;
-        padding: 12px 12px;
+        padding: 10px;
         color: inherit;
         text-decoration: none;
-        border: 1px solid var(--rpm-line);
+        border: 1px solid #c7d7e9;
         border-radius: var(--rpm-radius-sm);
-        background: var(--rpm-softer);
+        background: #f4f8fd;
         transition: transform 0.14s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
         position: relative;
     }
@@ -542,15 +465,15 @@
 
     .rpm-role-item:hover {
         background: #ffffff;
-        border-color: var(--rpm-line-strong);
+        border-color: #c3d6e9;
         color: inherit;
     }
 
     .rpm-role-item.is-active {
-        background: rgba(37, 99, 235, 0.06);
-        border-color: rgba(37, 99, 235, 0.32);
+        background: #ffffff;
+        border-color: #9cbce0;
         color: inherit;
-        box-shadow: var(--rpm-shadow-sm);
+        box-shadow: 0 1px 2px rgba(15, 35, 60, 0.08);
     }
 
     .rpm-role-item.is-active::before {
@@ -565,8 +488,8 @@
         align-items: center;
         justify-content: center;
         border-radius: 11px;
-        color: var(--rpm-primary);
-        background: rgba(37, 99, 235, 0.1);
+        color: var(--rpm-primary-dark);
+        background: #d6e2f3;
         flex-shrink: 0;
         transition: transform 0.18s ease;
     }
@@ -645,9 +568,9 @@
     .rpm-create-form,
     .rpm-settings-form,
     .rpm-assign-form {
-        padding: 22px;
+        padding: 10px;
         display: grid;
-        gap: 14px;
+        gap: 10px;
     }
 
     .rpm-create-form {
@@ -676,7 +599,7 @@
     .rpm-assign-form {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
+        gap: 10px;
     }
 
     .rpm-form-two {
@@ -806,7 +729,9 @@
         justify-content: flex-end;
         gap: 10px;
         flex-wrap: wrap;
-        padding-top: 4px;
+        padding: 10px;
+        border-top: 1px solid var(--rpm-line);
+        background: #ffffff;
     }
 
     .rpm-btn {
@@ -825,18 +750,18 @@
     }
 
     .rpm-btn-primary {
-        background: var(--rpm-primary);
-        border-color: var(--rpm-primary);
+        background: var(--sidebar-bg, #155e8f);
+        border-color: var(--sidebar-bg, #155e8f);
         color: #ffffff;
-        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+        box-shadow: 0 5px 12px rgba(21, 94, 143, 0.25);
     }
 
     .rpm-btn-primary:hover {
-        background: var(--rpm-primary-dark);
-        border-color: var(--rpm-primary-dark);
+        background: #124f78;
+        border-color: #124f78;
         color: #ffffff;
         transform: translateY(-1px);
-        box-shadow: 0 6px 14px rgba(37, 99, 235, 0.32);
+        box-shadow: 0 7px 16px rgba(18, 79, 120, 0.3);
     }
 
     .rpm-btn-secondary {
@@ -860,11 +785,27 @@
     }
 
     .rpm-permission-grid {
-        padding: 18px;
+        padding: 10px;
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 14px;
+        gap: 12px;
         align-items: start;
+    }
+
+    .rpm-permission-grid.rpm-permission-grid-single {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .rpm-permission-grid.rpm-permission-grid-single .rpm-permission-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .rpm-permission-grid.rpm-permission-grid-single .rpm-check {
+        border-right: 1px solid #f1f4f8;
+    }
+
+    .rpm-permission-grid.rpm-permission-grid-single .rpm-check:nth-child(2n) {
+        border-right: 0;
     }
 
     .rpm-permission-card {
@@ -872,23 +813,22 @@
         border-radius: var(--rpm-radius-sm);
         overflow: hidden;
         background: #ffffff;
-        transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
     }
 
     .rpm-permission-card:hover {
         border-color: var(--rpm-line-strong);
         box-shadow: var(--rpm-shadow-sm);
-        transform: translateY(-1px);
     }
 
     .rpm-permission-card header {
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-start;
         gap: 10px;
         align-items: center;
-        padding: 10px 14px;
+        padding: 10px;
         border-bottom: 1px solid var(--rpm-line);
-        background: linear-gradient(180deg, #ffffff, var(--rpm-soft));
+        background: linear-gradient(180deg, #f7fafd 0%, #eef3f9 100%);
     }
 
     .rpm-permission-card h4 {
@@ -900,21 +840,32 @@
     }
 
     .rpm-link-btn {
-        border: 0;
-        background: rgba(37, 99, 235, 0.08);
-        color: var(--rpm-primary);
+        margin-left: auto;
+        min-height: 30px;
+        border: 1px solid rgba(21, 94, 143, 0.18);
+        background: var(--sidebar-bg, #155e8f);
+        color: #ffffff;
         font-weight: 800;
         font-size: 0.7rem;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        padding: 4px 10px;
+        padding: 6px 12px;
         border-radius: 999px;
         cursor: pointer;
-        transition: background 0.18s ease;
+        transition: background 0.18s ease, transform 0.12s ease;
+        box-shadow: 0 4px 10px rgba(21, 94, 143, 0.2);
     }
 
     .rpm-link-btn:hover:not(:disabled) {
-        background: rgba(37, 99, 235, 0.16);
+        background: #124f78;
+        transform: translateY(-1px);
+    }
+
+    .rpm-link-btn:disabled {
+        background: #9cb8cb;
+        border-color: #9cb8cb;
+        color: #f8fbff;
+        box-shadow: none;
     }
 
     .rpm-permission-list {
@@ -926,8 +877,8 @@
         grid-template-columns: auto 1fr;
         gap: 10px !important;
         align-items: center;
-        padding: 8px 14px;
-        border-bottom: 1px solid #f1f4f8;
+        padding: 10px;
+        border-bottom: 1px solid #eef2f7;
         cursor: pointer;
         transition: background 0.14s ease;
     }
@@ -938,6 +889,10 @@
 
     .rpm-check:last-child {
         border-bottom: 0;
+    }
+
+    .rpm-permission-grid.rpm-permission-grid-single .rpm-check:last-child {
+        border-bottom: 1px solid #f1f4f8;
     }
 
     .rpm-check input {
@@ -973,6 +928,20 @@
 
     .rpm-check input:checked ~ span strong {
         color: var(--rpm-primary-dark);
+    }
+
+    @media (max-width: 920px) {
+        .rpm-permission-grid.rpm-permission-grid-single .rpm-permission-list {
+            grid-template-columns: 1fr;
+        }
+
+        .rpm-permission-grid.rpm-permission-grid-single .rpm-check {
+            border-right: 0;
+        }
+
+        .rpm-permission-grid.rpm-permission-grid-single .rpm-check:last-child {
+            border-bottom: 0;
+        }
     }
 
     .rpm-table-wrap {
@@ -1042,15 +1011,16 @@
     .rpm-audit-item {
         display: grid;
         grid-template-columns: auto 1fr auto;
-        gap: 14px;
+        gap: 10px;
         align-items: start;
-        padding: 16px 22px;
+        padding: 10px;
         border-bottom: 1px solid var(--rpm-line);
-        transition: background 0.14s ease;
+        transition: background 0.14s ease, border-color 0.14s ease;
     }
 
     .rpm-audit-item:hover {
         background: var(--rpm-softer);
+        border-color: var(--rpm-line-strong);
     }
 
     .rpm-audit-item:last-child {
@@ -1084,7 +1054,7 @@
     }
 
     .rpm-empty {
-        padding: 32px;
+        padding: 10px;
         color: var(--rpm-muted);
         text-align: center;
         font-size: 0.92rem;
@@ -1127,7 +1097,6 @@
             align-items: stretch;
         }
 
-        .rpm-stats,
         .rpm-form-grid,
         .rpm-form-two,
         .rpm-assign-form {
@@ -1154,6 +1123,16 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.rpm-toast[data-autohide-ms]').forEach(function (toast) {
+        const delay = Number(toast.dataset.autohideMs || 3000);
+        window.setTimeout(function () {
+            toast.classList.add('is-hiding');
+            window.setTimeout(function () {
+                toast.remove();
+            }, 220);
+        }, delay);
+    });
+
     document.querySelectorAll('[data-toggle-module]').forEach(function (button) {
         button.addEventListener('click', function () {
             const moduleKey = button.dataset.toggleModule;
@@ -1220,3 +1199,4 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endsection
+

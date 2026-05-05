@@ -2,6 +2,10 @@
 
 @section('content')
 <style>
+    #contentArea {
+        padding-top: 10px;
+    }
+
     .atrd {
         --atrd-primary: #0f5fa8;
         --atrd-primary-deep: #0a4880;
@@ -17,92 +21,94 @@
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
         color: var(--atrd-text);
         display: grid;
-        gap: 16px;
+        gap: 10px;
     }
 
-    .atrd-hero {
-        background:
-            radial-gradient(circle at 88% 8%, rgba(255,255,255,.16) 0, transparent 42%),
-            radial-gradient(circle at 12% 86%, rgba(255,255,255,.1) 0, transparent 40%),
-            linear-gradient(135deg, #0a3d6b 0%, #0f5fa8 56%, #1a7fd4 100%);
-        border-radius: 16px;
-        padding: 1.35rem 1.45rem;
-        color: #fff;
-        box-shadow: 0 10px 28px rgba(10, 63, 168, .24);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 14px;
-        flex-wrap: wrap;
-    }
-    .atrd-hero h2 {
-        margin: 0 0 .32rem;
-        font-size: 1.56rem;
-        font-weight: 800;
-        letter-spacing: -.02em;
-    }
-    .atrd-hero p {
-        margin: 0;
-        font-size: .92rem;
-        color: rgba(255,255,255,.9);
-        max-width: 680px;
-    }
-    .atrd-hero-meta {
+    .atrd-filter-card {
+        border: 1px solid var(--atrd-border);
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
+        padding: 10px;
         display: grid;
-        justify-items: end;
-        gap: 3px;
+        gap: 10px;
     }
-    .atrd-hero-clock {
-        font-size: 1.42rem;
-        font-weight: 800;
-        letter-spacing: -.01em;
-    }
-    .atrd-hero-sub {
-        font-size: .82rem;
-        font-weight: 700;
-        color: rgba(255,255,255,.84);
-    }
-
-    .atrd-action-row {
+    .atrd-filter-row {
         display: flex;
-        gap: 8px;
+        align-items: center;
+        gap: 10px;
         flex-wrap: wrap;
     }
-    .atrd-btn-primary,
-    .atrd-btn-outline {
-        border-radius: 10px;
-        padding: .56rem .95rem;
-        font-size: .84rem;
+    .atrd-filter-pill {
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        color: var(--atrd-primary);
+        border-radius: 999px;
+        min-height: 38px;
+        padding: 0 16px;
+        font-size: .92rem;
         font-weight: 700;
-        text-decoration: none;
+        cursor: pointer;
+        transition: all .2s ease;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        border: 1px solid transparent;
-        transition: all .16s ease;
+        justify-content: center;
+        gap: 8px;
     }
-    .atrd-btn-primary {
+    .atrd-filter-pill:hover {
+        background: #f0f7fd;
+        border-color: #b9c8dc;
+        transform: translateY(-1px);
+    }
+    .atrd-filter-pill.is-active {
         background: var(--atrd-primary);
         border-color: var(--atrd-primary);
         color: #fff;
+        box-shadow: 0 4px 12px rgba(15, 95, 168, .18);
     }
-    .atrd-btn-primary:hover {
-        background: var(--atrd-primary-deep);
-        border-color: var(--atrd-primary-deep);
+    .atrd-filter-range {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
     }
-    .atrd-btn-outline {
+    .atrd-filter-range[hidden] {
+        display: none !important;
+    }
+    .atrd-filter-input {
+        min-height: 40px;
+        border: 1px solid #cbd5e1;
+        border-radius: 9px;
+        padding: 0 .78rem;
+        font-size: .92rem;
+        color: var(--atrd-text);
         background: #fff;
-        border-color: var(--atrd-primary);
-        color: var(--atrd-primary);
     }
-    .atrd-btn-outline:hover {
-        background: #f0f7ff;
+    .atrd-filter-input:focus {
+        outline: none;
+        border-color: var(--atrd-primary);
+        box-shadow: 0 0 0 3px rgba(15, 95, 168, .14);
+    }
+    .atrd-filter-apply {
+        border: 1px solid var(--atrd-primary);
+        background: var(--atrd-primary);
+        color: #fff;
+        border-radius: 9px;
+        min-height: 40px;
+        padding: 0 1rem;
+        font-size: .9rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .atrd-filter-summary {
+        font-size: .92rem;
+        color: var(--atrd-muted);
     }
 
     .atrd-kpi-grid {
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 12px;
+        gap: 10px;
     }
     .atrd-kpi {
         border: 1px solid var(--atrd-border);
@@ -132,7 +138,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
     }
     .atrd-kpi-title {
         font-size: .76rem;
@@ -170,7 +176,7 @@
     .atrd-twin {
         display: grid;
         grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-        gap: 12px;
+        gap: 10px;
     }
     .atrd-card {
         border: 1px solid var(--atrd-border);
@@ -181,11 +187,11 @@
     }
     .atrd-card-head {
         border-bottom: 1px solid var(--atrd-border);
-        padding: .9rem 1rem;
+        padding: 10px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         flex-wrap: wrap;
     }
     .atrd-card-head h3 {
@@ -195,7 +201,7 @@
         font-weight: 800;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
     }
     .atrd-card-head span {
         color: var(--atrd-muted);
@@ -216,7 +222,7 @@
 
     .atrd-status-layout {
         display: grid;
-        gap: 14px;
+        gap: 10px;
     }
     .atrd-status-top {
         display: flex;
@@ -357,33 +363,29 @@
         .atrd-kpi-grid {
             grid-template-columns: 1fr;
         }
-        .atrd-hero h2 {
-            font-size: 1.34rem;
-        }
-        .atrd-hero-meta {
-            justify-items: start;
-        }
     }
 </style>
 
-<div class="atrd" data-server-rendered-page="dashboard" data-page-title="Atrium Dashboard">
-    <section class="atrd-hero">
-        <div>
-            <h2><i class="fa-solid fa-building-columns" style="margin-right:8px;opacity:.88;"></i>Atrium Dashboard</h2>
-            <p>Bookings, payments, and operations analytics for your Atrium team.</p>
+<div class="atrd" data-server-rendered-page="dashboard" data-page-title="Atrium Dashboard" data-live-refresh-ms="120000">
+    <section class="atrd-filter-card">
+        <form id="atrdFilterForm" method="GET" action="{{ route('atrium.dashboard') }}">
+            <input type="hidden" id="atrdPeriodInput" name="period" value="{{ $period }}">
+            <div class="atrd-filter-row">
+                <button type="button" class="atrd-filter-pill {{ $period === 'today' ? 'is-active' : '' }}" data-period="today"><i class="fa-solid fa-sun"></i>Today</button>
+                <button type="button" class="atrd-filter-pill {{ $period === 'week' ? 'is-active' : '' }}" data-period="week"><i class="fa-regular fa-calendar"></i>This Week</button>
+                <button type="button" class="atrd-filter-pill {{ $period === 'month' ? 'is-active' : '' }}" data-period="month"><i class="fa-solid fa-calendar-days"></i>This Month</button>
+                <button type="button" class="atrd-filter-pill {{ $period === 'range' ? 'is-active' : '' }}" data-period="range"><i class="fa-solid fa-calendar-check"></i>Custom Range</button>
+                <div id="atrdFilterRangeFields" class="atrd-filter-range" {{ $period === 'range' ? '' : 'hidden' }}>
+                    <input class="atrd-filter-input" type="date" id="atrdDateFrom" name="date_from" value="{{ $dateFrom }}">
+                    <span style="color:var(--atrd-muted);font-size:.85rem;">to</span>
+                    <input class="atrd-filter-input" type="date" id="atrdDateTo" name="date_to" value="{{ $dateTo }}">
+                    <button type="submit" class="atrd-filter-apply">Apply Range</button>
+                </div>
+            </div>
+        </form>
+        <div class="atrd-filter-summary">
+            Showing data for <strong>{{ $filterLabel }}</strong>: {{ $displayRange }}
         </div>
-        <div class="atrd-hero-meta">
-            <span class="atrd-hero-clock" id="atrdClock">{{ now()->format('h:i A') }}</span>
-            <span class="atrd-hero-sub">{{ now()->format('l, M d, Y') }}</span>
-            <span class="atrd-hero-sub">This month focus</span>
-        </div>
-    </section>
-
-    <section class="atrd-action-row">
-        <a class="atrd-btn-primary" href="{{ route('atrium.bookings', ['new_booking' => 1]) }}"><i class="fa-solid fa-plus"></i> New Booking</a>
-        <a class="atrd-btn-outline" href="{{ route('atrium.payments.create') }}"><i class="fa-solid fa-peso-sign"></i> Record Payment</a>
-        <a class="atrd-btn-outline" href="{{ route('atrium.supplies.create') }}"><i class="fa-solid fa-boxes-stacked"></i> Request Supplies</a>
-        <a class="atrd-btn-outline" href="{{ route('atrium.reports') }}"><i class="fa-solid fa-chart-pie"></i> Reports</a>
     </section>
 
     <section class="atrd-kpi-grid">
@@ -393,7 +395,7 @@
                 <span class="atrd-kpi-icon purple"><i class="fa-solid fa-calendar-check"></i></span>
             </div>
             <div class="atrd-kpi-value">{{ number_format($totalEvents) }}</div>
-            <div class="atrd-kpi-sub">{{ number_format($eventsThisMonth) }} this month</div>
+            <div class="atrd-kpi-sub">{{ number_format($eventsThisMonth) }} in {{ strtolower($filterLabel) }}</div>
         </article>
 
         <article class="atrd-kpi atrd-kpi-blue">
@@ -411,7 +413,7 @@
                 <span class="atrd-kpi-icon green"><i class="fa-solid fa-peso-sign"></i></span>
             </div>
             <div class="atrd-kpi-value" style="font-size:1.2rem;">PHP {{ number_format($totalCollected, 2) }}</div>
-            <div class="atrd-kpi-sub">PHP {{ number_format($collectedThisMonth, 2) }} this month</div>
+            <div class="atrd-kpi-sub">PHP {{ number_format($collectedThisMonth, 2) }} in {{ strtolower($filterLabel) }}</div>
         </article>
 
         <article class="atrd-kpi atrd-kpi-amber">
@@ -425,11 +427,11 @@
 
         <article class="atrd-kpi atrd-kpi-red">
             <div class="atrd-kpi-head">
-                <span class="atrd-kpi-title">Pending Supplies</span>
-                <span class="atrd-kpi-icon red"><i class="fa-solid fa-box-open"></i></span>
+                <span class="atrd-kpi-title">Cancelled Events</span>
+                <span class="atrd-kpi-icon red"><i class="fa-solid fa-ban"></i></span>
             </div>
-            <div class="atrd-kpi-value">{{ number_format($pendingSupplies) }}</div>
-            <div class="atrd-kpi-sub">Needs processing</div>
+            <div class="atrd-kpi-value">{{ number_format($statusCounts['cancelled']) }}</div>
+            <div class="atrd-kpi-sub">Within selected range</div>
         </article>
     </section>
 
@@ -437,7 +439,7 @@
         <article class="atrd-card">
             <div class="atrd-card-head">
                 <h3><i class="fa-solid fa-chart-column" style="color:var(--atrd-primary);"></i>Daily Bookings Trend</h3>
-                <span>{{ now()->format('F Y') }}</span>
+                <span>{{ $displayRange }}</span>
             </div>
             <div class="atrd-card-body">
                 <div class="atrd-chart-wrap" style="height:240px;">
@@ -449,7 +451,7 @@
         <article class="atrd-card">
             <div class="atrd-card-head">
                 <h3><i class="fa-solid fa-circle-half-stroke" style="color:var(--atrd-primary);"></i>Status and Collection Mix</h3>
-                <span>This month</span>
+                <span>{{ $filterLabel }}</span>
             </div>
             <div class="atrd-card-body atrd-status-layout">
                 <div class="atrd-status-top">
@@ -481,8 +483,8 @@
     <section class="atrd-twin">
         <article class="atrd-card">
             <div class="atrd-card-head">
-                <h3><i class="fa-solid fa-chart-area" style="color:var(--atrd-primary);"></i>6-Month Collection Trend</h3>
-                <span>Payment receipts</span>
+                <h3><i class="fa-solid fa-chart-area" style="color:var(--atrd-primary);"></i>Collection Trend</h3>
+                <span>{{ $displayRange }}</span>
             </div>
             <div class="atrd-card-body">
                 <div class="atrd-chart-wrap" style="height:240px;">
@@ -493,13 +495,13 @@
 
         <article class="atrd-card">
             <div class="atrd-card-head">
-                <h3><i class="fa-solid fa-clock" style="color:var(--atrd-primary);"></i>Upcoming Events</h3>
-                <span>Next {{ $nextEvents->count() }} event(s)</span>
+                <h3><i class="fa-solid fa-clock" style="color:var(--atrd-primary);"></i>Events in Range</h3>
+                <span>{{ $nextEvents->count() }} event(s)</span>
             </div>
             @if ($nextEvents->isEmpty())
                 <div class="atrd-empty">
                     <i class="fa-solid fa-calendar-xmark" style="font-size:1.4rem;color:#cbd5e1;display:block;margin-bottom:8px;"></i>
-                    No upcoming events scheduled.
+                    No events found in this selected range.
                 </div>
             @else
                 <div class="atrd-table-wrap">
@@ -545,18 +547,44 @@
 
 <script>
 (function () {
-    const clockEl = document.getElementById('atrdClock');
-    if (clockEl) {
-        const tick = () => {
-            const now = new Date();
-            let hour = now.getHours();
-            const minute = now.getMinutes();
-            const ampm = hour >= 12 ? 'PM' : 'AM';
-            hour = hour % 12 || 12;
-            clockEl.textContent = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ${ampm}`;
-        };
-        tick();
-        setInterval(tick, 1000);
+    const filterForm = document.getElementById('atrdFilterForm');
+    const periodInput = document.getElementById('atrdPeriodInput');
+    const rangeFields = document.getElementById('atrdFilterRangeFields');
+    const dateFromInput = document.getElementById('atrdDateFrom');
+    const dateToInput = document.getElementById('atrdDateTo');
+    const filterPills = document.querySelectorAll('.atrd-filter-pill[data-period]');
+
+    filterPills.forEach((pill) => {
+        pill.addEventListener('click', () => {
+            if (!periodInput || !filterForm) return;
+
+            const selected = pill.dataset.period || 'month';
+            periodInput.value = selected;
+            filterPills.forEach((p) => p.classList.toggle('is-active', p === pill));
+
+            if (rangeFields) {
+                rangeFields.hidden = selected !== 'range';
+            }
+
+            if (selected !== 'range') {
+                filterForm.submit();
+            }
+        });
+    });
+
+    if (filterForm) {
+        filterForm.addEventListener('submit', (event) => {
+            if (!periodInput || periodInput.value !== 'range') {
+                return;
+            }
+
+            const from = dateFromInput?.value || '';
+            const to = dateToInput?.value || '';
+            if (from === '' || to === '' || from > to) {
+                event.preventDefault();
+                alert('Please select a valid custom date range.');
+            }
+        });
     }
 
     document.querySelectorAll('.js-atrd-progress').forEach((el) => {

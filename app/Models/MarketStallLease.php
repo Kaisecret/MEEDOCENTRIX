@@ -64,4 +64,14 @@ class MarketStallLease extends Model
     {
         return $this->hasMany(MarketPaymentCollection::class, 'market_stall_lease_id');
     }
+
+    public function dispatchItems(): HasMany
+    {
+        return $this->hasMany(CollectionDispatchItem::class, 'market_stall_lease_id');
+    }
+
+    public function dueLogs(): HasMany
+    {
+        return $this->hasMany(MarketDueLog::class, 'market_stall_lease_id');
+    }
 }

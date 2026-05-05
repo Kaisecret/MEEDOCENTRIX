@@ -293,9 +293,9 @@
 
 .sp-page {
     max-width: 1400px;
-    margin: 0 auto;
+    margin: -10px auto 0;
     display: grid;
-    gap: 18px;
+    gap: 10px;
     padding-bottom: 2rem;
     font-family: 'Inter', system-ui, sans-serif;
 }
@@ -324,30 +324,30 @@
 
 /* ── Hero Banner ── */
 .sp-hero {
-    border-radius: 14px; padding: 1.35rem 1.6rem; color: #fff;
-    background: linear-gradient(135deg, #0a3d6b 0%, var(--sp-primary) 55%, #1a7fd4 100%);
-    display: flex; justify-content: space-between; gap: 14px; align-items: center;
+    border-radius: 14px; padding: 10px; color: #fff;
+    background: #155e8f;
+    display: flex; justify-content: space-between; gap: 10px; align-items: center;
     flex-wrap: wrap;
     box-shadow: 0 4px 14px rgba(10,63,168,.22);
 }
-.sp-hero h1 { margin: 0 0 4px; font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; }
-.sp-hero p  { margin: 0; font-size: .9rem; opacity: .88; }
+.sp-hero h1 { margin: 0 0 2px; font-size: 1.05rem; font-weight: 800; letter-spacing: -.02em; }
+.sp-hero p  { margin: 0; font-size: .72rem; opacity: .9; }
 
 /* KPI boxes in hero */
-.sp-kpis { display: grid; grid-template-columns: repeat(3, minmax(90px, 1fr)); gap: 8px; }
+.sp-kpis { display: grid; grid-template-columns: repeat(3, minmax(90px, 1fr)); gap: 10px; }
 .sp-kpis div {
     background: rgba(255,255,255,.14);
     border: 1px solid rgba(255,255,255,.2);
     border-radius: 10px;
-    padding: .6rem .8rem;
+    padding: 10px;
     text-align: center;
-    min-width: 80px;
+    min-width: 72px;
 }
 .sp-kpis span {
-    font-size: .67rem; text-transform: uppercase; letter-spacing: .06em;
+    font-size: .62rem; text-transform: uppercase; letter-spacing: .04em;
     opacity: .8; display: block; margin-bottom: 4px;
 }
-.sp-kpis strong { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+.sp-kpis strong { font-size: 1.12rem; font-weight: 800; line-height: 1; }
 
 /* ── White Cards ── */
 .sp-card {
@@ -360,7 +360,7 @@
 
 /* ── Filter Row ── */
 .sp-filter-row {
-    padding: .9rem 1.2rem;
+    padding: 10px;
     display: grid; gap: 10px;
     grid-template-columns: 180px 160px 160px minmax(220px, 1fr);
     align-items: end;
@@ -387,7 +387,7 @@
 
 /* ── Section Headers ── */
 .sp-batch-head {
-    padding: 1rem 1.2rem;
+    padding: 10px;
     border-bottom: 1px solid var(--sp-border);
     display: flex; gap: 10px;
     justify-content: space-between;
@@ -406,7 +406,7 @@
 }
 .sp-batch-head h3 i { color: var(--sp-primary); font-size: .9rem; }
 .sp-batch-controls {
-    display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;
+    display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;
 }
 .sp-batch-controls label {
     display: grid; gap: 4px;
@@ -435,13 +435,13 @@
     background: #eef5fb; color: #103250;
     text-transform: uppercase; letter-spacing: .04em; font-size: .73rem;
     font-weight: 700; text-align: left;
-    padding: .85rem 1rem;
+    padding: 10px;
     border-bottom: 1px solid var(--sp-border);
     white-space: nowrap;
 }
 .sp-table thead th:first-child { border-radius: 0; }
 .sp-table tbody td {
-    padding: .85rem 1rem;
+    padding: 10px;
     border-bottom: 1px solid #f1f5f9;
     font-size: .88rem; color: var(--sp-text);
 }
@@ -463,8 +463,8 @@
 
 /* ── Footer Summary ── */
 .sp-footer-summary {
-    padding: .85rem 1.2rem;
-    display: flex; gap: 16px; justify-content: flex-end;
+    padding: 10px;
+    display: flex; gap: 10px; justify-content: flex-end;
     font-size: .88rem; color: var(--sp-text);
     border-top: 1px solid var(--sp-border);
     background: #fafcff;
@@ -474,7 +474,7 @@
 /* ── Misc ── */
 .sp-action-row { display: inline-flex; gap: 6px; flex-wrap: wrap; }
 .sp-hint {
-    margin: 0; padding: .5rem 1.2rem .75rem;
+    margin: 0; padding: 10px;
     color: #991b1b; font-size: .85rem; font-weight: 600;
     display: flex; align-items: center; gap: 6px;
 }

@@ -2,6 +2,10 @@
 
 @section('content')
 <style>
+    #contentArea {
+        padding-top: 10px;
+    }
+
     .db {
         --db-primary:#155f8f;
         --db-primary-dk:#0f4b73;
@@ -16,71 +20,7 @@
         font-family:'Inter',system-ui,-apple-system,sans-serif;
         color:var(--db-text);
         display:grid;
-        gap:16px;
-    }
-
-    .db-hero {
-        background:linear-gradient(120deg,var(--db-primary),#1f86ba);
-        color:#fff;
-        border-radius:12px;
-        padding:1.25rem 1.4rem;
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-start;
-        gap:12px;
-        flex-wrap:wrap;
-        box-shadow:0 8px 20px rgba(15,23,42,.16);
-    }
-    .db-hero h2 {
-        margin:0 0 .32rem;
-        font-size:1.6rem;
-        font-weight:800;
-        letter-spacing:-.02em;
-    }
-    .db-hero p {
-        margin:0;
-        color:rgba(255,255,255,.88);
-        font-size:.92rem;
-    }
-    .db-hero-right {
-        display:flex;
-        flex-direction:column;
-        align-items:flex-end;
-        gap:4px;
-    }
-    .db-hero-date {
-        font-size:.82rem;
-        color:rgba(255,255,255,.74);
-    }
-    .db-hero-time {
-        font-size:1.45rem;
-        font-weight:800;
-    }
-    .db-hero-actions {
-        display:flex;
-        gap:8px;
-        flex-wrap:wrap;
-        margin-top:.65rem;
-    }
-    .db-hero-btn {
-        min-height:36px;
-        border-radius:9px;
-        border:1px solid rgba(255,255,255,.45);
-        background:rgba(255,255,255,.18);
-        color:#fff;
-        text-decoration:none;
-        padding:0 .8rem;
-        font-size:.82rem;
-        font-weight:700;
-        display:inline-flex;
-        align-items:center;
-        gap:7px;
-        transition:all .2s ease;
-    }
-    .db-hero-btn:hover {
-        color:#fff;
-        transform:translateY(-1px);
-        background:rgba(255,255,255,.28);
+        gap:10px;
     }
 
     .db-filter-card {
@@ -88,9 +28,9 @@
         border-radius:12px;
         background:#fff;
         box-shadow:0 1px 3px rgba(0,0,0,.04);
-        padding:14px 16px;
+        padding:10px;
         display:grid;
-        gap:12px;
+        gap:10px;
     }
     .db-filter-row {
         display:flex;
@@ -154,15 +94,15 @@
     .db-kpi-grid {
         display:grid;
         grid-template-columns:repeat(4,minmax(0,1fr));
-        gap:12px;
+        gap:10px;
     }
     .db-kpi {
         border:1px solid var(--db-border);
         border-radius:12px;
         background:#fff;
-        padding:1rem 1rem .95rem;
+        padding:10px;
         display:grid;
-        gap:5px;
+        gap:10px;
         box-shadow:0 1px 3px rgba(0,0,0,.05);
         position:relative;
         overflow:hidden;
@@ -206,7 +146,7 @@
     }
     .db-card-head {
         border-bottom:1px solid var(--db-border);
-        padding:.94rem 1rem;
+        padding:10px;
         display:flex;
         align-items:center;
         justify-content:space-between;
@@ -222,7 +162,7 @@
         align-items:center;
         gap:8px;
     }
-    .db-card-body { padding:1rem; }
+    .db-card-body { padding:10px; }
     .db-link-btn {
         min-height:34px;
         border-radius:8px;
@@ -242,7 +182,7 @@
     .db-twin {
         display:grid;
         grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);
-        gap:12px;
+        gap:10px;
     }
     .db-chart-wrap {
         position:relative;
@@ -255,7 +195,7 @@
     .db-chart-kpi {
         display:grid;
         grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
+        gap:10px;
         margin-top:10px;
     }
     .db-chart-kpi-item {
@@ -300,7 +240,7 @@
     .db-action-card strong { color:var(--db-head); font-size:.9rem; }
     .db-action-card span { color:var(--db-muted); font-size:.8rem; }
 
-    .db-progress-wrap { display:grid; gap:8px; }
+    .db-progress-wrap { display:grid; gap:10px; }
     .db-progress-label {
         display:flex;
         justify-content:space-between;
@@ -371,7 +311,7 @@
     .db-badge-unpaid { border-color:#fecaca; background:#fef2f2; color:#b91c1c; }
     .db-badge-cancelled { border-color:#fecaca; background:#fff1f2; color:#9f1239; }
 
-    .db-status-list { display:grid; gap:8px; }
+    .db-status-list { display:grid; gap:10px; }
     .db-status-row {
         display:flex;
         justify-content:space-between;
@@ -390,7 +330,6 @@
     @media (max-width:680px) {
         .db-kpi-grid { grid-template-columns:1fr; }
         .db-actions-grid { grid-template-columns:1fr; }
-        .db-hero-time { font-size:1.18rem; }
     }
 </style>
 
@@ -406,30 +345,13 @@
     $activityPointCount = (int) collect($activityStats)->count();
 @endphp
 
-<div class="db" data-server-rendered-page="dashboard" data-page-title="Cemetery Dashboard">
-    <section class="db-hero">
-        <div>
-            <h2><i class="fa-solid fa-cross" style="margin-right:9px;opacity:.86;"></i>Cemetery Dashboard</h2>
-            <p>Office monitoring for occupant records, services, transactions, and payment collection.</p>
-            <div class="db-hero-actions">
-                <a class="db-hero-btn" href="{{ route('cemetery.records') }}"><i class="fa-solid fa-users"></i> Occupant Records</a>
-                <a class="db-hero-btn" href="{{ route('cemetery.services') }}"><i class="fa-solid fa-book-journal-whills"></i> Service Logs</a>
-                <a class="db-hero-btn" href="{{ route('cemetery.transactions') }}"><i class="fa-solid fa-receipt"></i> Transactions</a>
-                <a class="db-hero-btn" href="{{ route('cemetery.payments') }}"><i class="fa-solid fa-cash-register"></i> Payments</a>
-            </div>
-        </div>
-        <div class="db-hero-right">
-            <span class="db-hero-date">{{ $filterLabel }}</span>
-            <span class="db-hero-date">{{ $displayRange }}</span>
-            <span class="db-hero-time" id="db-clock">{{ now()->format('h:i A') }}</span>
-        </div>
-    </section>
-
+<div class="db" data-server-rendered-page="dashboard" data-page-title="Cemetery Dashboard" data-live-refresh-ms="120000">
     <section class="db-filter-card">
         <form id="dbFilterForm" method="GET" action="{{ route('cemetery.dashboard') }}">
             <input type="hidden" id="dbPeriodInput" name="period" value="{{ $period }}">
             <div class="db-filter-row">
                 <button type="button" class="db-filter-pill {{ $period === 'today' ? 'is-active' : '' }}" data-period="today">Today</button>
+                <button type="button" class="db-filter-pill {{ $period === 'week' ? 'is-active' : '' }}" data-period="week">This Week</button>
                 <button type="button" class="db-filter-pill {{ $period === 'month' ? 'is-active' : '' }}" data-period="month">This Month</button>
                 <button type="button" class="db-filter-pill {{ $period === 'range' ? 'is-active' : '' }}" data-period="range">Custom Range</button>
                 <div id="dbFilterRangeFields" class="db-filter-range" {{ $period === 'range' ? '' : 'hidden' }}>
@@ -456,35 +378,15 @@
             <div class="db-kpi-value">{{ number_format($occupiedPlots) }}</div>
             <div class="db-kpi-sub">{{ $occupancyRate }}% occupancy</div>
         </article>
-        <article class="db-kpi db-kpi-amber">
-            <div class="db-kpi-label">Available Niches/Lots</div>
-            <div class="db-kpi-value">{{ number_format($availablePlots) }}</div>
-            <div class="db-kpi-sub">{{ number_format($totalPlots) }} total mapped plots</div>
-        </article>
         <article class="db-kpi db-kpi-red">
             <div class="db-kpi-label">Overdue Maintenance</div>
             <div class="db-kpi-value">{{ number_format((int) ($summary['overdue_maintenance'] ?? 0)) }}</div>
             <div class="db-kpi-sub">Needs follow-up collection</div>
         </article>
-        <article class="db-kpi db-kpi-blue">
-            <div class="db-kpi-label">Services ({{ $filterLabel }})</div>
-            <div class="db-kpi-value">{{ number_format($servicesPeriod) }}</div>
-            <div class="db-kpi-sub">{{ $displayRange }}</div>
-        </article>
-        <article class="db-kpi db-kpi-green">
-            <div class="db-kpi-label">Transactions ({{ $filterLabel }})</div>
-            <div class="db-kpi-value">{{ number_format($transactionsPeriod) }}</div>
-            <div class="db-kpi-sub">{{ $displayRange }}</div>
-        </article>
         <article class="db-kpi db-kpi-amber">
             <div class="db-kpi-label">Collected ({{ $filterLabel }})</div>
             <div class="db-kpi-value">PHP {{ number_format($paymentsPeriod, 2) }}</div>
             <div class="db-kpi-sub">{{ $displayRange }}</div>
-        </article>
-        <article class="db-kpi db-kpi-blue">
-            <div class="db-kpi-label">Total Collected</div>
-            <div class="db-kpi-value">PHP {{ number_format($totalCollected, 2) }}</div>
-            <div class="db-kpi-sub">All-time recorded payments</div>
         </article>
     </section>
 
@@ -680,20 +582,6 @@
 
 <script>
 (function () {
-    const clockEl = document.getElementById('db-clock');
-    if (clockEl) {
-        const tick = () => {
-            const now = new Date();
-            let h = now.getHours();
-            const m = now.getMinutes();
-            const ampm = h >= 12 ? 'PM' : 'AM';
-            h = h % 12 || 12;
-            clockEl.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
-        };
-        tick();
-        setInterval(tick, 1000);
-    }
-
     document.querySelectorAll('.js-db-progress-fill').forEach((bar) => {
         const rawWidth = Number.parseFloat(bar.dataset.width || '0');
         const width = Number.isFinite(rawWidth) ? Math.max(0, Math.min(100, rawWidth)) : 0;

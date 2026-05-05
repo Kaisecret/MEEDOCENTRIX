@@ -7,6 +7,7 @@ use App\Models\CollectionDispatch;
 use App\Models\CollectionDispatchItem;
 use App\Models\CollectorDepartmentAssignment;
 use App\Models\FishportLog;
+use App\Support\AppNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -181,7 +182,8 @@ class FishportSendPaymentController extends Controller
                 ->with('error', 'Selected logs are already in an active collector queue.');
         }
 
-        DB::transaction(function () use ($request, $validated, $eligibleLogs): void {
+        $dispatchId = null;
+        DB::transaction(function () use ($request, $validated, $eligibleLogs, &$dispatchId): void {
             $dispatch = CollectionDispatch::query()->create([
                 'department_code' => 'fishport',
                 'collector_user_id' => (int) $validated['collector_user_id'],
@@ -193,6 +195,7 @@ class FishportSendPaymentController extends Controller
                 'status' => 'sent',
                 'sent_at' => now(),
             ]);
+            $dispatchId = (int) $dispatch->id;
 
             $itemRows = $eligibleLogs->map(static function (FishportLog $log) use ($dispatch): array {
                 $totalAmount = (float) ($log->paymentRecord?->total_amount ?? $log->payments()->sum('total'));
@@ -210,6 +213,17 @@ class FishportSendPaymentController extends Controller
 
             CollectionDispatchItem::query()->insert($itemRows);
         });
+
+        if ($dispatchId) {
+            AppNotificationService::notifyDispatchSent(
+                departmentCode: 'fishport',
+                dispatchId: (int) $dispatchId,
+                collectorUserId: (int) $validated['collector_user_id'],
+                itemCount: $eligibleLogs->count(),
+                actorName: (string) ($request->user()?->name ?? 'Fishport personnel'),
+                createdByUserId: $request->user()?->id
+            );
+        }
 
         return redirect()
             ->back()
@@ -251,6 +265,7 @@ class FishportSendPaymentController extends Controller
             ]);
 
             $this->refreshDispatchStatus((int) $item->collection_dispatch_id);
+            AppNotificationService::notifyDispatchItemReviewed($item, 'cancelled', $request->user()?->id);
         });
 
         return redirect()
@@ -305,6 +320,7 @@ class FishportSendPaymentController extends Controller
             ]);
 
             $this->refreshDispatchStatus((int) $item->collection_dispatch_id);
+            AppNotificationService::notifyDispatchItemReviewed($item, 'accepted', $request->user()?->id);
         });
 
         return redirect()
@@ -325,6 +341,7 @@ class FishportSendPaymentController extends Controller
         DB::transaction(function () use ($request, $dispatchItem, $validated): void {
             /** @var CollectionDispatchItem $item */
             $item = CollectionDispatchItem::query()
+                ->with('dispatch')
                 ->lockForUpdate()
                 ->findOrFail($dispatchItem->id);
 
@@ -340,6 +357,7 @@ class FishportSendPaymentController extends Controller
             ]);
 
             $this->refreshDispatchStatus((int) $item->collection_dispatch_id);
+            AppNotificationService::notifyDispatchItemReviewed($item, 'rejected', $request->user()?->id);
         });
 
         return redirect()

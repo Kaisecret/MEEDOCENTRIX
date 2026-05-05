@@ -25,7 +25,7 @@
             margin: 0 auto;
             display: flex;
             flex-direction: column;
-            gap: 18px;
+            gap: 10px;
             padding-bottom: 2rem;
             font-family: 'Inter', system-ui, sans-serif;
             color: var(--col-text);
@@ -63,18 +63,7 @@
         }
 
         /* ── Hero Banner ── */
-        .col-hero {
-            border-radius: 14px;
-            padding: 1.4rem 1.6rem;
-            color: #fff;
-            background: linear-gradient(135deg, #0a3d6b 0%, var(--col-primary) 55%, #1a7fd4 100%);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 14px;
-            box-shadow: 0 4px 14px rgba(10, 63, 168, .22);
-        }
+        .col-hero { display: none; }
 
         .col-hero-left h1 {
             margin: 0 0 4px;
@@ -195,7 +184,7 @@
         /* ── KPI Grid ── */
         .col-kpi-grid {
             display: grid;
-            gap: 14px;
+            gap: 10px;
             grid-template-columns: repeat(4, minmax(0, 1fr));
         }
 
@@ -269,8 +258,8 @@
         /* ── Chart Grid ── */
         .col-chart-grid {
             display: grid;
-            gap: 12px;
-            grid-template-columns: 2fr 1fr;
+            gap: 10px;
+            grid-template-columns: 1fr;
         }
 
         .col-chart-card {
@@ -316,6 +305,93 @@
             height: 250px !important;
         }
 
+        .col-history-wrap {
+            overflow-x: auto;
+        }
+
+        .col-history-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 760px;
+        }
+
+        .col-history-table thead th {
+            background: #eef5fb;
+            color: #0c3a5b;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            font-size: .72rem;
+            font-weight: 800;
+            text-align: left;
+            padding: .72rem .8rem;
+            border-bottom: 1px solid #dbe5f0;
+            white-space: nowrap;
+        }
+
+        .col-history-table tbody td {
+            padding: .72rem .8rem;
+            border-bottom: 1px solid #eef2f7;
+            font-size: .86rem;
+            color: var(--col-text);
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        .col-history-table tbody tr:hover td {
+            background: #f8fafc;
+        }
+
+        .col-history-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .col-history-num {
+            text-align: left;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .col-status-badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: .2rem .58rem;
+            font-size: .72rem;
+            font-weight: 700;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+
+        .col-status-badge.pending {
+            color: #1d4ed8;
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .col-status-badge.awaiting {
+            color: #92400e;
+            background: #fffbeb;
+            border-color: #fde68a;
+        }
+
+        .col-status-badge.accepted {
+            color: #065f46;
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+        }
+
+        .col-status-badge.rejected {
+            color: #991b1b;
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+
+        .col-history-empty {
+            padding: 1rem;
+            color: var(--col-muted);
+            font-size: .86rem;
+        }
+
         /* ── Responsive ── */
         @media (max-width: 1024px) {
             .col-kpi-grid {
@@ -329,7 +405,7 @@
 
         @media (max-width: 700px) {
             .col-page {
-                gap: 12px;
+                gap: 10px;
             }
 
             .col-hero {
@@ -607,39 +683,42 @@
         </section>
 
         {{-- ── Charts ── --}}
-        <section class="col-chart-grid">
-            <article class="col-chart-card">
-                <div class="col-chart-head">
-                    <h3><i class="fa-solid fa-chart-line" style="color:var(--col-primary);"></i>Daily Collection Trend</h3>
-                    <span>{{ $rangeLabel }}</span>
-                </div>
-                <div class="col-chart-body">
-                    <canvas id="collectorTrendChart"></canvas>
-                </div>
-            </article>
-            <article class="col-chart-card">
-                <div class="col-chart-head">
-                    <h3><i class="fa-solid fa-chart-pie" style="color:var(--col-primary);"></i>Status Breakdown</h3>
-                    <span>Current Filter</span>
-                </div>
-                <div class="col-chart-body">
-                    <canvas id="collectorStatusChart"></canvas>
-                </div>
-            </article>
+        <section class="col-chart-card">
+            <div class="col-chart-head">
+                <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--col-primary);"></i>Recent Transactions</h3>
+                <span>Latest 10 records</span>
+            </div>
+            <div class="col-history-wrap">
+                <table class="col-history-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Reference</th>
+                            <th>Source</th>
+                            <th>Status</th>
+                            <th class="col-history-num">Amount</th>
+                            <th>Payer</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($recentTransactions as $tx)
+                            <tr>
+                                <td>{{ $tx['date'] }}</td>
+                                <td>{{ $tx['reference'] }}</td>
+                                <td>{{ $tx['source'] }}</td>
+                                <td><span class="col-status-badge {{ $tx['status_class'] }}">{{ $tx['status'] }}</span></td>
+                                <td class="col-history-num">PHP {{ number_format((float) $tx['amount'], 2) }}</td>
+                                <td>{{ $tx['payer'] }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="col-history-empty">No recent transactions found for this filter.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </section>
-
-        <script id="collectorDashboardChartData" type="application/json">
-            {!! json_encode([
-                'labels' => $chartLabels,
-                'submitted' => $chartSubmitted,
-                'accepted' => $chartAccepted,
-                'rejected' => $chartRejected,
-                'pendingCount' => $pendingCount,
-                'awaitingCount' => $awaitingCount,
-                'acceptedCount' => $acceptedCount,
-                'rejectedCount' => $rejectedCount,
-            ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!}
-        </script>
 
     </div>
 
@@ -671,129 +750,7 @@
                     toInput.addEventListener('change', submitCustomDateRange);
                 }
             }
-
-            const PRIMARY = '#0f5fa8';
-            const GREEN = '#059669';
-            const RED = '#dc2626';
-            const AMBER = '#d97706';
-            const TEAL = '#0891b2';
-
-            const chartDataElement = document.getElementById('collectorDashboardChartData');
-            let chartData = {
-                labels: [],
-                submitted: [],
-                accepted: [],
-                rejected: [],
-                pendingCount: 0,
-                awaitingCount: 0,
-                acceptedCount: 0,
-                rejectedCount: 0,
-            };
-
-            if (chartDataElement) {
-                try {
-                    const parsed = JSON.parse(chartDataElement.textContent || '{}');
-                    chartData = { ...chartData, ...parsed };
-                } catch (error) {
-                    console.error('Failed to parse collector dashboard chart data.', error);
-                }
-            }
-
-            // ── Trend Line Chart ──
-            const labels = chartData.labels;
-            const submitted = chartData.submitted;
-            const accepted = chartData.accepted;
-            const rejected = chartData.rejected;
-
-            const trendCanvas = document.getElementById('collectorTrendChart');
-            if (trendCanvas && window.Chart) {
-                new Chart(trendCanvas, {
-                    type: 'line',
-                    data: {
-                        labels,
-                        datasets: [
-                            {
-                                label: 'Submitted',
-                                data: submitted,
-                                borderColor: PRIMARY,
-                                backgroundColor: 'rgba(15,95,168,.12)',
-                                borderWidth: 2.5,
-                                tension: .35,
-                                fill: true,
-                                pointRadius: 3,
-                                pointBackgroundColor: PRIMARY,
-                            },
-                            {
-                                label: 'Accepted',
-                                data: accepted,
-                                borderColor: GREEN,
-                                backgroundColor: 'rgba(5,150,105,.1)',
-                                borderWidth: 2.2,
-                                tension: .35,
-                                fill: false,
-                                pointRadius: 3,
-                                pointBackgroundColor: GREEN,
-                            },
-                            {
-                                label: 'Rejected',
-                                data: rejected,
-                                borderColor: RED,
-                                backgroundColor: 'rgba(220,38,38,.1)',
-                                borderWidth: 2.2,
-                                tension: .35,
-                                fill: false,
-                                pointRadius: 3,
-                                pointBackgroundColor: RED,
-                            },
-                        ],
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
-                        },
-                        scales: {
-                            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                            y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
-                        },
-                    },
-                });
-            }
-
-            // ── Status Donut ──
-            const statusCanvas = document.getElementById('collectorStatusChart');
-            if (statusCanvas && window.Chart) {
-                new Chart(statusCanvas, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Pending', 'Awaiting', 'Accepted', 'Rejected'],
-                        datasets: [{
-                            data: [
-                                Number(chartData.pendingCount),
-                                Number(chartData.awaitingCount),
-                                Number(chartData.acceptedCount),
-                                Number(chartData.rejectedCount),
-                            ],
-                            backgroundColor: [PRIMARY, AMBER, GREEN, RED],
-                            borderWidth: 2,
-                            borderColor: '#fff',
-                            hoverOffset: 6,
-                        }],
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '65%',
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: { boxWidth: 12, usePointStyle: true, font: { size: 11 } },
-                            },
-                        },
-                    },
-                });
-            }
         })();
     </script>
 @endsection
+

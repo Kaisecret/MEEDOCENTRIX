@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CemeteryPaymentCollectionController extends Controller
 {
@@ -36,39 +37,7 @@ class CemeteryPaymentCollectionController extends Controller
         $siteId = (int) $request->query('cemetery_site_id', 0);
         $status = trim((string) $request->query('payment_status', ''));
 
-        $paymentQuery = CemeteryPaymentCollection::query()
-            ->with([
-                'transaction.site',
-                'transaction.category',
-                'contact',
-            ]);
-
-        if ($search !== '') {
-            $like = '%' . $search . '%';
-            $paymentQuery->where(function ($query) use ($like): void {
-                $query->where('payment_no', 'like', $like)
-                    ->orWhere('official_receipt_no', 'like', $like)
-                    ->orWhere('remarks', 'like', $like)
-                    ->orWhereHas('contact', function ($contactQuery) use ($like): void {
-                        $contactQuery->where('contact_person', 'like', $like);
-                    })
-                    ->orWhereHas('transaction', function ($transactionQuery) use ($like): void {
-                        $transactionQuery->where('transaction_no', 'like', $like)
-                            ->orWhere('deceased_name', 'like', $like)
-                            ->orWhere('plot_reference', 'like', $like);
-                    });
-            });
-        }
-
-        if ($siteId > 0) {
-            $paymentQuery->whereHas('transaction', function ($query) use ($siteId): void {
-                $query->where('cemetery_site_id', $siteId);
-            });
-        }
-
-        if (array_key_exists($status, self::STATUS_OPTIONS)) {
-            $paymentQuery->where('payment_status', $status);
-        }
+        $paymentQuery = $this->buildFilteredPaymentQuery($search, $siteId, $status);
 
         $paymentCollections = $paymentQuery
             ->orderByDesc('payment_date')
@@ -166,6 +135,32 @@ class CemeteryPaymentCollectionController extends Controller
         ]);
     }
 
+    public function csv(Request $request): StreamedResponse
+    {
+        $this->syncOverduePaymentStatuses();
+
+        $search = trim((string) $request->query('q', ''));
+        $siteId = (int) $request->query('cemetery_site_id', 0);
+        $status = trim((string) $request->query('payment_status', ''));
+
+        $paymentCollections = $this->buildFilteredPaymentQuery($search, $siteId, $status)
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id')
+            ->get();
+
+        $filename = 'cemetery-payment-collections-' . now()->format('Ymd-His') . '.xls';
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+        ];
+
+        return response()->streamDownload(function () use ($paymentCollections, $search): void {
+            echo "\xEF\xBB\xBF";
+            echo $this->renderPaymentsExcelHtml($paymentCollections, $search);
+        }, $filename, $headers);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate($this->rules($request));
@@ -247,7 +242,11 @@ class CemeteryPaymentCollectionController extends Controller
 
         $amountDue = $this->transactionAmountDue($transaction->id);
         $totalPaid = $this->totalPaid($transaction->id);
-        $remainingBalance = round(max($amountDue - $totalPaid, 0), 2);
+        $isReopenedForCollection = in_array((string) $transaction->status, ['pending', 'partial'], true)
+            && $amountDue > 0
+            && $totalPaid >= $amountDue;
+        $effectiveTotalPaid = $isReopenedForCollection ? 0.0 : $totalPaid;
+        $remainingBalance = round(max($amountDue - $effectiveTotalPaid, 0), 2);
         $amountPaid = round((float) $validated['amount_paid'], 2);
 
         if ($remainingBalance <= 0) {
@@ -283,9 +282,9 @@ class CemeteryPaymentCollectionController extends Controller
         $paymentDate = (string) $validated['payment_date'];
         $existingRecordedAmount = $existingPayment ? round((float) $existingPayment->amount_paid, 2) : 0.0;
         $otherPaid = $existingPayment
-            ? round(max($totalPaid - $existingRecordedAmount, 0), 2)
-            : $totalPaid;
-        $newTotalPaid = round(min($totalPaid + $amountPaid, $amountDue), 2);
+            ? round(max($effectiveTotalPaid - $existingRecordedAmount, 0), 2)
+            : $effectiveTotalPaid;
+        $newTotalPaid = round(min($effectiveTotalPaid + $amountPaid, $amountDue), 2);
         $resolvedStatus = $newTotalPaid >= $amountDue ? 'paid' : 'partial';
 
         $payment = DB::transaction(function () use ($existingPayment, $transaction, $validated, $amountPaid, $receiptNo, $contactId, $paymentDate, $resolvedStatus, $newTotalPaid, $otherPaid, $amountDue): CemeteryPaymentCollection {
@@ -638,5 +637,131 @@ class CemeteryPaymentCollectionController extends Controller
         }
 
         return $requestedStatus === 'overdue' ? 'overdue' : 'partial';
+    }
+
+    private function buildFilteredPaymentQuery(string $search, int $siteId, string $status)
+    {
+        $paymentQuery = CemeteryPaymentCollection::query()
+            ->with([
+                'transaction.site',
+                'transaction.category',
+                'contact',
+            ]);
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $paymentQuery->where(function ($query) use ($like): void {
+                $query->where('payment_no', 'like', $like)
+                    ->orWhere('official_receipt_no', 'like', $like)
+                    ->orWhere('remarks', 'like', $like)
+                    ->orWhereHas('contact', function ($contactQuery) use ($like): void {
+                        $contactQuery->where('contact_person', 'like', $like);
+                    })
+                    ->orWhereHas('transaction', function ($transactionQuery) use ($like): void {
+                        $transactionQuery->where('transaction_no', 'like', $like)
+                            ->orWhere('deceased_name', 'like', $like)
+                            ->orWhere('plot_reference', 'like', $like);
+                    });
+            });
+        }
+
+        if ($siteId > 0) {
+            $paymentQuery->whereHas('transaction', function ($query) use ($siteId): void {
+                $query->where('cemetery_site_id', $siteId);
+            });
+        }
+
+        if (array_key_exists($status, self::STATUS_OPTIONS)) {
+            $paymentQuery->where('payment_status', $status);
+        }
+
+        return $paymentQuery;
+    }
+
+    private function renderPaymentsExcelHtml($paymentCollections, string $search): string
+    {
+        $esc = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $searchLabel = $search === '' ? 'All records' : $search;
+
+        $css = '
+            body { font-family: Calibri, "Segoe UI", Arial, sans-serif; color:#0f172a; }
+            table { border-collapse: collapse; width: 100%; }
+            .title { font-size:16pt; font-weight:bold; color:#0c3a5b; }
+            .meta { font-size:10pt; color:#475569; }
+            .data th {
+                background:#155f8f; color:#ffffff; font-weight:bold;
+                padding:6pt 8pt; border:1px solid #0c3a5b; text-align:left; font-size:10pt;
+            }
+            .data td {
+                padding:5pt 8pt; border:1px solid #cbd5e1; font-size:10pt; vertical-align:top;
+            }
+            .data tr.alt td { background:#f8fafc; }
+        ';
+
+        ob_start();
+        ?>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="UTF-8">
+    <title>Payment Collection</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>Payment Collection</x:Name>
+                    <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+    <style><?= $css ?></style>
+</head>
+<body>
+<table>
+    <tr><td colspan="7" class="title">Cemetery Payment Collection</td></tr>
+    <tr><td colspan="7" class="meta">Generated: <?= $esc(now()->format('F d, Y h:i A')) ?></td></tr>
+    <tr><td colspan="7" class="meta">Filter: <?= $esc($searchLabel) ?></td></tr>
+    <tr><td colspan="7">&nbsp;</td></tr>
+</table>
+
+<table class="data">
+    <thead>
+        <tr>
+            <th>Payment Ref.</th>
+            <th>Transaction Ref.</th>
+            <th>Cemetery</th>
+            <th>Deceased Name</th>
+            <th>Amount Paid</th>
+            <th>Payment Date</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $rowIndex = 0; foreach ($paymentCollections as $paymentCollection): $rowIndex++; ?>
+            <?php $transaction = $paymentCollection->transaction; ?>
+            <tr<?= $rowIndex % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($paymentCollection->payment_no) ?></strong></td>
+                <td><?= $esc($transaction?->transaction_no ?: '-') ?></td>
+                <td><?= $esc($transaction?->site?->site_name ?: '-') ?></td>
+                <td><?= $esc($transaction?->deceased_name ?: '-') ?></td>
+                <td><?= $esc('PHP ' . number_format((float) $paymentCollection->amount_paid, 2)) ?></td>
+                <td><?= $esc(optional($paymentCollection->payment_date)->format('Y-m-d') ?: '-') ?></td>
+                <td><?= $esc(self::STATUS_OPTIONS[$paymentCollection->payment_status] ?? strtoupper((string) $paymentCollection->payment_status)) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if ($paymentCollections->isEmpty()): ?>
+            <tr><td colspan="7">No payment records found.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+</body>
+</html>
+        <?php
+
+        return (string) ob_get_clean();
     }
 }

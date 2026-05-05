@@ -2,6 +2,10 @@
 
 @section('content')
 <style>
+    #contentArea {
+        padding-top: 10px;
+    }
+
     .mkd {
         --mkd-primary: #155f8f;
         --mkd-primary-deep: #0f4b73;
@@ -19,55 +23,7 @@
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
         color: var(--mkd-text);
         display: grid;
-        gap: 16px;
-    }
-
-    .mkd-hero {
-        background:
-            radial-gradient(circle at 86% 8%, rgba(255, 255, 255, .16) 0, transparent 42%),
-            radial-gradient(circle at 12% 84%, rgba(255, 255, 255, .09) 0, transparent 36%),
-            linear-gradient(135deg, #0a3d6b 0%, #155f8f 52%, #1a7fd4 100%);
-        color: #fff;
-        border-radius: 16px;
-        padding: 1.35rem 1.45rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 12px;
-        box-shadow: 0 8px 26px rgba(10, 63, 122, .22);
-    }
-
-    .mkd-hero h2 {
-        margin: 0 0 .35rem;
-        font-size: 1.55rem;
-        font-weight: 800;
-        letter-spacing: -.02em;
-    }
-
-    .mkd-hero p {
-        margin: 0;
-        font-size: .92rem;
-        color: rgba(255, 255, 255, .88);
-        max-width: 680px;
-    }
-
-    .mkd-hero-meta {
-        display: grid;
-        justify-items: end;
-        gap: 2px;
-    }
-
-    .mkd-hero-meta .mkd-range {
-        font-size: .83rem;
-        color: rgba(255, 255, 255, .84);
-        font-weight: 600;
-    }
-
-    .mkd-hero-meta .mkd-clock {
-        font-size: 1.4rem;
-        font-weight: 800;
-        letter-spacing: -.01em;
+        gap: 10px;
     }
 
     .mkd-filter {
@@ -75,7 +31,7 @@
         border-radius: 14px;
         background: var(--mkd-surface);
         box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
-        padding: .95rem 1rem;
+        padding: 10px;
         display: grid;
         gap: 10px;
     }
@@ -84,7 +40,7 @@
         display: flex;
         align-items: center;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 10px;
     }
 
     .mkd-pill {
@@ -114,7 +70,7 @@
     .mkd-range-fields {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         flex-wrap: wrap;
     }
 
@@ -158,7 +114,7 @@
     .mkd-kpi-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px;
+        gap: 10px;
     }
 
     .mkd-kpi {
@@ -166,9 +122,9 @@
         border-radius: 13px;
         background: var(--mkd-surface);
         box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
-        padding: .95rem 1rem;
+        padding: 10px;
         display: grid;
-        gap: 6px;
+        gap: 10px;
         animation: mkd-fade .34s ease both;
     }
 
@@ -181,7 +137,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: 10px;
     }
 
     .mkd-kpi-title {
@@ -227,7 +183,7 @@
     .mkd-grid-twin {
         display: grid;
         grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
-        gap: 12px;
+        gap: 10px;
     }
 
     .mkd-card {
@@ -240,11 +196,11 @@
 
     .mkd-card-head {
         border-bottom: 1px solid var(--mkd-border);
-        padding: .9rem 1rem;
+        padding: 10px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         flex-wrap: wrap;
     }
 
@@ -255,7 +211,7 @@
         font-weight: 800;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
     }
 
     .mkd-card-head span {
@@ -265,13 +221,39 @@
     }
 
     .mkd-card-body {
-        padding: 1rem;
+        padding: 10px;
     }
 
     .mkd-chart-wrap {
         position: relative;
         width: 100%;
         height: 240px;
+    }
+
+    .mkd-chart-wrap canvas {
+        display: block;
+        width: 100% !important;
+    }
+
+    .mkd-chart-frame {
+        height: 390px;
+        padding: 14px 16px 10px 10px;
+        border: 1px solid #dbe7f5;
+        border-radius: 4px;
+        background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 10px 24px rgba(21, 95, 143, .06);
+    }
+
+    .mkd-chart-frame--daily {
+        height: 420px;
+    }
+
+    .mkd-chart-frame--revenue {
+        height: 400px;
+    }
+
+    .mkd-chart-frame canvas {
+        height: 100% !important;
     }
 
     .mkd-chart-wrap--small {
@@ -283,8 +265,12 @@
     .mkd-donut-shell {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 10px;
         flex-wrap: wrap;
+    }
+
+    .mkd-donut-shell.is-empty .mkd-chart-wrap--small {
+        display: none;
     }
 
     .mkd-metric {
@@ -318,7 +304,7 @@
     .mkd-progress-meta {
         display: flex;
         justify-content: space-between;
-        gap: 8px;
+        gap: 10px;
         font-size: .82rem;
         color: var(--mkd-muted);
         font-weight: 600;
@@ -364,13 +350,13 @@
         text-transform: uppercase;
         letter-spacing: .04em;
         font-weight: 800;
-        padding: .78rem .95rem;
+        padding: 10px;
         text-align: left;
     }
 
     .mkd-table td {
         border-bottom: 1px solid #f1f5f9;
-        padding: .78rem .95rem;
+        padding: 10px;
         font-size: .87rem;
         color: var(--mkd-text);
         vertical-align: middle;
@@ -429,29 +415,18 @@
 
     @media (max-width: 680px) {
         .mkd-kpi-grid { grid-template-columns: 1fr; }
-        .mkd-hero h2 { font-size: 1.35rem; }
-        .mkd-hero-meta { justify-items: start; }
+        .mkd-chart-frame--daily { height: 340px; padding: 10px 10px 6px 4px; }
+        .mkd-chart-frame--revenue { height: 320px; padding: 10px 10px 6px 4px; }
     }
 </style>
 
-<div class="mkd" data-server-rendered-page="dashboard" data-page-title="Market Dashboard" data-live-refresh-ms="7000">
-    <section class="mkd-hero">
-        <div>
-            <h2><i class="fa-solid fa-store" style="margin-right:8px;opacity:.88;"></i>Public Market Dashboard</h2>
-            <p>Operational view of stall occupancy, tenant activity, collector queue, and market collections.</p>
-        </div>
-        <div class="mkd-hero-meta">
-            <span class="mkd-range">{{ $filterLabel }}</span>
-            <span class="mkd-range">{{ $displayRange }}</span>
-            <span class="mkd-clock" id="mkdClock">{{ now()->format('h:i A') }}</span>
-        </div>
-    </section>
-
+<div class="mkd" data-server-rendered-page="dashboard" data-page-title="Market Dashboard" data-live-refresh-ms="120000">
     <section class="mkd-filter">
         <form id="mkdFilterForm" method="GET" action="{{ route('market.dashboard') }}">
             <input type="hidden" id="mkdPeriodInput" name="period" value="{{ $period }}">
             <div class="mkd-filter-row">
                 <button type="button" class="mkd-pill {{ $period === 'today' ? 'is-active' : '' }}" data-period="today">Today</button>
+                <button type="button" class="mkd-pill {{ $period === 'week' ? 'is-active' : '' }}" data-period="week">This Week</button>
                 <button type="button" class="mkd-pill {{ $period === 'month' ? 'is-active' : '' }}" data-period="month">This Month</button>
                 <button type="button" class="mkd-pill {{ $period === 'range' ? 'is-active' : '' }}" data-period="range">Custom Range</button>
                 <div id="mkdRangeFields" class="mkd-range-fields" {{ $period === 'range' ? '' : 'hidden' }}>
@@ -462,7 +437,7 @@
                 </div>
             </div>
         </form>
-        <div class="mkd-filter-note">Showing data for <b>{{ $filterLabel }}</b>: {{ $displayRange }} | Auto-refresh: every 7 seconds</div>
+        <div class="mkd-filter-note">Showing data for <b>{{ $filterLabel }}</b>: {{ $displayRange }}</div>
     </section>
 
     <section class="mkd-kpi-grid">
@@ -510,17 +485,20 @@
                 <span>{{ $displayRange }}</span>
             </div>
             <div class="mkd-card-body">
-                <div class="mkd-chart-wrap"><canvas id="mkdDailyChart"></canvas></div>
+                <div class="mkd-chart-wrap mkd-chart-frame mkd-chart-frame--daily"><canvas id="mkdDailyChart"></canvas></div>
             </div>
         </article>
 
-        <div style="display:grid;gap:12px;">
+        <div style="display:grid;gap:10px;">
             <article class="mkd-card">
                 <div class="mkd-card-head">
                     <h3><i class="fa-solid fa-circle-half-stroke" style="color:var(--mkd-primary);"></i>Status Mix</h3>
                     <span>{{ $filterLabel }}</span>
                 </div>
-                <div class="mkd-card-body mkd-donut-shell">
+                @php
+                    $statusTotal = $acceptedDispatchCount + $awaitingDispatchCount + $pendingDispatchCount;
+                @endphp
+                <div class="mkd-card-body mkd-donut-shell {{ $statusTotal === 0 ? 'is-empty' : '' }}">
                     <div class="mkd-chart-wrap mkd-chart-wrap--small"><canvas id="mkdStatusDonut"></canvas></div>
                     <div style="flex:1;min-width:140px;">
                         <div class="mkd-metric"><span>Accepted</span><b>{{ number_format($acceptedDispatchCount) }}</b></div>
@@ -578,7 +556,7 @@
                 <span>Accepted transactions only</span>
             </div>
             <div class="mkd-card-body">
-                <div class="mkd-chart-wrap"><canvas id="mkdRevenueChart"></canvas></div>
+                <div class="mkd-chart-wrap mkd-chart-frame mkd-chart-frame--revenue"><canvas id="mkdRevenueChart"></canvas></div>
             </div>
         </article>
 
@@ -643,20 +621,6 @@
 
 <script>
 (function () {
-    const clockEl = document.getElementById('mkdClock');
-    if (clockEl) {
-        const tick = () => {
-            const now = new Date();
-            let hour = now.getHours();
-            const minute = now.getMinutes();
-            const ampm = hour >= 12 ? 'PM' : 'AM';
-            hour = hour % 12 || 12;
-            clockEl.textContent = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ${ampm}`;
-        };
-        tick();
-        setInterval(tick, 1000);
-    }
-
     const parseJsonScript = (id, fallback) => {
         const node = document.getElementById(id);
         if (!node) return fallback;
@@ -719,44 +683,131 @@
     const monthlyAmount = parseJsonScript('mkdMonthlyAmountJson', []);
     const statusCounts = parseJsonScript('mkdStatusCountsJson', { accepted: 0, awaiting: 0, pending: 0 });
 
-    new Chart(document.getElementById('mkdDailyChart'), {
+    const MKD_PRIMARY = '#155f8f';
+    const MKD_TOTAL = '#1e3a8a';
+    const MKD_ACCEPTED = '#10b981';
+    const MKD_AWAITING = '#1a7fd4';
+    const MKD_PENDING = '#f59e0b';
+
+    const mkdTooltip = {
+        backgroundColor: 'rgba(15,23,42,.94)',
+        titleColor: '#f8fafc',
+        bodyColor: '#e2e8f0',
+        padding: 12,
+        cornerRadius: 10,
+        boxPadding: 6,
+        titleFont: { weight: '700', size: 12 },
+        bodyFont: { weight: '600', size: 12 },
+    };
+
+    const mkdBuildGradient = (canvas, top, bottom) => {
+        const ctx = canvas.getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.parentElement?.clientHeight || 390);
+        gradient.addColorStop(0, top);
+        gradient.addColorStop(1, bottom);
+        return gradient;
+    };
+
+    const dailyCanvas = document.getElementById('mkdDailyChart');
+    const acceptedSeries = dailyStats.map((entry) => Number(entry.accepted) || 0);
+    const awaitingSeries = dailyStats.map((entry) => Number(entry.awaiting) || 0);
+    const pendingSeries = dailyStats.map((entry) => Number(entry.pending) || 0);
+    const dailyTotalSeries = acceptedSeries.map((value, index) =>
+        value + (awaitingSeries[index] || 0) + (pendingSeries[index] || 0)
+    );
+
+    new Chart(dailyCanvas, {
         type: 'bar',
         data: {
-            labels: dailyStats.map((entry) => `${entry.label}\n${entry.date}`),
+            labels: dailyStats.map((entry) => [entry.label, entry.date]),
             datasets: [
                 {
+                    type: 'bar',
                     label: 'Accepted',
-                    data: dailyStats.map((entry) => entry.accepted),
-                    backgroundColor: '#10b981',
-                    borderRadius: 6,
-                    borderSkipped: false
+                    data: acceptedSeries,
+                    backgroundColor: mkdBuildGradient(dailyCanvas, 'rgba(16,185,129,.9)', 'rgba(16,185,129,.62)'),
+                    hoverBackgroundColor: MKD_ACCEPTED,
+                    borderColor: 'rgba(5,150,105,.24)',
+                    borderWidth: 1,
+                    borderRadius: 0,
+                    borderSkipped: false,
+                    barPercentage: .62,
+                    categoryPercentage: .78,
+                    maxBarThickness: 38,
+                    order: 2,
                 },
                 {
+                    type: 'bar',
                     label: 'Awaiting',
-                    data: dailyStats.map((entry) => entry.awaiting),
-                    backgroundColor: '#06b6d4',
-                    borderRadius: 6,
-                    borderSkipped: false
+                    data: awaitingSeries,
+                    backgroundColor: mkdBuildGradient(dailyCanvas, 'rgba(21,95,143,.9)', 'rgba(21,95,143,.62)'),
+                    hoverBackgroundColor: MKD_PRIMARY,
+                    borderColor: 'rgba(21,95,143,.28)',
+                    borderWidth: 1,
+                    borderRadius: 0,
+                    borderSkipped: false,
+                    barPercentage: .62,
+                    categoryPercentage: .78,
+                    maxBarThickness: 38,
+                    order: 2,
                 },
                 {
+                    type: 'bar',
                     label: 'Pending',
-                    data: dailyStats.map((entry) => entry.pending),
-                    backgroundColor: '#f59e0b',
-                    borderRadius: 6,
-                    borderSkipped: false
+                    data: pendingSeries,
+                    backgroundColor: mkdBuildGradient(dailyCanvas, 'rgba(245,158,11,.9)', 'rgba(245,158,11,.58)'),
+                    hoverBackgroundColor: MKD_PENDING,
+                    borderColor: 'rgba(180,83,9,.22)',
+                    borderWidth: 1,
+                    borderRadius: 0,
+                    borderSkipped: false,
+                    barPercentage: .62,
+                    categoryPercentage: .78,
+                    maxBarThickness: 38,
+                    order: 2,
+                },
+                {
+                    type: 'line',
+                    label: 'Total',
+                    data: dailyTotalSeries,
+                    borderColor: MKD_TOTAL,
+                    backgroundColor: 'rgba(30,58,138,.14)',
+                    borderWidth: 1.7,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    pointBackgroundColor: MKD_TOTAL,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    tension: .28,
+                    fill: false,
+                    order: 1,
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: { padding: { top: 10, right: 8, left: 0, bottom: 0 } },
+            interaction: { mode: 'index', intersect: false },
             plugins: {
-                legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
-                tooltip: { mode: 'index', intersect: false }
+                legend: {
+                    position: 'top',
+                    align: 'end',
+                    labels: { color: '#475569', font: { size: 11, weight: '700' }, boxWidth: 8, boxHeight: 8, usePointStyle: true, padding: 14 },
+                },
+                tooltip: { ...mkdTooltip, mode: 'index', intersect: false },
             },
             scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: '#f1f5f9' } }
+                x: {
+                    offset: true,
+                    grid: { color: 'rgba(148,163,184,.12)', drawBorder: false, drawTicks: false },
+                    ticks: { color: '#64748b', font: { size: 10, weight: '600' }, maxRotation: 0, autoSkipPadding: 12, padding: 8 },
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, color: '#64748b', font: { size: 10, weight: '600' }, padding: 8 },
+                    grid: { color: 'rgba(148,163,184,.24)', drawBorder: false },
+                }
             }
         }
     });
@@ -771,7 +822,7 @@
                     Number.parseInt(statusCounts.awaiting ?? 0, 10) || 0,
                     Number.parseInt(statusCounts.pending ?? 0, 10) || 0
                 ],
-                backgroundColor: ['#10b981', '#06b6d4', '#f59e0b'],
+                backgroundColor: [MKD_ACCEPTED, MKD_PRIMARY, MKD_PENDING],
                 borderColor: '#ffffff',
                 borderWidth: 2
             }]
@@ -786,50 +837,83 @@
         }
     });
 
-    const revenueChart = new Chart(document.getElementById('mkdRevenueChart'), {
-        type: 'line',
+    const revenueCanvas = document.getElementById('mkdRevenueChart');
+    const revenueValues = monthlyAmount.map((entry) => Number(entry.amount) || 0);
+
+    new Chart(revenueCanvas, {
+        type: 'bar',
         data: {
             labels: monthlyAmount.map((entry) => entry.label),
-            datasets: [{
-                label: 'Collected Amount',
-                data: monthlyAmount.map((entry) => entry.amount),
-                borderColor: '#155f8f',
-                backgroundColor: 'rgba(21,95,143,0.12)',
-                borderWidth: 2.5,
-                fill: true,
-                tension: 0.34,
-                pointBackgroundColor: '#155f8f',
-                pointRadius: 4
-            }]
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Collected Amount',
+                    data: revenueValues,
+                    backgroundColor: mkdBuildGradient(revenueCanvas, 'rgba(79,128,237,.82)', 'rgba(79,128,237,.58)'),
+                    hoverBackgroundColor: '#4f80ed',
+                    borderColor: 'rgba(37,99,235,.22)',
+                    borderWidth: 1,
+                    borderRadius: 0,
+                    borderSkipped: false,
+                    barPercentage: .56,
+                    categoryPercentage: .76,
+                    maxBarThickness: 58,
+                    minBarLength: 4,
+                    order: 2,
+                },
+                {
+                    type: 'line',
+                    label: 'Trend',
+                    data: revenueValues,
+                    borderColor: 'rgba(216,124,124,.78)',
+                    backgroundColor: 'rgba(216,124,124,.16)',
+                    borderWidth: 1.6,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    pointHoverBackgroundColor: '#d87c7c',
+                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderWidth: 2,
+                    fill: false,
+                    tension: .28,
+                    order: 1,
+                },
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: { padding: { top: 10, right: 8, left: 0, bottom: 0 } },
+            interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    ...mkdTooltip,
+                    displayColors: false,
+                    filter: (ctx) => ctx.dataset.type === 'bar',
                     callbacks: {
                         label: (ctx) => ' PHP ' + Number(ctx.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2 })
                     }
                 }
             },
             scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                x: {
+                    offset: true,
+                    grid: { color: 'rgba(148,163,184,.12)', drawBorder: false, drawTicks: false },
+                    ticks: { color: '#64748b', font: { size: 10, weight: '600' }, maxRotation: 0, autoSkipPadding: 12, padding: 8 },
+                },
                 y: {
                     beginAtZero: true,
                     ticks: {
-                        font: { size: 10 },
-                        callback: (value) => 'PHP ' + Number(value).toLocaleString('en-PH')
+                        color: '#64748b',
+                        font: { size: 10, weight: '600' },
+                        padding: 8,
+                        callback: (value) => 'PHP ' + Number(value).toLocaleString('en-PH', { notation: 'compact', maximumFractionDigits: 1 })
                     },
-                    grid: { color: '#f1f5f9' }
+                    grid: { color: 'rgba(148,163,184,.24)', drawBorder: false },
                 }
             }
         }
     });
-
-    revenueChart.options.plugins.tooltip.callbacks.label = (ctx) =>
-        ' PHP ' + Number(ctx.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2 });
-    revenueChart.update();
 
 })();
 </script>

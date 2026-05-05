@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MarketStallController extends Controller
 {
@@ -45,38 +46,7 @@ class MarketStallController extends Controller
         $status = trim((string) $request->query('status', ''));
         $editingStallId = (int) $request->query('edit', 0);
 
-        $stallQuery = MarketStall::query()
-            ->with([
-                'location.activeRate',
-                'stallType',
-                'activeLease.tenant',
-                'activeLease.rate',
-            ]);
-
-        if ($search !== '') {
-            $like = '%' . $search . '%';
-            $stallQuery->where(function ($query) use ($like): void {
-                $query->where('stall_no', 'like', $like)
-                    ->orWhereHas('location', function ($locationQuery) use ($like): void {
-                        $locationQuery->where('location_code', 'like', $like)
-                            ->orWhere('location_name', 'like', $like)
-                            ->orWhere('zone', 'like', $like);
-                    })
-                    ->orWhereHas('activeLease.tenant', function ($tenantQuery) use ($like): void {
-                        $tenantQuery->where('first_name', 'like', $like)
-                            ->orWhere('last_name', 'like', $like)
-                            ->orWhere('business_name', 'like', $like);
-                    });
-            });
-        }
-
-        if ($locationId > 0) {
-            $stallQuery->where('market_stall_location_id', $locationId);
-        }
-
-        if (array_key_exists($status, self::STALL_STATUSES)) {
-            $stallQuery->where('stall_status', $status);
-        }
+        $stallQuery = $this->buildFilteredStallQuery($search, $locationId, $status);
 
         $stalls = $stallQuery
             ->orderByDesc('id')
@@ -117,6 +87,30 @@ class MarketStallController extends Controller
                 'maintenance' => MarketStall::query()->where('stall_status', 'maintenance')->count(),
             ],
         ]);
+    }
+
+    public function csv(Request $request): StreamedResponse
+    {
+        $search = trim((string) $request->query('q', ''));
+        $locationId = (int) $request->query('location_id', 0);
+        $status = trim((string) $request->query('status', ''));
+
+        $stalls = $this->buildFilteredStallQuery($search, $locationId, $status)
+            ->orderByDesc('id')
+            ->get();
+
+        $filename = 'market-stall-registry-' . now()->format('Ymd-His') . '.xls';
+
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+        ];
+
+        return response()->streamDownload(function () use ($stalls, $search, $status): void {
+            echo "\xEF\xBB\xBF";
+            echo $this->renderStallExcelHtml($stalls, $search, $status);
+        }, $filename, $headers);
     }
 
     public function storeLocation(Request $request): RedirectResponse
@@ -476,5 +470,142 @@ class MarketStallController extends Controller
             'is_active' => true,
             'created_by_user_id' => Auth::id(),
         ]);
+    }
+
+    private function buildFilteredStallQuery(string $search, int $locationId, string $status)
+    {
+        $stallQuery = MarketStall::query()
+            ->with([
+                'location.activeRate',
+                'stallType',
+                'activeLease.tenant',
+                'activeLease.rate',
+            ]);
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $stallQuery->where(function ($query) use ($like): void {
+                $query->where('stall_no', 'like', $like)
+                    ->orWhereHas('location', function ($locationQuery) use ($like): void {
+                        $locationQuery->where('location_code', 'like', $like)
+                            ->orWhere('location_name', 'like', $like)
+                            ->orWhere('zone', 'like', $like);
+                    })
+                    ->orWhereHas('activeLease.tenant', function ($tenantQuery) use ($like): void {
+                        $tenantQuery->where('first_name', 'like', $like)
+                            ->orWhere('last_name', 'like', $like)
+                            ->orWhere('business_name', 'like', $like);
+                    });
+            });
+        }
+
+        if ($locationId > 0) {
+            $stallQuery->where('market_stall_location_id', $locationId);
+        }
+
+        if (array_key_exists($status, self::STALL_STATUSES)) {
+            $stallQuery->where('stall_status', $status);
+        }
+
+        return $stallQuery;
+    }
+
+    private function renderStallExcelHtml($stalls, string $search, string $status): string
+    {
+        $esc = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        $css = '
+            body { font-family: Calibri, "Segoe UI", Arial, sans-serif; color:#0f172a; }
+            table { border-collapse: collapse; width: 100%; }
+            .title { font-size:16pt; font-weight:bold; color:#0c3a5b; }
+            .meta { font-size:10pt; color:#475569; }
+            .data th {
+                background:#155f8f; color:#ffffff; font-weight:bold;
+                padding:6pt 8pt; border:1px solid #0c3a5b; text-align:left; font-size:10pt;
+            }
+            .data td {
+                padding:5pt 8pt; border:1px solid #cbd5e1; font-size:10pt; vertical-align:top;
+            }
+            .data tr.alt td { background:#f8fafc; }
+            .center { text-align:center; }
+            .num { mso-number-format:"#,##0.00"; text-align:right; }
+        ';
+
+        ob_start();
+        ?>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="UTF-8">
+    <title>Market Stall Registry</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>Stall Registry</x:Name>
+                    <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+    <style><?= $css ?></style>
+</head>
+<body>
+<table>
+    <tr><td colspan="9" class="title">Market Stall Registry Export</td></tr>
+    <tr><td colspan="9" class="meta">Generated: <?= $esc(now()->format('F d, Y h:i A')) ?></td></tr>
+    <tr><td colspan="9" class="meta">Search: <?= $esc($search === '' ? 'All records' : $search) ?></td></tr>
+    <tr><td colspan="9" class="meta">Status Filter: <?= $esc($status === '' ? 'All status' : (self::STALL_STATUSES[$status] ?? strtoupper($status))) ?></td></tr>
+    <tr><td colspan="9" class="meta">Total Records: <?= number_format($stalls->count()) ?></td></tr>
+    <tr><td colspan="9">&nbsp;</td></tr>
+</table>
+
+<table class="data">
+    <thead>
+    <tr>
+        <th>Stall No.</th>
+        <th>Location</th>
+        <th>Type</th>
+        <th>Current Tenant</th>
+        <th>Dimension (sq.m)</th>
+        <th>Rate</th>
+        <th>Status</th>
+        <th>Updated</th>
+        <th>Business</th>
+    </tr>
+    </thead>
+    <tbody>
+    <?php $i = 0; foreach ($stalls as $stall): $i++; ?>
+        <?php
+            $lease = $stall->activeLease;
+            $tenant = $lease?->tenant;
+            $location = $stall->location;
+            $rateAmount = (float) ($lease?->computed_rate_amount ?? $lease?->rate?->rate_amount ?? $location?->activeRate?->rate_amount ?? 0);
+        ?>
+        <tr<?= $i % 2 === 0 ? ' class="alt"' : '' ?>>
+            <td><?= $esc($stall->stall_no ?: '-') ?></td>
+            <td><?= $esc(($location?->location_code ?: '-') . ' - ' . ($location?->location_name ?: '-')) ?></td>
+            <td><?= $esc($stall->stallType?->type_name ?: '-') ?></td>
+            <td><?= $esc($tenant ? ($tenant->fullName() ?: '-') : 'Vacant') ?></td>
+            <td class="num"><?= $esc($stall->dimension_sq_m !== null ? number_format((float) $stall->dimension_sq_m, 2) : '-') ?></td>
+            <td class="num"><?= number_format($rateAmount, 2) ?></td>
+            <td class="center"><?= $esc(self::STALL_STATUSES[$stall->stall_status] ?? strtoupper((string) $stall->stall_status)) ?></td>
+            <td><?= $esc(optional($stall->updated_at)->format('Y-m-d H:i')) ?></td>
+            <td><?= $esc($tenant?->business_name ?: '-') ?></td>
+        </tr>
+    <?php endforeach; ?>
+    <?php if ($stalls->isEmpty()): ?>
+        <tr><td colspan="9" class="center">No stall records found.</td></tr>
+    <?php endif; ?>
+    </tbody>
+</table>
+</body>
+</html>
+        <?php
+
+        return (string) ob_get_clean();
     }
 }

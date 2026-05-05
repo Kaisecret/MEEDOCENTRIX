@@ -2,6 +2,10 @@
 
 @section('content')
 <style>
+    #contentArea {
+        padding-top: 10px;
+    }
+
     .vl-page {
         --vl-text: #334155;
         --vl-muted: #64748b;
@@ -11,46 +15,20 @@
         --vl-primary-dark: #0f4b73;
         --vl-line: #cbd5e1;
         display: grid;
-        gap: 16px;
+        gap: 8px;
         color: var(--vl-text);
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
 
-    .vl-hero {
-        background: var(--vl-primary);
-        color: #fff;
-        border-radius: 12px;
-        padding: 1.45rem 1.6rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 10px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    }
-
-    .vl-hero h2 {
-        margin: 0 0 0.4rem;
-        font-size: 1.7rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-    }
-
-    .vl-hero p {
-        margin: 0;
-        font-size: 0.95rem;
-        color: rgba(255, 255, 255, 0.85);
-    }
-
     .vl-hero-cta {
-        border: 1px solid rgba(255, 255, 255, 0.38);
-        background: rgba(255, 255, 255, 0.15);
-        color: #fff;
+        border: 1px solid #bfd0e2;
+        background: #ffffff;
+        color: var(--vl-primary);
         border-radius: 10px;
-        min-height: 42px;
-        padding: 0 1rem;
-        font-size: 0.95rem;
-        font-weight: 600;
+        min-height: 38px;
+        padding: 0 0.95rem;
+        font-size: 0.9rem;
+        font-weight: 700;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -60,8 +38,9 @@
     }
 
     .vl-hero-cta:hover {
-        background: rgba(255, 255, 255, 0.25);
-        color: #fff;
+        background: #f1f7fd;
+        border-color: #9fbbd5;
+        color: var(--vl-primary-dark);
     }
 
     .vl-hero-actions {
@@ -71,9 +50,20 @@
         flex-wrap: wrap;
     }
 
+    .vl-hero-cta-primary {
+        background: var(--vl-primary);
+        border-color: var(--vl-primary);
+        color: #fff;
+    }
+
+    .vl-hero-cta-primary:hover {
+        background: var(--vl-primary-dark);
+        border-color: var(--vl-primary-dark);
+        color: #fff;
+    }
+
     .vl-hero-cta-secondary {
-        background: rgba(15, 75, 115, 0.5);
-        border-color: rgba(255, 255, 255, 0.26);
+        background: #ffffff;
     }
 
     .vl-card {
@@ -87,16 +77,25 @@
     .vl-card-head {
         border-bottom: 1px solid var(--vl-border);
         background: #fff;
-        padding: 1.25rem 1.5rem;
+        padding: 0.78rem 1rem;
         display: grid;
-        gap: 16px;
+        gap: 8px;
     }
 
     .vl-card-head-top {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        gap: 16px;
+        gap: 8px;
+    }
+
+    .vl-card-head-main {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-wrap: wrap;
     }
 
     .vl-card-head-title {
@@ -126,16 +125,16 @@
     }
 
     .vl-card-head p {
-        margin: 0.25rem 0 0;
+        margin: 0.12rem 0 0;
         color: var(--vl-muted);
-        font-size: 0.9rem;
+        font-size: 0.88rem;
     }
 
     .vl-tabs {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        padding: 6px;
+        gap: 5px;
+        padding: 4px;
         background: var(--vl-soft);
         border: 1px solid var(--vl-border);
         border-radius: 12px;
@@ -191,7 +190,7 @@
     .vl-filter-grid {
         display: grid;
         grid-template-columns: minmax(260px, 1fr) minmax(170px, 220px);
-        gap: 12px;
+        gap: 10px;
         align-items: center;
     }
 
@@ -505,6 +504,15 @@
     }
 
     @media (max-width: 700px) {
+        .vl-card-head-main {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .vl-hero-actions {
+            width: 100%;
+        }
+
         .vl-filter-grid {
             grid-template-columns: 1fr;
         }
@@ -568,29 +576,24 @@
         </div>
     @endif
 
-    <section class="vl-hero">
-        <div>
-            <h2>Vessel Logs</h2>
-            <p>Log vessel movement first, then continue payment and commodity details in Fishport Transactions.</p>
-        </div>
-        <div class="vl-hero-actions">
-            <button type="button" class="vl-hero-cta" id="openQuickLogBtn">
-                <i class="fas fa-plus"></i> Log Vessel First
-            </button>
-            <a class="vl-hero-cta vl-hero-cta-secondary" href="{{ route('fishport.records') }}">
-                <i class="fas fa-file-invoice"></i> Go To Transaction
-            </a>
-        </div>
-    </section>
-
     <section class="vl-card" id="vesselLogsCard">
         <div class="vl-card-head">
             <div class="vl-card-head-top">
-                <div class="vl-card-head-title">
-                    <i class="fa-solid fa-list-check"></i>
-                    <div>
-                        <h3>Log Ledger</h3>
-                        <p>Showing {{ $rangeLabel }} data. Edit/delete logs here, or open full transaction form.</p>
+                <div class="vl-card-head-main">
+                    <div class="vl-card-head-title">
+                        <i class="fa-solid fa-list-check"></i>
+                        <div>
+                            <h3>Log Ledger</h3>
+                            <p>Showing {{ $rangeLabel }} data. Edit/delete logs here, or open full transaction form.</p>
+                        </div>
+                    </div>
+                    <div class="vl-hero-actions">
+                        <button type="button" class="vl-hero-cta vl-hero-cta-primary" id="openQuickLogBtn">
+                            <i class="fas fa-plus"></i> Log Vessel First
+                        </button>
+                        <a class="vl-hero-cta vl-hero-cta-secondary" href="{{ route('fishport.records') }}">
+                            <i class="fas fa-file-invoice"></i> Go To Transaction
+                        </a>
                     </div>
                 </div>
                 <div class="vl-tabs">
@@ -875,6 +878,11 @@
 <script id="vesselLogsBootstrap" type="application/json">@json($vesselLogsBootstrap)</script>
 <script>
 (() => {
+    const breadcrumb = document.querySelector('.breadcrumb');
+    if (breadcrumb) breadcrumb.hidden = false;
+    const titleEl = document.getElementById('pageTitle');
+    if (titleEl) titleEl.textContent = 'Vessel Logs';
+
     const statusToast = document.getElementById('vlStatusToast');
     const bootstrapNode = document.getElementById('vesselLogsBootstrap');
     const bootstrap = bootstrapNode ? JSON.parse(bootstrapNode.textContent || '{}') : {};

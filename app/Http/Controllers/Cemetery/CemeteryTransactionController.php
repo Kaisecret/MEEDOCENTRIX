@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CemeteryTransactionController extends Controller
 {
@@ -40,40 +41,14 @@ class CemeteryTransactionController extends Controller
         $prefillOccupantRecordId = (int) $request->query('occupant_record_id', 0);
         $openCreateModal = filter_var($request->query('open_create', false), FILTER_VALIDATE_BOOL);
 
-        $transactionQuery = CemeteryTransaction::query()
-            ->with(['site', 'category', 'transactionType', 'occupantRecord'])
+        $transactionQuery = $this->buildFilteredTransactionQuery($search, $siteId, $categoryId, $transactionTypeId, $status)
             ->withCount('payments')
             ->withMax('payments as latest_payment_id', 'id');
-
-        if ($search !== '') {
-            $like = '%' . $search . '%';
-            $transactionQuery->where(function ($query) use ($like): void {
-                $query->where('transaction_no', 'like', $like)
-                    ->orWhere('deceased_name', 'like', $like)
-                    ->orWhere('plot_reference', 'like', $like);
-            });
-        }
-
-        if ($siteId > 0) {
-            $transactionQuery->where('cemetery_site_id', $siteId);
-        }
-
-        if ($categoryId > 0) {
-            $transactionQuery->where('cemetery_category_id', $categoryId);
-        }
-
-        if ($transactionTypeId > 0) {
-            $transactionQuery->where('cemetery_transaction_type_id', $transactionTypeId);
-        }
-
-        if (array_key_exists($status, self::STATUS_OPTIONS)) {
-            $transactionQuery->where('status', $status);
-        }
 
         $transactions = $transactionQuery
             ->orderByDesc('transaction_date')
             ->orderByDesc('id')
-            ->paginate(12)
+            ->paginate(10)
             ->withQueryString();
 
         $sites = CemeterySite::query()
@@ -125,6 +100,32 @@ class CemeteryTransactionController extends Controller
                 'total_due' => (float) CemeteryTransaction::query()->sum('amount_due'),
             ],
         ]);
+    }
+
+    public function csv(Request $request): StreamedResponse
+    {
+        $search = trim((string) $request->query('q', ''));
+        $siteId = (int) $request->query('cemetery_site_id', 0);
+        $categoryId = (int) $request->query('cemetery_category_id', 0);
+        $transactionTypeId = (int) $request->query('cemetery_transaction_type_id', 0);
+        $status = trim((string) $request->query('status', ''));
+
+        $transactions = $this->buildFilteredTransactionQuery($search, $siteId, $categoryId, $transactionTypeId, $status)
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('id')
+            ->get();
+
+        $filename = 'cemetery-transactions-' . now()->format('Ymd-His') . '.xls';
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+        ];
+
+        return response()->streamDownload(function () use ($transactions, $search): void {
+            echo "\xEF\xBB\xBF";
+            echo $this->renderTransactionsExcelHtml($transactions, $search);
+        }, $filename, $headers);
     }
 
     public function store(Request $request): RedirectResponse
@@ -192,7 +193,7 @@ class CemeteryTransactionController extends Controller
             'remarks' => $validated['remarks'] ? trim((string) $validated['remarks']) : null,
             'status' => trim((string) $validated['status']),
         ]);
-        $this->syncPaymentDerivedFields($transaction);
+        $this->syncPaymentDerivedFields($transaction, true);
 
         return redirect()
             ->back()
@@ -402,6 +403,132 @@ class CemeteryTransactionController extends Controller
         return $validated;
     }
 
+    private function buildFilteredTransactionQuery(
+        string $search,
+        int $siteId,
+        int $categoryId,
+        int $transactionTypeId,
+        string $status
+    ) {
+        $transactionQuery = CemeteryTransaction::query()
+            ->with(['site', 'category', 'transactionType', 'occupantRecord.contact']);
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $transactionQuery->where(function ($query) use ($like): void {
+                $query->where('transaction_no', 'like', $like)
+                    ->orWhere('deceased_name', 'like', $like)
+                    ->orWhere('plot_reference', 'like', $like);
+            });
+        }
+
+        if ($siteId > 0) {
+            $transactionQuery->where('cemetery_site_id', $siteId);
+        }
+
+        if ($categoryId > 0) {
+            $transactionQuery->where('cemetery_category_id', $categoryId);
+        }
+
+        if ($transactionTypeId > 0) {
+            $transactionQuery->where('cemetery_transaction_type_id', $transactionTypeId);
+        }
+
+        if (array_key_exists($status, self::STATUS_OPTIONS)) {
+            $transactionQuery->where('status', $status);
+        }
+
+        return $transactionQuery;
+    }
+
+    private function renderTransactionsExcelHtml($transactions, string $search): string
+    {
+        $esc = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $searchLabel = $search === '' ? 'All records' : $search;
+
+        $css = '
+            body { font-family: Calibri, "Segoe UI", Arial, sans-serif; color:#0f172a; }
+            table { border-collapse: collapse; width: 100%; }
+            .title { font-size:16pt; font-weight:bold; color:#0c3a5b; }
+            .meta { font-size:10pt; color:#475569; }
+            .data th {
+                background:#155f8f; color:#ffffff; font-weight:bold;
+                padding:6pt 8pt; border:1px solid #0c3a5b; text-align:left; font-size:10pt;
+            }
+            .data td {
+                padding:5pt 8pt; border:1px solid #cbd5e1; font-size:10pt; vertical-align:top;
+            }
+            .data tr.alt td { background:#f8fafc; }
+        ';
+
+        ob_start();
+        ?>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="UTF-8">
+    <title>Cemetery Transactions</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>Transactions</x:Name>
+                    <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+    <style><?= $css ?></style>
+</head>
+<body>
+<table>
+    <tr><td colspan="8" class="title">Cemetery Transactions</td></tr>
+    <tr><td colspan="8" class="meta">Generated: <?= $esc(now()->format('F d, Y h:i A')) ?></td></tr>
+    <tr><td colspan="8" class="meta">Filter: <?= $esc($searchLabel) ?></td></tr>
+    <tr><td colspan="8">&nbsp;</td></tr>
+</table>
+
+<table class="data">
+    <thead>
+        <tr>
+            <th>Transaction No.</th>
+            <th>Date</th>
+            <th>Deceased Name</th>
+            <th>Niche / Lot</th>
+            <th>Cemetery / Category</th>
+            <th>Transaction Type</th>
+            <th>Occupant Record</th>
+            <th>Amount Due</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $rowIndex = 0; foreach ($transactions as $transaction): $rowIndex++; ?>
+            <tr<?= $rowIndex % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($transaction->transaction_no) ?></strong></td>
+                <td><?= $esc(optional($transaction->transaction_date)->format('Y-m-d h:i A') ?: '-') ?></td>
+                <td><?= $esc($transaction->deceased_name ?: '-') ?></td>
+                <td><?= $esc($transaction->plot_reference ?: '-') ?></td>
+                <td><?= $esc(($transaction->site?->site_name ?: '-') . ' / ' . ($transaction->category?->category_name ?: '-')) ?></td>
+                <td><?= $esc($transaction->transactionType?->type_name ?: '-') ?></td>
+                <td><?= $esc($transaction->occupantRecord?->record_no ?: '-') ?></td>
+                <td><?= $esc('PHP ' . number_format((float) $transaction->amount_due, 2)) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if ($transactions->isEmpty()): ?>
+            <tr><td colspan="8">No transactions found.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+</body>
+</html>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
     private function nextTransactionNo(): string
     {
         $latestNo = (string) CemeteryTransaction::query()
@@ -426,7 +553,7 @@ class CemeteryTransactionController extends Controller
         return Carbon::parse($value)->format('Y-m-d H:i:s');
     }
 
-    private function syncPaymentDerivedFields(CemeteryTransaction $transaction): void
+    private function syncPaymentDerivedFields(CemeteryTransaction $transaction, bool $preserveManualStatus = false): void
     {
         $amountDue = round((float) $transaction->amount_due, 2);
         $totalPaid = round((float) $transaction->payments()->sum('amount_paid'), 2);
@@ -435,7 +562,7 @@ class CemeteryTransactionController extends Controller
         $transaction->total_paid = $totalPaid;
         $transaction->remaining_balance = $remaining;
 
-        if ($transaction->status !== 'cancelled') {
+        if (! $preserveManualStatus && $transaction->status !== 'cancelled') {
             if ($amountDue <= 0 || $totalPaid >= $amountDue) {
                 $transaction->status = 'paid';
             } elseif ($totalPaid > 0) {

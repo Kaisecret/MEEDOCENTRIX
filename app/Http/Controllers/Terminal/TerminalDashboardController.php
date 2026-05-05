@@ -3,129 +3,186 @@
 namespace App\Http\Controllers\Terminal;
 
 use App\Http\Controllers\Controller;
-use App\Models\TerminalParkingLog;
-use App\Models\TerminalParkingPayment;
-use App\Models\TerminalVehicle;
+use App\Models\TerminalQuickPayment;
 use Carbon\CarbonPeriod;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 class TerminalDashboardController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $today = Carbon::today();
+        $period = strtolower((string) $request->query('period', 'month'));
+        $allowedPeriods = ['today', 'week', 'month', 'range'];
+        if (!in_array($period, $allowedPeriods, true)) {
+            $period = 'month';
+        }
 
-        $todayEntries = TerminalParkingLog::query()
-            ->whereDate('entry_at', $today->toDateString())
-            ->count();
+        $parsedFrom = $this->parseDate($request->query('date_from'));
+        $parsedTo = $this->parseDate($request->query('date_to'));
 
-        $currentlyParked = TerminalParkingLog::query()
-            ->whereNull('exit_at')
-            ->count();
+        if ($period === 'today') {
+            $rangeStart = $today->copy()->startOfDay();
+            $rangeEnd = $today->copy()->endOfDay();
+            $dateFrom = $today->toDateString();
+            $dateTo = $today->toDateString();
+            $filterLabel = 'Today';
+        } elseif ($period === 'week') {
+            $rangeStart = $today->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
+            $rangeEnd = $today->copy()->endOfDay();
+            $dateFrom = $rangeStart->toDateString();
+            $dateTo = $rangeEnd->toDateString();
+            $filterLabel = 'This Week';
+        } elseif ($period === 'range' && $parsedFrom && $parsedTo && $parsedFrom->lte($parsedTo)) {
+            $rangeStart = $parsedFrom->copy()->startOfDay();
+            $rangeEnd = $parsedTo->copy()->endOfDay();
+            $dateFrom = $rangeStart->toDateString();
+            $dateTo = $rangeEnd->toDateString();
+            $filterLabel = 'Custom Range';
+        } else {
+            $period = 'month';
+            $rangeStart = $today->copy()->startOfMonth()->startOfDay();
+            $rangeEnd = $today->copy()->endOfDay();
+            $dateFrom = $rangeStart->toDateString();
+            $dateTo = $rangeEnd->toDateString();
+            $filterLabel = 'This Month';
+        }
 
-        $readyForPayment = TerminalParkingLog::query()
-            ->whereNotNull('exit_at')
-            ->whereDoesntHave('payment')
-            ->count();
+        $displayRange = $rangeStart->isSameDay($rangeEnd)
+            ? $rangeStart->format('F j, Y')
+            : $rangeStart->format('F j, Y') . ' to ' . $rangeEnd->format('F j, Y');
 
-        $todayRevenue = (float) TerminalParkingPayment::query()
-            ->whereDate('payment_date', $today->toDateString())
-            ->sum('paid_amount');
+        $paidBaseQuery = TerminalQuickPayment::query()
+            ->where('is_paid', true)
+            ->whereNotNull('paid_at')
+            ->whereNotNull('ticket_number')
+            ->where('ticket_number', '<>', '')
+            ->whereNotNull('route_code')
+            ->where('route_code', '<>', '')
+            ->whereBetween('paid_at', [$rangeStart->copy()->startOfDay(), $rangeEnd->copy()->endOfDay()]);
 
-        $activeVehicles = TerminalVehicle::query()
-            ->where('is_active', true)
-            ->count();
+        $filterRevenue = (float) (clone $paidBaseQuery)->sum('total_payment');
 
-        $recentLogs = TerminalParkingLog::query()
-            ->with([
-                'vehicle:id,plate_number,operator_name,terminal_vehicle_type_id',
-                'vehicle.type:id,name,parking_fee_per_hour',
-                'payment:id,terminal_parking_log_id,or_number,paid_amount,payment_date',
-            ])
-            ->orderByDesc('entry_at')
+        $filterPaidCount = (clone $paidBaseQuery)->count();
+
+        $yearRevenue = (float) TerminalQuickPayment::query()
+            ->where('is_paid', true)
+            ->whereNotNull('paid_at')
+            ->whereDate('paid_at', '>=', $today->copy()->startOfYear()->toDateString())
+            ->whereNotNull('ticket_number')
+            ->where('ticket_number', '<>', '')
+            ->whereNotNull('route_code')
+            ->where('route_code', '<>', '')
+            ->sum('total_payment');
+
+        $pendingBaseQuery = TerminalQuickPayment::query()
+            ->where('is_paid', false)
+            ->whereNotNull('ticket_number')
+            ->where('ticket_number', '<>', '')
+            ->whereNotNull('route_code')
+            ->where('route_code', '<>', '')
+            ->whereBetween('payment_date', [$rangeStart->copy()->startOfDay(), $rangeEnd->copy()->endOfDay()]);
+
+        $pendingCount = (clone $pendingBaseQuery)->count();
+        $pendingAmount = (float) (clone $pendingBaseQuery)->sum('total_payment');
+
+        $avgTicket = (float) (clone $paidBaseQuery)->avg('total_payment');
+
+        $recentPaid = (clone $paidBaseQuery)
+            ->with(['recordedBy:id,name', 'paidBy:id,name'])
+            ->orderByDesc('paid_at')
             ->limit(10)
             ->get();
 
-        $startDay = $today->copy()->subDays(13)->startOfDay();
-        $dailyEntryRows = TerminalParkingLog::query()
-            ->selectRaw('DATE(entry_at) as day_key, COUNT(*) as total')
-            ->whereDate('entry_at', '>=', $startDay->toDateString())
+        $trendStart = $rangeEnd->copy()->subDays(30)->startOfDay();
+        if ($trendStart->lt($rangeStart)) {
+            $trendStart = $rangeStart->copy()->startOfDay();
+        }
+
+        $dailyRows = (clone $paidBaseQuery)
+            ->selectRaw('DATE(paid_at) as day_key, SUM(total_payment) as revenue_total, COUNT(*) as tx_total')
+            ->whereDate('paid_at', '>=', $trendStart->toDateString())
             ->groupBy('day_key')
             ->orderBy('day_key')
             ->get()
             ->keyBy('day_key');
 
-        $dailyPaymentRows = TerminalParkingPayment::query()
-            ->selectRaw('DATE(payment_date) as day_key, SUM(paid_amount) as total')
-            ->whereDate('payment_date', '>=', $startDay->toDateString())
-            ->groupBy('day_key')
-            ->orderBy('day_key')
-            ->get()
-            ->keyBy('day_key');
-
-        $dailyTrend = collect();
-        $period = CarbonPeriod::create($startDay, $today->copy()->endOfDay());
-        foreach ($period as $day) {
+        $dailyRevenueTrend = collect();
+        $trendPeriod = CarbonPeriod::create($trendStart, $rangeEnd->copy()->endOfDay());
+        foreach ($trendPeriod as $day) {
             $key = $day->toDateString();
-            $dailyTrend->push([
+            $dailyRevenueTrend->push([
                 'label' => $day->format('M d'),
-                'entries' => (int) ($dailyEntryRows->get($key)->total ?? 0),
-                'revenue' => round((float) ($dailyPaymentRows->get($key)->total ?? 0), 2),
+                'revenue' => round((float) ($dailyRows->get($key)->revenue_total ?? 0), 2),
+                'transactions' => (int) ($dailyRows->get($key)->tx_total ?? 0),
             ]);
         }
 
-        $monthStart = $today->copy()->subMonths(5)->startOfMonth();
-        $monthlyRevenueRows = TerminalParkingPayment::query()
-            ->whereDate('payment_date', '>=', $monthStart->toDateString())
-            ->get(['payment_date', 'paid_amount'])
-            ->groupBy(static fn (TerminalParkingPayment $payment) => optional($payment->payment_date)->format('Y-m'))
-            ->map(static fn ($group) => round((float) $group->sum('paid_amount'), 2));
+        $monthlyStart = $rangeStart->copy()->startOfMonth();
+        $monthlyRows = (clone $paidBaseQuery)
+            ->selectRaw("DATE_FORMAT(paid_at, '%Y-%m') as month_key, SUM(total_payment) as total")
+            ->whereDate('paid_at', '>=', $monthlyStart->toDateString())
+            ->groupBy('month_key')
+            ->orderBy('month_key')
+            ->get()
+            ->keyBy('month_key');
 
         $monthlyRevenue = collect();
-        $monthCursor = $monthStart->copy();
-        $monthEnd = $today->copy()->startOfMonth();
+        $monthCursor = $monthlyStart->copy();
+        $monthEnd = $rangeEnd->copy()->startOfMonth();
         while ($monthCursor->lte($monthEnd)) {
             $monthKey = $monthCursor->format('Y-m');
             $monthlyRevenue->push([
                 'label' => $monthCursor->format('M Y'),
-                'amount' => round((float) ($monthlyRevenueRows->get($monthKey, 0)), 2),
+                'amount' => round((float) ($monthlyRows->get($monthKey)->total ?? 0), 2),
             ]);
             $monthCursor->addMonth();
         }
 
-        $vehicleMixRows = TerminalParkingLog::query()
-            ->selectRaw('terminal_vehicle_types.name as type_name, COUNT(terminal_parking_logs.id) as total')
-            ->join('terminal_vehicles', 'terminal_vehicles.id', '=', 'terminal_parking_logs.terminal_vehicle_id')
-            ->join('terminal_vehicle_types', 'terminal_vehicle_types.id', '=', 'terminal_vehicles.terminal_vehicle_type_id')
-            ->whereDate('terminal_parking_logs.entry_at', '>=', $today->copy()->subDays(29)->toDateString())
-            ->groupBy('terminal_vehicle_types.name')
+        $routePerformance = (clone $paidBaseQuery)
+            ->selectRaw('route_name, SUM(total_payment) as total_revenue, COUNT(*) as total_transactions')
+            ->whereNotNull('route_name')
+            ->where('route_name', '<>', '')
+            ->groupBy('route_name')
+            ->orderByDesc('total_revenue')
+            ->limit(8)
             ->get();
 
-        $typeLabels = [];
-        $typeValues = [];
-        foreach ($vehicleMixRows as $row) {
-            $typeName = (string) ($row->type_name ?? 'Unknown');
-            $typeLabels[] = $typeName;
-            $typeValues[] = (int) ($row->total ?? 0);
-        }
-
-        if (count($typeLabels) === 0) {
-            $typeLabels = ['No data'];
-            $typeValues = [1];
-        }
-
         return view('terminal.dashboard', [
-            'todayEntries' => $todayEntries,
-            'currentlyParked' => $currentlyParked,
-            'readyForPayment' => $readyForPayment,
-            'todayRevenue' => $todayRevenue,
-            'activeVehicles' => $activeVehicles,
-            'recentLogs' => $recentLogs,
-            'dailyTrend' => $dailyTrend,
+            'filterRevenue' => $filterRevenue,
+            'yearRevenue' => $yearRevenue,
+            'filterPaidCount' => $filterPaidCount,
+            'pendingCount' => $pendingCount,
+            'pendingAmount' => $pendingAmount,
+            'avgTicket' => $avgTicket,
+            'recentPaid' => $recentPaid,
+            'dailyRevenueTrend' => $dailyRevenueTrend,
             'monthlyRevenue' => $monthlyRevenue,
-            'typeLabels' => $typeLabels,
-            'typeValues' => $typeValues,
+            'routePerformance' => $routePerformance,
+            'period' => $period,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'filterLabel' => $filterLabel,
+            'displayRange' => $displayRange,
         ]);
+    }
+
+    private function parseDate(?string $value): ?Carbon
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', trim($value))->startOfDay();
+        } catch (\Throwable) {
+            try {
+                return Carbon::parse(trim($value))->startOfDay();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
     }
 }

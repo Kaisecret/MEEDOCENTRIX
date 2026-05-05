@@ -3,13 +3,14 @@
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\AdminRateController;
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminReportController;
+use App\Http\Controllers\Admin\AdminTransactionController;
 use App\Http\Controllers\Admin\RoleManagementController;
 use App\Http\Controllers\Atrium\AtriumBookingController;
 use App\Http\Controllers\Atrium\AtriumDashboardController;
 use App\Http\Controllers\Atrium\AtriumPaymentController;
 use App\Http\Controllers\Atrium\AtriumProfileController;
 use App\Http\Controllers\Atrium\AtriumReportController;
-use App\Http\Controllers\Atrium\AtriumSuppliesController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Collector\CollectorCollectionController;
 use App\Http\Controllers\Collector\CollectorReportController;
@@ -34,9 +35,10 @@ use App\Http\Controllers\Market\MarketSendPaymentController;
 use App\Http\Controllers\Market\MarketStallController;
 use App\Http\Controllers\Market\MarketTenantController;
 use App\Http\Controllers\Market\MarketTransactionController;
+use App\Http\Controllers\Shared\NotificationController;
 use App\Http\Controllers\Terminal\TerminalDashboardController;
 use App\Http\Controllers\Terminal\TerminalParkingController;
-use App\Http\Controllers\Terminal\TerminalVehicleController;
+use App\Http\Controllers\Terminal\TerminalReportController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -63,8 +65,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/roles/assignments', [RoleManagementController::class, 'assignUser'])->name('admin.roles.assignments.store');
         Route::get('/rates', [AdminRateController::class, 'index'])->name('admin.rates');
         Route::put('/rates', [AdminRateController::class, 'update'])->name('admin.rates.update');
-        Route::view('/reports', 'admin.reports')->name('admin.reports');
-        Route::view('/transactions', 'admin.transactions')->name('admin.transactions');
+        Route::get('/reports/csv', [AdminReportController::class, 'exportCsv'])->name('admin.reports.csv');
+        Route::get('/reports', [AdminReportController::class, 'index'])->name('admin.reports');
+        Route::get('/transactions/csv', [AdminTransactionController::class, 'exportCsv'])->name('admin.transactions.csv');
+        Route::get('/transactions', [AdminTransactionController::class, 'index'])->name('admin.transactions');
     });
 
     // Fishport
@@ -88,6 +92,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports', [FishportReportController::class, 'index'])->name('fishport.reports');
         Route::get('/reports/preview', [FishportReportController::class, 'preview'])->name('fishport.reports.preview');
         Route::get('/reports/pdf', [FishportReportController::class, 'pdf'])->name('fishport.reports.pdf');
+        Route::get('/reports/csv', [FishportReportController::class, 'csv'])->name('fishport.reports.csv');
         Route::get('/records', [FishportLogController::class, 'index'])->name('fishport.records');
         Route::post('/records', [FishportLogController::class, 'store'])->name('fishport.records.store');
         Route::get('/records/{fishportLog}/receipt', [FishportLogController::class, 'downloadReceipt'])->name('fishport.records.receipt');
@@ -103,9 +108,11 @@ Route::middleware('auth')->group(function () {
     Route::prefix('market')->middleware('area:market')->group(function () {
         Route::get('/dashboard', [MarketDashboardController::class, 'index'])->name('market.dashboard');
         Route::get('/vendors', [MarketTenantController::class, 'index'])->name('market.vendors');
+        Route::get('/vendors/csv', [MarketTenantController::class, 'csv'])->name('market.vendors.csv');
         Route::get('/vendors/{marketTenant}', [MarketTenantController::class, 'edit'])->name('market.vendors.edit');
         Route::put('/vendors/{marketTenant}', [MarketTenantController::class, 'update'])->name('market.vendors.update');
         Route::get('/stalls', [MarketStallController::class, 'index'])->name('market.stalls');
+        Route::get('/stalls/csv', [MarketStallController::class, 'csv'])->name('market.stalls.csv');
         Route::post('/stalls', [MarketStallController::class, 'store'])->name('market.stalls.store');
         Route::put('/stalls/{marketStall}', [MarketStallController::class, 'update'])->name('market.stalls.update');
         Route::delete('/stalls/{marketStall}', [MarketStallController::class, 'destroy'])->name('market.stalls.destroy');
@@ -114,6 +121,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/profile', [MarketProfileController::class, 'show'])->name('market.profile');
         Route::put('/profile', [MarketProfileController::class, 'update'])->name('market.profile.update');
         Route::get('/send-payment', [MarketSendPaymentController::class, 'index'])->name('market.send_payment');
+        Route::get('/send-payment/due-tracker', [MarketSendPaymentController::class, 'dueTracker'])->name('market.send_payment.due_tracker');
         Route::post('/send-payment', [MarketSendPaymentController::class, 'store'])->name('market.send_payment.store');
         Route::patch('/send-payment/items/{dispatchItem}/cancel', [MarketSendPaymentController::class, 'cancel'])->name('market.send_payment.items.cancel');
         Route::patch('/send-payment/items/{dispatchItem}/approve', [MarketSendPaymentController::class, 'approve'])->name('market.send_payment.items.approve');
@@ -122,30 +130,36 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports', [MarketReportController::class, 'index'])->name('market.reports');
         Route::get('/reports/preview', [MarketReportController::class, 'preview'])->name('market.reports.preview');
         Route::get('/reports/pdf', [MarketReportController::class, 'pdf'])->name('market.reports.pdf');
+        Route::get('/reports/csv', [MarketReportController::class, 'csv'])->name('market.reports.csv');
     });
 
     // Cemetery
     Route::prefix('cemetery')->middleware('area:cemetery')->group(function () {
         Route::get('/dashboard', [CemeteryDashboardController::class, 'index'])->name('cemetery.dashboard');
         Route::get('/records', [CemeteryOccupantRecordController::class, 'index'])->name('cemetery.records');
+        Route::get('/records/csv', [CemeteryOccupantRecordController::class, 'csv'])->name('cemetery.records.csv');
         Route::post('/records', [CemeteryOccupantRecordController::class, 'store'])->name('cemetery.records.store');
         Route::put('/records/{occupantRecord}', [CemeteryOccupantRecordController::class, 'update'])->name('cemetery.records.update');
         Route::delete('/records/{occupantRecord}', [CemeteryOccupantRecordController::class, 'destroy'])->name('cemetery.records.destroy');
         Route::get('/services', [CemeteryServiceLogController::class, 'index'])->name('cemetery.services');
+        Route::get('/services/csv', [CemeteryServiceLogController::class, 'csv'])->name('cemetery.services.csv');
         Route::post('/services', [CemeteryServiceLogController::class, 'store'])->name('cemetery.services.store');
         Route::put('/services/{serviceLog}', [CemeteryServiceLogController::class, 'update'])->name('cemetery.services.update');
         Route::delete('/services/{serviceLog}', [CemeteryServiceLogController::class, 'destroy'])->name('cemetery.services.destroy');
         Route::get('/transactions', [CemeteryTransactionController::class, 'index'])->name('cemetery.transactions');
+        Route::get('/transactions/csv', [CemeteryTransactionController::class, 'csv'])->name('cemetery.transactions.csv');
         Route::post('/transactions', [CemeteryTransactionController::class, 'store'])->name('cemetery.transactions.store');
         Route::put('/transactions/{transaction}', [CemeteryTransactionController::class, 'update'])->name('cemetery.transactions.update');
         Route::delete('/transactions/{transaction}', [CemeteryTransactionController::class, 'destroy'])->name('cemetery.transactions.destroy');
         Route::get('/payments', [CemeteryPaymentCollectionController::class, 'index'])->name('cemetery.payments');
+        Route::get('/payments/csv', [CemeteryPaymentCollectionController::class, 'csv'])->name('cemetery.payments.csv');
         Route::post('/payments', [CemeteryPaymentCollectionController::class, 'store'])->name('cemetery.payments.store');
         Route::post('/transactions/{transaction}/quick-pay', [CemeteryPaymentCollectionController::class, 'quickPay'])->name('cemetery.payments.quick_pay');
         Route::get('/payments/{paymentCollection}/receipt', [CemeteryPaymentCollectionController::class, 'receipt'])->name('cemetery.payments.receipt');
         Route::put('/payments/{paymentCollection}', [CemeteryPaymentCollectionController::class, 'update'])->name('cemetery.payments.update');
         Route::delete('/payments/{paymentCollection}', [CemeteryPaymentCollectionController::class, 'destroy'])->name('cemetery.payments.destroy');
         Route::get('/reports', [CemeteryReportController::class, 'index'])->name('cemetery.reports');
+        Route::get('/reports/csv', [CemeteryReportController::class, 'csv'])->name('cemetery.reports.csv');
         Route::get('/reports/preview', [CemeteryReportController::class, 'preview'])->name('cemetery.reports.preview');
         Route::get('/reports/pdf', [CemeteryReportController::class, 'pdf'])->name('cemetery.reports.pdf');
         Route::get('/profile', [CemeteryProfileController::class, 'show'])->name('cemetery.profile');
@@ -156,12 +170,11 @@ Route::middleware('auth')->group(function () {
     Route::prefix('terminal')->middleware('area:terminal')->group(function () {
         Route::get('/dashboard', [TerminalDashboardController::class, 'index'])->name('terminal.dashboard');
 
-        Route::get('/vehicles', [TerminalVehicleController::class, 'index'])->name('terminal.vehicles');
-        Route::post('/vehicles', [TerminalVehicleController::class, 'store'])->name('terminal.vehicles.store');
-        Route::put('/vehicles/{terminalVehicle}', [TerminalVehicleController::class, 'update'])->name('terminal.vehicles.update');
-        Route::patch('/vehicles/{terminalVehicle}/toggle-active', [TerminalVehicleController::class, 'toggleActive'])->name('terminal.vehicles.toggle_active');
-
         Route::get('/records', [TerminalParkingController::class, 'index'])->name('terminal.records');
+        Route::get('/reports', [TerminalReportController::class, 'index'])->name('terminal.reports');
+        Route::get('/reports/preview', [TerminalReportController::class, 'preview'])->name('terminal.reports.preview');
+        Route::get('/reports/pdf', [TerminalReportController::class, 'pdf'])->name('terminal.reports.pdf');
+        Route::get('/reports/csv', [TerminalReportController::class, 'csv'])->name('terminal.reports.csv');
         Route::get('/send-payment', [TerminalParkingController::class, 'sendPayment'])->name('terminal.send_payment');
         Route::post('/payments/simple', [TerminalParkingController::class, 'storeSimplePayment'])->name('terminal.simple_payments.store');
         Route::put('/payments/simple/{quickPayment}', [TerminalParkingController::class, 'updateSimplePayment'])->name('terminal.simple_payments.update');
@@ -195,19 +208,10 @@ Route::middleware('auth')->group(function () {
         Route::put('/payments/{payment}', [AtriumPaymentController::class, 'update'])->name('atrium.payments.update');
         Route::delete('/payments/{payment}', [AtriumPaymentController::class, 'destroy'])->name('atrium.payments.destroy');
 
-        Route::get('/supplies', [AtriumSuppliesController::class, 'index'])->name('atrium.supplies');
-        Route::get('/supplies/create', [AtriumSuppliesController::class, 'create'])->name('atrium.supplies.create');
-        Route::post('/supplies', [AtriumSuppliesController::class, 'store'])->name('atrium.supplies.store');
-        Route::get('/supplies/{order}/edit', [AtriumSuppliesController::class, 'edit'])->name('atrium.supplies.edit');
-        Route::put('/supplies/{order}', [AtriumSuppliesController::class, 'update'])->name('atrium.supplies.update');
-        Route::delete('/supplies/{order}', [AtriumSuppliesController::class, 'destroy'])->name('atrium.supplies.destroy');
-        Route::patch('/supplies/{order}/approve', [AtriumSuppliesController::class, 'approve'])->name('atrium.supplies.approve');
-        Route::patch('/supplies/{order}/fulfill', [AtriumSuppliesController::class, 'fulfill'])->name('atrium.supplies.fulfill');
-        Route::patch('/supplies/{order}/reject', [AtriumSuppliesController::class, 'reject'])->name('atrium.supplies.reject');
-
         Route::get('/reports', [AtriumReportController::class, 'index'])->name('atrium.reports');
         Route::get('/reports/preview', [AtriumReportController::class, 'preview'])->name('atrium.reports.preview');
         Route::get('/reports/pdf', [AtriumReportController::class, 'pdf'])->name('atrium.reports.pdf');
+        Route::get('/reports/csv', [AtriumReportController::class, 'csv'])->name('atrium.reports.csv');
         Route::get('/profile', [AtriumProfileController::class, 'show'])->name('atrium.profile');
         Route::put('/profile', [AtriumProfileController::class, 'update'])->name('atrium.profile.update');
     });
@@ -220,6 +224,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/payments/{dispatchItem}/cancel', [CollectorCollectionController::class, 'cancelAwaiting'])->name('collector.payments.cancel');
         Route::get('/payments', [CollectorCollectionController::class, 'payments'])->name('collector.payments');
         Route::get('/reports', [CollectorReportController::class, 'index'])->name('collector.reports');
+        Route::get('/reports/csv', [CollectorReportController::class, 'csv'])->name('collector.reports.csv');
         Route::get('/reports/preview', [CollectorReportController::class, 'preview'])->name('collector.reports.preview');
         Route::get('/reports/pdf', [CollectorReportController::class, 'pdf'])->name('collector.reports.pdf');
         Route::get('/profile', [CollectorProfileController::class, 'show'])->name('collector.profile');
@@ -242,7 +247,14 @@ Route::middleware('auth')->group(function () {
     // Shared
     Route::view('/profile', 'shared.profile')->name('profile');
     Route::view('/settings', 'shared.settings')->name('settings');
-    Route::view('/notifications', 'shared.notifications')->name('notifications');
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
+    Route::get('/notifications/feed', [NotificationController::class, 'feed'])->name('notifications.feed');
+    Route::get('/notifications/read-all', [NotificationController::class, 'readAllLink'])->name('notifications.read_all_link');
+    Route::patch('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read_all');
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
+    Route::get('/notifications/{notification}/read', [NotificationController::class, 'markReadLink'])->name('notifications.mark_read_link');
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.mark_read');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::get('/send-payment', static function (Request $request) {
         $user = $request->user();
         if (! $user) {

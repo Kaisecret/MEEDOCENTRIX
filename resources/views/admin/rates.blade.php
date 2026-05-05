@@ -7,6 +7,7 @@
     /** @var \Illuminate\Support\Collection<int, \App\Models\FishportPaymentType> $fishportPaymentTypes */
     /** @var \Illuminate\Support\Collection<int, \App\Models\FishportCommodity> $fishportCommodities */
     /** @var \Illuminate\Support\Collection<int, \App\Models\FishportUnit> $fishportUnits */
+    /** @var \Illuminate\Support\Collection<int, \App\Models\FishportCommodityClassification> $fishportCommodityClassifications */
     /** @var \Illuminate\Support\Collection<int, \App\Models\MarketStallType> $marketStallTypes */
     /** @var \Illuminate\Support\Collection<int, \App\Models\MarketStallLocation> $marketLocations */
     /** @var \Illuminate\Support\Collection<int, \App\Models\TerminalVehicleType> $terminalVehicleTypes */
@@ -17,10 +18,51 @@
     $lastUpdatedLabel = $lastUpdatedAt
         ? \Illuminate\Support\Carbon::parse($lastUpdatedAt)->format('M d, Y h:i A')
         : 'No updates yet';
-    $totalItems = collect($departmentStats)->sum('items');
-    $totalActive = collect($departmentStats)->sum('active');
-    $highestReference = collect($departmentStats)->max('highest') ?? 0;
-    $averageReference = collect($departmentStats)->avg('average') ?? 0;
+
+    $banyeraUnit = $fishportUnits->first(static function ($unit): bool {
+        $name = strtolower(trim((string) $unit->name));
+        return in_array($name, ['banyera', 'banyeras', 'tub'], true);
+    });
+
+    $piecesUnit = $fishportUnits->first(static function ($unit): bool {
+        $name = strtolower(trim((string) $unit->name));
+        return in_array($name, ['pieces', 'piece', 'pcs', 'pc', 'box', 'block'], true);
+    });
+
+    $fishportUnitLabels = $fishportUnits
+        ->mapWithKeys(static function ($unit) use ($banyeraUnit, $piecesUnit): array {
+            $label = (string) $unit->name;
+            if ($banyeraUnit && (int) $unit->id === (int) $banyeraUnit->id) {
+                $label = 'Banyera';
+            } elseif ($piecesUnit && (int) $unit->id === (int) $piecesUnit->id) {
+                $label = 'Pieces';
+            }
+
+            return [(int) $unit->id => $label];
+        })
+        ->all();
+
+    $oldDeleteFishportPaymentTypeIds = collect(old('delete_fishport_payment_type_ids', []))
+        ->map(static fn ($id): string => (string) $id)
+        ->all();
+    $oldDeleteFishportCommodityIds = collect(old('delete_fishport_commodity_ids', []))
+        ->map(static fn ($id): string => (string) $id)
+        ->all();
+    $oldDeleteMarketStallTypeIds = collect(old('delete_market_stall_type_ids', []))
+        ->map(static fn ($id): string => (string) $id)
+        ->all();
+    $oldDeleteMarketLocationRateIds = collect(old('delete_market_location_rate_ids', []))
+        ->map(static fn ($id): string => (string) $id)
+        ->all();
+    $oldDeleteCemeteryFeeRuleIds = collect(old('delete_cemetery_fee_rule_ids', []))
+        ->map(static fn ($id): string => (string) $id)
+        ->all();
+    $oldDeleteTerminalVehicleTypeIds = collect(old('delete_terminal_vehicle_type_ids', []))
+        ->map(static fn ($id): string => (string) $id)
+        ->all();
+    $oldDeleteAtriumFunctionHallIds = collect(old('delete_atrium_function_hall_ids', []))
+        ->map(static fn ($id): string => (string) $id)
+        ->all();
 @endphp
 
 <div data-server-rendered-page="rates" data-page-title="Rates & Fees Control" class="rate-page">
@@ -37,29 +79,6 @@
             <span>{{ $errors->first() }}</span>
         </div>
     @endif
-
-    <section class="rate-summary" aria-label="Fee summary">
-        <div class="rate-kpi">
-            <span>Total Fee Items</span>
-            <strong>{{ number_format((int) $totalItems) }}</strong>
-            <small>Across all departments</small>
-        </div>
-        <div class="rate-kpi">
-            <span>Active Items</span>
-            <strong>{{ number_format((int) $totalActive) }}</strong>
-            <small>Currently usable in workflows</small>
-        </div>
-        <div class="rate-kpi">
-            <span>Highest Reference</span>
-            <strong>{{ $money((float) $highestReference) }}</strong>
-            <small>Largest configured amount</small>
-        </div>
-        <div class="rate-kpi">
-            <span>Average Reference</span>
-            <strong>{{ $money((float) $averageReference) }}</strong>
-            <small>Mean of department averages</small>
-        </div>
-    </section>
 
     <form action="{{ route('admin.rates.update') }}" method="POST" class="rate-workspace" id="rateSettingsForm">
         @csrf
@@ -87,7 +106,7 @@
             <div class="rate-toolbar">
                 <div class="rate-search">
                     <i class="fas fa-search"></i>
-                    <input id="rateSearch" type="search" placeholder="Search rates, codes, departments..." autocomplete="off">
+                    <input id="rateSearch" type="search" placeholder="Search" autocomplete="off">
                 </div>
                 <button type="submit" class="rate-save-btn">
                     <i class="fas fa-floppy-disk"></i>
@@ -101,7 +120,6 @@
                         <h2>Fishport Rates</h2>
                         <p>Controls payment type fees and commodity unit defaults used when Fishport generates transaction charges.</p>
                     </div>
-                    @include('admin.partials.rate-stat-strip', ['stats' => $departmentStats['fishport'], 'money' => $money])
                 </div>
 
                 <div class="rate-section-title">
@@ -115,7 +133,7 @@
                                 <th>Code</th>
                                 <th>Item</th>
                                 <th class="is-money">Default Fee</th>
-                                <th class="is-center">Active</th>
+                                <th class="is-center">Delete</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -128,20 +146,38 @@
                                     <td><span class="rate-code">{{ $paymentType->code }}</span></td>
                                     <td>
                                         <input type="hidden" name="fishport_payment_types[{{ $paymentType->id }}][id]" value="{{ $paymentType->id }}">
+                                        <input type="hidden" name="fishport_payment_types[{{ $paymentType->id }}][is_active]" value="{{ $active ? '1' : '0' }}">
                                         <strong>{{ $paymentType->name }}</strong>
                                     </td>
                                     <td class="is-money">
                                         <input class="rate-input money-input" type="number" name="fishport_payment_types[{{ $paymentType->id }}][default_fee]" value="{{ old("fishport_payment_types.{$key}.default_fee", number_format((float) $paymentType->default_fee, 2, '.', '')) }}" min="0" step="0.01" required>
                                     </td>
                                     <td class="is-center">
-                                        <input type="hidden" name="fishport_payment_types[{{ $paymentType->id }}][is_active]" value="0">
-                                        <label class="rate-switch">
-                                            <input type="checkbox" name="fishport_payment_types[{{ $paymentType->id }}][is_active]" value="1" {{ $active ? 'checked' : '' }}>
-                                            <span></span>
+                                        <label class="rate-delete-check" for="delete_fishport_payment_type_{{ $paymentType->id }}">
+                                            <input
+                                                id="delete_fishport_payment_type_{{ $paymentType->id }}"
+                                                type="checkbox"
+                                                name="delete_fishport_payment_type_ids[]"
+                                                value="{{ $paymentType->id }}"
+                                                {{ in_array((string) $paymentType->id, $oldDeleteFishportPaymentTypeIds, true) ? 'checked' : '' }}
+                                            >
+                                            Delete
                                         </label>
                                     </td>
                                 </tr>
                             @endforeach
+                            <tr class="rate-add-row">
+                                <td>
+                                    <input class="rate-input" type="text" name="new_fishport_payment_types[0][code]" value="{{ old('new_fishport_payment_types.0.code') }}" placeholder="NEW_CODE" maxlength="60">
+                                </td>
+                                <td>
+                                    <input class="rate-input" type="text" name="new_fishport_payment_types[0][name]" value="{{ old('new_fishport_payment_types.0.name') }}" placeholder="New payment type name" maxlength="150">
+                                </td>
+                                <td class="is-money">
+                                    <input class="rate-input money-input" type="number" name="new_fishport_payment_types[0][default_fee]" value="{{ old('new_fishport_payment_types.0.default_fee') }}" min="0" step="0.01" placeholder="0.00">
+                                </td>
+                                <td></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -158,7 +194,7 @@
                                 <th>Classification</th>
                                 <th>Default Unit</th>
                                 <th class="is-money">Conversion</th>
-                                <th class="is-center">Active</th>
+                                <th class="is-center">Delete</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -170,6 +206,7 @@
                                 <tr data-rate-row data-search="{{ strtolower($commodity->name . ' ' . ($commodity->classification?->name ?? '') . ' fishport commodity') }}">
                                     <td>
                                         <input type="hidden" name="fishport_commodities[{{ $commodity->id }}][id]" value="{{ $commodity->id }}">
+                                        <input type="hidden" name="fishport_commodities[{{ $commodity->id }}][is_active]" value="{{ $active ? '1' : '0' }}">
                                         <strong>{{ $commodity->name }}</strong>
                                     </td>
                                     <td>{{ $commodity->classification?->name ?? '-' }}</td>
@@ -177,7 +214,7 @@
                                         <select class="rate-input" name="fishport_commodities[{{ $commodity->id }}][default_unit_id]" required>
                                             @foreach ($fishportUnits as $unit)
                                                 <option value="{{ $unit->id }}" {{ (string) old("fishport_commodities.{$key}.default_unit_id", $commodity->default_unit_id) === (string) $unit->id ? 'selected' : '' }}>
-                                                    {{ $unit->name }}
+                                                    {{ $fishportUnitLabels[(int) $unit->id] ?? $unit->name }}
                                                 </option>
                                             @endforeach
                                         </select>
@@ -186,14 +223,48 @@
                                         <input class="rate-input money-input" type="number" name="fishport_commodities[{{ $commodity->id }}][default_conversion]" value="{{ old("fishport_commodities.{$key}.default_conversion", number_format((float) $commodity->default_conversion, 4, '.', '')) }}" min="0.0001" step="0.0001" required>
                                     </td>
                                     <td class="is-center">
-                                        <input type="hidden" name="fishport_commodities[{{ $commodity->id }}][is_active]" value="0">
-                                        <label class="rate-switch">
-                                            <input type="checkbox" name="fishport_commodities[{{ $commodity->id }}][is_active]" value="1" {{ $active ? 'checked' : '' }}>
-                                            <span></span>
+                                        <label class="rate-delete-check" for="delete_fishport_commodity_{{ $commodity->id }}">
+                                            <input
+                                                id="delete_fishport_commodity_{{ $commodity->id }}"
+                                                type="checkbox"
+                                                name="delete_fishport_commodity_ids[]"
+                                                value="{{ $commodity->id }}"
+                                                {{ in_array((string) $commodity->id, $oldDeleteFishportCommodityIds, true) ? 'checked' : '' }}
+                                            >
+                                            Delete
                                         </label>
                                     </td>
                                 </tr>
                             @endforeach
+                            <tr class="rate-add-row">
+                                <td>
+                                    <input class="rate-input" type="text" name="new_fishport_commodities[0][name]" value="{{ old('new_fishport_commodities.0.name') }}" placeholder="New commodity name" maxlength="150">
+                                </td>
+                                <td>
+                                    <select class="rate-input" name="new_fishport_commodities[0][classification_id]">
+                                        <option value="">Select classification</option>
+                                        @foreach ($fishportCommodityClassifications as $classification)
+                                            <option value="{{ $classification->id }}" {{ (string) old('new_fishport_commodities.0.classification_id') === (string) $classification->id ? 'selected' : '' }}>
+                                                {{ $classification->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="rate-input" name="new_fishport_commodities[0][default_unit_id]">
+                                        <option value="">Select unit</option>
+                                        @foreach ($fishportUnits as $unit)
+                                            <option value="{{ $unit->id }}" {{ (string) old('new_fishport_commodities.0.default_unit_id') === (string) $unit->id ? 'selected' : '' }}>
+                                                {{ $fishportUnitLabels[(int) $unit->id] ?? $unit->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </td>
+                                <td class="is-money">
+                                    <input class="rate-input money-input" type="number" name="new_fishport_commodities[0][default_conversion]" value="{{ old('new_fishport_commodities.0.default_conversion') }}" min="0.0001" step="0.0001" placeholder="1.0000">
+                                </td>
+                                <td></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -205,7 +276,6 @@
                         <h2>Market Rates</h2>
                         <p>Controls stall type rates, notes, and active location reference rates used by market leases.</p>
                     </div>
-                    @include('admin.partials.rate-stat-strip', ['stats' => $departmentStats['market'], 'money' => $money])
                 </div>
 
                 <div class="rate-section-title"><h3>Stall Type Rates</h3><span>Used for type-based billing</span></div>
@@ -216,7 +286,7 @@
                                 <th>Type</th>
                                 <th class="is-money">Default Rate</th>
                                 <th>Notes</th>
-                                <th class="is-center">Active</th>
+                                <th class="is-center">Delete</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -225,6 +295,7 @@
                                 <tr data-rate-row data-search="{{ strtolower($type->type_name . ' ' . $type->description . ' ' . $type->rate_notes . ' market') }}">
                                     <td>
                                         <input type="hidden" name="market_stall_types[{{ $type->id }}][id]" value="{{ $type->id }}">
+                                        <input type="hidden" name="market_stall_types[{{ $type->id }}][is_active]" value="{{ old("market_stall_types.{$key}.is_active", $type->is_active) ? '1' : '0' }}">
                                         <strong>{{ $type->type_name }}</strong>
                                         <small>{{ $type->description ?: 'No description' }}</small>
                                     </td>
@@ -235,14 +306,32 @@
                                         <input class="rate-input" type="text" name="market_stall_types[{{ $type->id }}][rate_notes]" value="{{ old("market_stall_types.{$key}.rate_notes", $type->rate_notes) }}" placeholder="Optional rate note">
                                     </td>
                                     <td class="is-center">
-                                        <input type="hidden" name="market_stall_types[{{ $type->id }}][is_active]" value="0">
-                                        <label class="rate-switch">
-                                            <input type="checkbox" name="market_stall_types[{{ $type->id }}][is_active]" value="1" {{ old("market_stall_types.{$key}.is_active", $type->is_active) ? 'checked' : '' }}>
-                                            <span></span>
+                                        <label class="rate-delete-check" for="delete_market_stall_type_{{ $type->id }}">
+                                            <input
+                                                id="delete_market_stall_type_{{ $type->id }}"
+                                                type="checkbox"
+                                                name="delete_market_stall_type_ids[]"
+                                                value="{{ $type->id }}"
+                                                {{ in_array((string) $type->id, $oldDeleteMarketStallTypeIds, true) ? 'checked' : '' }}
+                                            >
+                                            Delete
                                         </label>
                                     </td>
                                 </tr>
                             @endforeach
+                            <tr class="rate-add-row">
+                                <td>
+                                    <input class="rate-input" type="text" name="new_market_stall_types[0][type_name]" value="{{ old('new_market_stall_types.0.type_name') }}" placeholder="New stall type" maxlength="100">
+                                    <input class="rate-input mt-6" type="text" name="new_market_stall_types[0][description]" value="{{ old('new_market_stall_types.0.description') }}" placeholder="Optional description" maxlength="255">
+                                </td>
+                                <td class="is-money">
+                                    <input class="rate-input money-input" type="number" name="new_market_stall_types[0][default_rate]" value="{{ old('new_market_stall_types.0.default_rate') }}" min="0" step="0.01" placeholder="0.00">
+                                </td>
+                                <td>
+                                    <input class="rate-input" type="text" name="new_market_stall_types[0][rate_notes]" value="{{ old('new_market_stall_types.0.rate_notes') }}" placeholder="Optional rate note">
+                                </td>
+                                <td></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -256,7 +345,7 @@
                                 <th>Zone / Floor</th>
                                 <th class="is-money">Active Rate</th>
                                 <th>Effective Start</th>
-                                <th class="is-center">Active</th>
+                                <th class="is-center">Delete</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -265,6 +354,7 @@
                                 <tr data-rate-row data-search="{{ strtolower($location->location_code . ' ' . $location->location_name . ' ' . $location->zone . ' market location') }}">
                                     <td>
                                         <input type="hidden" name="market_location_rates[{{ $location->id }}][id]" value="{{ $location->id }}">
+                                        <input type="hidden" name="market_location_rates[{{ $location->id }}][is_active]" value="{{ old("market_location_rates.{$key}.is_active", $location->is_active) ? '1' : '0' }}">
                                         <strong>{{ $location->location_code }}</strong>
                                         <small>{{ $location->location_name }}</small>
                                     </td>
@@ -276,14 +366,37 @@
                                         <input class="rate-input" type="date" name="market_location_rates[{{ $location->id }}][effective_start_date]" value="{{ old("market_location_rates.{$key}.effective_start_date", optional($location->activeRate?->effective_start_date)->toDateString() ?: now()->toDateString()) }}">
                                     </td>
                                     <td class="is-center">
-                                        <input type="hidden" name="market_location_rates[{{ $location->id }}][is_active]" value="0">
-                                        <label class="rate-switch">
-                                            <input type="checkbox" name="market_location_rates[{{ $location->id }}][is_active]" value="1" {{ old("market_location_rates.{$key}.is_active", $location->is_active) ? 'checked' : '' }}>
-                                            <span></span>
+                                        <label class="rate-delete-check" for="delete_market_location_rate_{{ $location->id }}">
+                                            <input
+                                                id="delete_market_location_rate_{{ $location->id }}"
+                                                type="checkbox"
+                                                name="delete_market_location_rate_ids[]"
+                                                value="{{ $location->id }}"
+                                                {{ in_array((string) $location->id, $oldDeleteMarketLocationRateIds, true) ? 'checked' : '' }}
+                                            >
+                                            Delete
                                         </label>
                                     </td>
                                 </tr>
                             @endforeach
+                            <tr class="rate-add-row">
+                                <td>
+                                    <input class="rate-input" type="text" name="new_market_location_rates[0][location_code]" value="{{ old('new_market_location_rates.0.location_code') }}" placeholder="LOC-CODE" maxlength="50">
+                                    <input class="rate-input mt-6" type="text" name="new_market_location_rates[0][location_name]" value="{{ old('new_market_location_rates.0.location_name') }}" placeholder="Location name" maxlength="120">
+                                </td>
+                                <td>
+                                    <input class="rate-input" type="text" name="new_market_location_rates[0][zone]" value="{{ old('new_market_location_rates.0.zone') }}" placeholder="Zone" maxlength="120">
+                                    <input class="rate-input mt-6" type="text" name="new_market_location_rates[0][floor_level]" value="{{ old('new_market_location_rates.0.floor_level') }}" placeholder="Floor level" maxlength="60">
+                                    <input class="rate-input mt-6" type="text" name="new_market_location_rates[0][remarks]" value="{{ old('new_market_location_rates.0.remarks') }}" placeholder="Remarks (optional)">
+                                </td>
+                                <td class="is-money">
+                                    <input class="rate-input money-input" type="number" name="new_market_location_rates[0][rate_amount]" value="{{ old('new_market_location_rates.0.rate_amount') }}" min="0" step="0.01" placeholder="0.00">
+                                </td>
+                                <td>
+                                    <input class="rate-input" type="date" name="new_market_location_rates[0][effective_start_date]" value="{{ old('new_market_location_rates.0.effective_start_date') }}">
+                                </td>
+                                <td></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -295,7 +408,6 @@
                         <h2>Cemetery Fees</h2>
                         <p>Controls fee rules used by the Cemetery transaction calculator for future generated dues.</p>
                     </div>
-                    @include('admin.partials.rate-stat-strip', ['stats' => $departmentStats['cemetery'], 'money' => $money])
                 </div>
                 <div class="rate-table-wrap">
                     <table class="rate-table">
@@ -304,7 +416,7 @@
                                 <th>Rule</th>
                                 <th>Key</th>
                                 <th class="is-money">Amount</th>
-                                <th class="is-center">Active</th>
+                                <th class="is-center">Delete</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -313,6 +425,7 @@
                                 <tr data-rate-row data-search="{{ strtolower($rule->label . ' ' . $rule->fee_key . ' ' . $rule->description . ' cemetery') }}">
                                     <td>
                                         <input type="hidden" name="cemetery_fee_rules[{{ $rule->id }}][id]" value="{{ $rule->id }}">
+                                        <input type="hidden" name="cemetery_fee_rules[{{ $rule->id }}][is_active]" value="{{ old("cemetery_fee_rules.{$key}.is_active", $rule->is_active) ? '1' : '0' }}">
                                         <strong>{{ $rule->label }}</strong>
                                         <small>{{ $rule->description }}</small>
                                     </td>
@@ -321,14 +434,33 @@
                                         <input class="rate-input money-input" type="number" name="cemetery_fee_rules[{{ $rule->id }}][amount]" value="{{ old("cemetery_fee_rules.{$key}.amount", number_format((float) $rule->amount, 2, '.', '')) }}" min="0" step="0.01" required>
                                     </td>
                                     <td class="is-center">
-                                        <input type="hidden" name="cemetery_fee_rules[{{ $rule->id }}][is_active]" value="0">
-                                        <label class="rate-switch">
-                                            <input type="checkbox" name="cemetery_fee_rules[{{ $rule->id }}][is_active]" value="1" {{ old("cemetery_fee_rules.{$key}.is_active", $rule->is_active) ? 'checked' : '' }}>
-                                            <span></span>
+                                        <label class="rate-delete-check" for="delete_cemetery_fee_rule_{{ $rule->id }}">
+                                            <input
+                                                id="delete_cemetery_fee_rule_{{ $rule->id }}"
+                                                type="checkbox"
+                                                name="delete_cemetery_fee_rule_ids[]"
+                                                value="{{ $rule->id }}"
+                                                {{ in_array((string) $rule->id, $oldDeleteCemeteryFeeRuleIds, true) ? 'checked' : '' }}
+                                            >
+                                            Delete
                                         </label>
                                     </td>
                                 </tr>
                             @endforeach
+                            <tr class="rate-add-row">
+                                <td>
+                                    <input class="rate-input" type="text" name="new_cemetery_fee_rules[0][label]" value="{{ old('new_cemetery_fee_rules.0.label') }}" placeholder="New fee label" maxlength="160">
+                                    <input class="rate-input mt-6" type="text" name="new_cemetery_fee_rules[0][description]" value="{{ old('new_cemetery_fee_rules.0.description') }}" placeholder="Optional description">
+                                </td>
+                                <td>
+                                    <input class="rate-input" type="text" name="new_cemetery_fee_rules[0][fee_key]" value="{{ old('new_cemetery_fee_rules.0.fee_key') }}" placeholder="base.custom.key" maxlength="100">
+                                </td>
+                                <td class="is-money">
+                                    <input class="rate-input money-input" type="number" name="new_cemetery_fee_rules[0][amount]" value="{{ old('new_cemetery_fee_rules.0.amount') }}" min="0" step="0.01" placeholder="0.00">
+                                    <input class="rate-input mt-6" type="number" name="new_cemetery_fee_rules[0][sort_order]" value="{{ old('new_cemetery_fee_rules.0.sort_order') }}" min="0" step="1" placeholder="Sort">
+                                </td>
+                                <td></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -340,7 +472,6 @@
                         <h2>Terminal Parking Rates</h2>
                         <p>Controls the hourly parking fee used when terminal parking logs compute billed amounts.</p>
                     </div>
-                    @include('admin.partials.rate-stat-strip', ['stats' => $departmentStats['terminal'], 'money' => $money])
                 </div>
                 <div class="rate-table-wrap">
                     <table class="rate-table">
@@ -350,7 +481,7 @@
                                 <th>Code</th>
                                 <th class="is-money">Hourly Fee</th>
                                 <th>Description</th>
-                                <th class="is-center">Active</th>
+                                <th class="is-center">Delete</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -359,6 +490,7 @@
                                 <tr data-rate-row data-search="{{ strtolower($type->code . ' ' . $type->name . ' ' . $type->description . ' terminal') }}">
                                     <td>
                                         <input type="hidden" name="terminal_vehicle_types[{{ $type->id }}][id]" value="{{ $type->id }}">
+                                        <input type="hidden" name="terminal_vehicle_types[{{ $type->id }}][is_active]" value="{{ old("terminal_vehicle_types.{$key}.is_active", $type->is_active) ? '1' : '0' }}">
                                         <strong>{{ $type->name }}</strong>
                                     </td>
                                     <td><span class="rate-code">{{ $type->code }}</span></td>
@@ -369,14 +501,34 @@
                                         <input class="rate-input" type="text" name="terminal_vehicle_types[{{ $type->id }}][description]" value="{{ old("terminal_vehicle_types.{$key}.description", $type->description) }}" placeholder="Optional description">
                                     </td>
                                     <td class="is-center">
-                                        <input type="hidden" name="terminal_vehicle_types[{{ $type->id }}][is_active]" value="0">
-                                        <label class="rate-switch">
-                                            <input type="checkbox" name="terminal_vehicle_types[{{ $type->id }}][is_active]" value="1" {{ old("terminal_vehicle_types.{$key}.is_active", $type->is_active) ? 'checked' : '' }}>
-                                            <span></span>
+                                        <label class="rate-delete-check" for="delete_terminal_vehicle_type_{{ $type->id }}">
+                                            <input
+                                                id="delete_terminal_vehicle_type_{{ $type->id }}"
+                                                type="checkbox"
+                                                name="delete_terminal_vehicle_type_ids[]"
+                                                value="{{ $type->id }}"
+                                                {{ in_array((string) $type->id, $oldDeleteTerminalVehicleTypeIds, true) ? 'checked' : '' }}
+                                            >
+                                            Delete
                                         </label>
                                     </td>
                                 </tr>
                             @endforeach
+                            <tr class="rate-add-row">
+                                <td>
+                                    <input class="rate-input" type="text" name="new_terminal_vehicle_types[0][name]" value="{{ old('new_terminal_vehicle_types.0.name') }}" placeholder="New vehicle type" maxlength="120">
+                                </td>
+                                <td>
+                                    <input class="rate-input" type="text" name="new_terminal_vehicle_types[0][code]" value="{{ old('new_terminal_vehicle_types.0.code') }}" placeholder="CODE" maxlength="30">
+                                </td>
+                                <td class="is-money">
+                                    <input class="rate-input money-input" type="number" name="new_terminal_vehicle_types[0][parking_fee_per_hour]" value="{{ old('new_terminal_vehicle_types.0.parking_fee_per_hour') }}" min="0" step="0.01" placeholder="0.00">
+                                </td>
+                                <td>
+                                    <input class="rate-input" type="text" name="new_terminal_vehicle_types[0][description]" value="{{ old('new_terminal_vehicle_types.0.description') }}" placeholder="Optional description">
+                                </td>
+                                <td></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -388,7 +540,6 @@
                         <h2>Atrium Hall Rates</h2>
                         <p>Controls hourly function hall rates shown in booking forms and used for hall payment calculations.</p>
                     </div>
-                    @include('admin.partials.rate-stat-strip', ['stats' => $departmentStats['atrium'], 'money' => $money])
                 </div>
                 <div class="rate-table-wrap">
                     <table class="rate-table">
@@ -399,7 +550,7 @@
                                 <th>Capacity</th>
                                 <th class="is-money">Hourly Rate</th>
                                 <th>Description</th>
-                                <th class="is-center">Active</th>
+                                <th class="is-center">Delete</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -408,6 +559,7 @@
                                 <tr data-rate-row data-search="{{ strtolower($hall->code . ' ' . $hall->name . ' ' . $hall->description . ' atrium') }}">
                                     <td>
                                         <input type="hidden" name="atrium_function_halls[{{ $hall->id }}][id]" value="{{ $hall->id }}">
+                                        <input type="hidden" name="atrium_function_halls[{{ $hall->id }}][is_active]" value="{{ old("atrium_function_halls.{$key}.is_active", $hall->is_active) ? '1' : '0' }}">
                                         <strong>{{ $hall->name }}</strong>
                                     </td>
                                     <td><span class="rate-code">{{ $hall->code }}</span></td>
@@ -421,29 +573,51 @@
                                         <input class="rate-input" type="text" name="atrium_function_halls[{{ $hall->id }}][description]" value="{{ old("atrium_function_halls.{$key}.description", $hall->description) }}" placeholder="Optional description">
                                     </td>
                                     <td class="is-center">
-                                        <input type="hidden" name="atrium_function_halls[{{ $hall->id }}][is_active]" value="0">
-                                        <label class="rate-switch">
-                                            <input type="checkbox" name="atrium_function_halls[{{ $hall->id }}][is_active]" value="1" {{ old("atrium_function_halls.{$key}.is_active", $hall->is_active) ? 'checked' : '' }}>
-                                            <span></span>
+                                        <label class="rate-delete-check" for="delete_atrium_function_hall_{{ $hall->id }}">
+                                            <input
+                                                id="delete_atrium_function_hall_{{ $hall->id }}"
+                                                type="checkbox"
+                                                name="delete_atrium_function_hall_ids[]"
+                                                value="{{ $hall->id }}"
+                                                {{ in_array((string) $hall->id, $oldDeleteAtriumFunctionHallIds, true) ? 'checked' : '' }}
+                                            >
+                                            Delete
                                         </label>
                                     </td>
                                 </tr>
                             @endforeach
+                            <tr class="rate-add-row">
+                                <td>
+                                    <input class="rate-input" type="text" name="new_atrium_function_halls[0][name]" value="{{ old('new_atrium_function_halls.0.name') }}" placeholder="New hall name" maxlength="150">
+                                </td>
+                                <td>
+                                    <input class="rate-input" type="text" name="new_atrium_function_halls[0][code]" value="{{ old('new_atrium_function_halls.0.code') }}" placeholder="CODE" maxlength="30">
+                                </td>
+                                <td>
+                                    <input class="rate-input compact-input" type="number" name="new_atrium_function_halls[0][capacity]" value="{{ old('new_atrium_function_halls.0.capacity') }}" min="1" step="1" placeholder="Capacity">
+                                </td>
+                                <td class="is-money">
+                                    <input class="rate-input money-input" type="number" name="new_atrium_function_halls[0][hourly_rate]" value="{{ old('new_atrium_function_halls.0.hourly_rate') }}" min="0" step="0.01" placeholder="0.00">
+                                </td>
+                                <td>
+                                    <input class="rate-input" type="text" name="new_atrium_function_halls[0][description]" value="{{ old('new_atrium_function_halls.0.description') }}" placeholder="Optional description">
+                                </td>
+                                <td></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
             </section>
 
-            <div class="rate-empty" id="rateSearchEmpty" hidden>
-                <i class="fas fa-magnifying-glass"></i>
-                <strong>No matching fee items</strong>
-                <span>Try another code, department, or rate name.</span>
-            </div>
         </section>
     </form>
 </div>
 
 <style>
+    #contentArea {
+        padding-top: 10px;
+    }
+
     .rate-page {
         --rate-ink: #0b1a2c;
         --rate-ink-soft: #2a3e57;
@@ -465,7 +639,7 @@
         --rate-radius-sm: 10px;
         max-width: 1480px;
         margin: 0 auto;
-        padding: 0.5rem 0 2.5rem;
+        padding: 10px 0 16px;
         color: var(--rate-ink);
         font-feature-settings: "ss01", "cv11";
     }
@@ -539,9 +713,9 @@
         display: flex;
         align-items: center;
         gap: 0.7rem;
-        margin-top: 1rem;
+        margin-top: 0.55rem;
         border-radius: var(--rate-radius-sm);
-        padding: 0.9rem 1.1rem;
+        padding: 0.65rem 0.85rem;
         font-weight: 700;
         box-shadow: var(--rate-shadow-sm);
     }
@@ -562,112 +736,41 @@
         color: var(--rate-danger);
     }
 
-    .rate-summary {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 0.85rem;
-        padding: 0 0 1.2rem;
-    }
-
-    .rate-kpi {
-        position: relative;
-        border: 1px solid var(--rate-line);
-        border-radius: var(--rate-radius);
-        background: var(--rate-panel);
-        padding: 1.05rem 1.15rem;
-        box-shadow: var(--rate-shadow-sm);
-        overflow: hidden;
-        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-    }
-
-    .rate-kpi::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        background: linear-gradient(90deg, var(--rate-action), #4ea3e0);
-        opacity: 0.85;
-    }
-
-    .rate-kpi:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--rate-shadow-md);
-        border-color: var(--rate-line-strong);
-    }
-
-    .rate-kpi span,
-    .rate-stat span {
-        display: block;
-        color: var(--rate-muted);
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        font-weight: 800;
-        letter-spacing: 0.06em;
-    }
-
-    .rate-kpi strong {
-        display: block;
-        margin-top: 0.4rem;
-        font-size: 1.5rem;
-        font-weight: 850;
-        letter-spacing: -0.01em;
-    }
-
-    .rate-kpi small {
-        display: block;
-        margin-top: 0.25rem;
-        color: var(--rate-muted);
-        font-size: 0.78rem;
-    }
-
     .rate-workspace {
-        display: grid;
-        grid-template-columns: 290px minmax(0, 1fr);
-        align-items: start;
-        gap: 1.1rem;
+        display: block;
     }
 
     .rate-nav {
-        position: sticky;
-        top: 1rem;
-        display: grid;
-        gap: 0.4rem;
-        border: 1px solid var(--rate-line);
-        background: var(--rate-panel);
-        border-radius: var(--rate-radius);
-        padding: 0.65rem;
-        box-shadow: var(--rate-shadow-sm);
+        position: static;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        border: 1px solid #bcd0e4;
+        background: #dfeaf6;
+        border-radius: 16px;
+        padding: 10px;
+        box-shadow: none;
+        margin-bottom: 10px;
     }
 
     .rate-tab {
         position: relative;
-        width: 100%;
+        width: auto;
         border: 1px solid transparent;
-        border-radius: var(--rate-radius-sm);
+        border-radius: 13px;
         background: transparent;
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        padding: 0.7rem 0.8rem;
+        gap: 0.5rem;
+        padding: 0.58rem 0.9rem;
         color: var(--rate-ink-soft);
         text-align: left;
         cursor: pointer;
-        transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+        transition: background 0.16s ease, border-color 0.16s ease, transform 0.12s ease, box-shadow 0.16s ease;
     }
 
     .rate-tab::before {
-        content: '';
-        position: absolute;
-        left: -1px;
-        top: 50%;
-        transform: translateY(-50%) scaleY(0);
-        width: 3px;
-        height: 60%;
-        border-radius: 0 3px 3px 0;
-        background: var(--dept-color);
-        transition: transform 0.18s ease;
+        content: none;
     }
 
     .rate-tab:hover {
@@ -675,13 +778,9 @@
     }
 
     .rate-tab.is-active {
-        background: color-mix(in srgb, var(--dept-color) 7%, white);
-        border-color: color-mix(in srgb, var(--dept-color) 28%, var(--rate-line));
-        box-shadow: var(--rate-shadow-sm);
-    }
-
-    .rate-tab.is-active::before {
-        transform: translateY(-50%) scaleY(1);
+        background: #ffffff;
+        border-color: #c3d6e9;
+        box-shadow: 0 1px 2px rgba(15, 35, 60, 0.08);
     }
 
     .rate-tab-icon {
@@ -710,14 +809,12 @@
 
     .rate-tab strong {
         color: var(--rate-ink);
-        font-size: 0.93rem;
+        font-size: 0.92rem;
         font-weight: 800;
     }
 
     .rate-tab small {
-        margin-top: 0.15rem;
-        color: var(--rate-muted);
-        font-size: 0.76rem;
+        display: none;
     }
 
     .rate-main {
@@ -727,10 +824,10 @@
     .rate-toolbar {
         display: flex;
         justify-content: space-between;
-        gap: 0.8rem;
+        gap: 10px;
         align-items: center;
-        margin-bottom: 1rem;
-        padding: 0.75rem;
+        margin-bottom: 10px;
+        padding: 10px;
         border: 1px solid var(--rate-line);
         background: var(--rate-panel);
         border-radius: var(--rate-radius);
@@ -781,7 +878,7 @@
         min-height: 44px;
         border: 0;
         border-radius: var(--rate-radius-sm);
-        background: #2563eb;
+        background: var(--sidebar-bg, #155e8f);
         color: #ffffff;
         display: inline-flex;
         align-items: center;
@@ -792,14 +889,14 @@
         font-size: 0.92rem;
         letter-spacing: 0.01em;
         cursor: pointer;
-        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+        box-shadow: 0 4px 10px rgba(21, 94, 143, 0.25);
         transition: transform 0.12s ease, box-shadow 0.18s ease, background 0.18s ease;
     }
 
     .rate-save-btn:hover {
         transform: translateY(-1px);
-        background: #1d4ed8;
-        box-shadow: 0 6px 14px rgba(37, 99, 235, 0.32);
+        background: #124f78;
+        box-shadow: 0 6px 14px rgba(18, 79, 120, 0.32);
     }
 
     .rate-save-btn:active {
@@ -809,10 +906,10 @@
     .rate-panel {
         display: none;
         border: 1px solid var(--rate-line);
-        border-radius: var(--rate-radius);
+        border-radius: 16px;
         background: var(--rate-panel);
         overflow: hidden;
-        box-shadow: var(--rate-shadow-md);
+        box-shadow: var(--rate-shadow-sm);
     }
 
     .rate-panel.is-active {
@@ -823,12 +920,10 @@
     .rate-panel-head {
         display: flex;
         justify-content: space-between;
-        gap: 1.2rem;
+        gap: 10px;
         align-items: flex-start;
-        padding: 1.2rem 1.3rem;
-        background:
-            radial-gradient(600px 120px at 0% 0%, rgba(30, 111, 184, 0.07), transparent 60%),
-            linear-gradient(180deg, #ffffff 0%, var(--rate-soft) 100%);
+        padding: 10px 12px 8px;
+        background: #ffffff;
         border-bottom: 1px solid var(--rate-line);
     }
 
@@ -840,47 +935,19 @@
     }
 
     .rate-panel-head p {
-        margin: 0.4rem 0 0;
+        margin: 0.25rem 0 0;
         color: var(--rate-muted);
-        font-size: 0.9rem;
+        font-size: 0.86rem;
         max-width: 760px;
-        line-height: 1.5;
-    }
-
-    .rate-stat-strip {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(96px, 1fr));
-        gap: 0.55rem;
-        min-width: 320px;
-    }
-
-    .rate-stat {
-        border: 1px solid var(--rate-line);
-        border-radius: var(--rate-radius-sm);
-        padding: 0.6rem 0.75rem;
-        background: #ffffff;
-        transition: border-color 0.18s ease, transform 0.12s ease;
-    }
-
-    .rate-stat:hover {
-        border-color: var(--rate-line-strong);
-        transform: translateY(-1px);
-    }
-
-    .rate-stat strong {
-        display: block;
-        margin-top: 0.25rem;
-        font-size: 1rem;
-        font-weight: 800;
-        color: var(--rate-ink);
+        line-height: 1.4;
     }
 
     .rate-section-title {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 0.8rem;
-        padding: 1.1rem 1.3rem 0.6rem;
+        gap: 10px;
+        padding: 8px 12px 6px;
     }
 
     .rate-section-title h3 {
@@ -911,7 +978,7 @@
 
     .rate-table-wrap {
         overflow-x: auto;
-        padding: 0 1.3rem 1.3rem;
+        padding: 0 12px 10px;
     }
 
     .rate-table {
@@ -928,7 +995,7 @@
     .rate-table th {
         background: linear-gradient(180deg, #f7fafd 0%, #eef3f9 100%);
         color: #4a5e76;
-        padding: 0.78rem 0.85rem;
+        padding: 8px 12px;
         text-align: left;
         font-size: 0.7rem;
         font-weight: 850;
@@ -941,11 +1008,20 @@
     }
 
     .rate-table td {
-        padding: 0.78rem 0.85rem;
+        padding: 8px 12px;
         border-bottom: 1px solid #eef2f7;
         color: var(--rate-ink-soft);
         vertical-align: middle;
-        font-size: 0.9rem;
+        font-size: 0.89rem;
+    }
+
+    .rate-add-row td {
+        background: #fbfdff;
+        border-top: 1px dashed #d9e5f2;
+    }
+
+    .rate-add-row .rate-input {
+        background: #ffffff;
     }
 
     .rate-table tr:last-child td {
@@ -988,8 +1064,8 @@
         border-radius: 6px;
         background: rgba(30, 111, 184, 0.1);
         color: var(--rate-action-dark);
-        padding: 0.22rem 0.5rem;
-        font-size: 0.74rem;
+        padding: 0.16rem 0.42rem;
+        font-size: 0.72rem;
         font-weight: 800;
         font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
         letter-spacing: 0.02em;
@@ -997,14 +1073,18 @@
 
     .rate-input {
         width: 100%;
-        min-height: 40px;
+        min-height: 34px;
         border: 1px solid var(--rate-line);
         border-radius: 9px;
         background: var(--rate-soft);
-        padding: 0.5rem 0.65rem;
+        padding: 0.35rem 0.55rem;
         color: var(--rate-ink);
-        font-size: 0.9rem;
+        font-size: 0.88rem;
         transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+    }
+
+    .mt-6 {
+        margin-top: 6px;
     }
 
     .rate-input:hover {
@@ -1021,19 +1101,40 @@
 
     .money-input,
     .compact-input {
-        max-width: 150px;
+        width: 132px;
+        max-width: 132px;
+        display: block;
+        margin-left: auto;
         text-align: right;
         font-variant-numeric: tabular-nums;
         font-weight: 700;
     }
 
-    .is-money {
+    .rate-table th.is-money,
+    .rate-table td.is-money {
         text-align: right;
         font-variant-numeric: tabular-nums;
     }
 
     .is-center {
         text-align: center;
+    }
+
+    .rate-delete-check {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--rate-danger);
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .rate-delete-check input {
+        width: 14px;
+        height: 14px;
+        accent-color: var(--rate-danger);
     }
 
     .rate-switch {
@@ -1117,17 +1218,8 @@
     }
 
     @media (max-width: 1120px) {
-        .rate-summary {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .rate-workspace {
-            grid-template-columns: 1fr;
-        }
-
         .rate-nav {
-            position: static;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem;
         }
     }
 
@@ -1147,14 +1239,9 @@
             text-align: left;
         }
 
-        .rate-summary,
-        .rate-nav,
-        .rate-stat-strip {
+        .rate-nav {
+            display: grid;
             grid-template-columns: 1fr;
-        }
-
-        .rate-stat-strip {
-            min-width: 0;
         }
 
         .rate-search {

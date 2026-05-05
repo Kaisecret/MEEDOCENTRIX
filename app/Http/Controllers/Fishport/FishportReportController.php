@@ -69,13 +69,272 @@ class FishportReportController extends Controller
         ])->download($filename);
     }
 
+    public function csv(Request $request)
+    {
+        [$period, $rangeStart, $rangeEnd, $dateFrom, $dateTo, $rangeLabel] = $this->resolveRange($request);
+        $payload = $this->buildReportPayload($rangeStart, $rangeEnd);
+        $filename = 'fishport-report-' . $rangeStart->format('Ymd') . '-' . $rangeEnd->format('Ymd') . '.xls';
+
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+        ];
+
+        return response()->streamDownload(function () use ($payload, $period, $rangeStart, $rangeEnd, $rangeLabel): void {
+            echo "\xEF\xBB\xBF";
+            echo $this->renderExcelHtml($payload, $period, $rangeStart, $rangeEnd, $rangeLabel);
+        }, $filename, $headers);
+    }
+
+    private function renderExcelHtml(array $payload, string $period, Carbon $rangeStart, Carbon $rangeEnd, string $rangeLabel): string
+    {
+        $esc = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $money = static fn ($v): string => 'PHP ' . number_format((float) $v, 2);
+
+        $css = '
+            body { font-family: Calibri, "Segoe UI", Arial, sans-serif; color:#0f172a; }
+            table { border-collapse: collapse; width: 100%; }
+            .title { font-size:18pt; font-weight:bold; color:#0c3a5b; }
+            .subtitle { font-size:11pt; color:#475569; }
+            .meta { font-size:10pt; color:#475569; }
+            .section-title {
+                background:#0c3a5b; color:#ffffff; font-weight:bold;
+                padding:6pt 10pt; font-size:11pt; letter-spacing:1pt;
+            }
+            .info th {
+                background:#eaf2f9; color:#0c3a5b; text-align:left;
+                font-weight:bold; padding:6pt 10pt; border:1px solid #cbd5e1;
+            }
+            .info td {
+                background:#f8fafc; padding:6pt 10pt;
+                border:1px solid #cbd5e1; font-weight:bold;
+            }
+            .data th {
+                background:#155f8f; color:#ffffff; font-weight:bold;
+                padding:6pt 8pt; border:1px solid #0c3a5b;
+                text-align:left; font-size:10pt;
+            }
+            .data td {
+                padding:5pt 8pt; border:1px solid #cbd5e1; font-size:10pt;
+                vertical-align:top;
+            }
+            .data tr.alt td { background:#f8fafc; }
+            .num { mso-number-format:"#,##0.00"; text-align:right; }
+            .int { mso-number-format:"#,##0"; text-align:right; }
+            .center { text-align:center; }
+            .paid { color:#047857; font-weight:bold; }
+            .unpaid { color:#b91c1c; font-weight:bold; }
+            .kpi-paid { background:#ecfdf5; color:#047857; font-weight:bold; }
+            .kpi-unpaid { background:#fef2f2; color:#b91c1c; font-weight:bold; }
+            .kpi-total { background:#fffbeb; color:#b45309; font-weight:bold; }
+            .footer { font-size:9pt; color:#64748b; font-style:italic; padding-top:8pt; }
+        ';
+
+        ob_start();
+        ?>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="UTF-8">
+    <title>Fishport Transactions Report</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>Fishport Report</x:Name>
+                    <x:WorksheetOptions>
+                        <x:DisplayGridlines/>
+                    </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+    <style><?= $css ?></style>
+</head>
+<body>
+
+<table>
+    <tr><td colspan="11" class="title">Fishport Management Office</td></tr>
+    <tr><td colspan="11" class="subtitle">Transactions &amp; Collection Report</td></tr>
+    <tr><td colspan="11" class="meta">Generated: <?= $esc(now()->format('F d, Y h:i A')) ?></td></tr>
+    <tr><td colspan="11">&nbsp;</td></tr>
+</table>
+
+<table class="info">
+    <tr>
+        <th style="width:18%;">Period</th>
+        <td style="width:32%;"><?= $esc($rangeLabel) ?></td>
+        <th style="width:18%;">Total Records</th>
+        <td style="width:32%;"><?= number_format((int) $payload['totalTransactions']) ?> transaction(s)</td>
+    </tr>
+    <tr>
+        <th>Date From</th>
+        <td><?= $esc($rangeStart->format('F d, Y')) ?></td>
+        <th>Date To</th>
+        <td><?= $esc($rangeEnd->format('F d, Y')) ?></td>
+    </tr>
+</table>
+
+<br>
+
+<table>
+    <tr><td colspan="4" class="section-title">SUMMARY</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <tr>
+            <th style="width:25%;">Total Transactions</th>
+            <th style="width:25%;">Paid Transactions</th>
+            <th style="width:25%;">Not Paid Transactions</th>
+            <th style="width:25%;">Total Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="kpi-total int center"><?= (int) $payload['totalTransactions'] ?></td>
+            <td class="kpi-paid int center">
+                <?= (int) $payload['paidTransactions'] ?>
+                &nbsp;(<?= $money($payload['paidAmount']) ?>)
+            </td>
+            <td class="kpi-unpaid int center">
+                <?= (int) $payload['notPaidTransactions'] ?>
+                &nbsp;(<?= $money($payload['notPaidAmount']) ?>)
+            </td>
+            <td class="num center" style="font-weight:bold;color:#0c3a5b;">
+                <?= $money($payload['totalAmount']) ?>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<br>
+
+<?php if ($period === 'week'): ?>
+<table>
+    <tr><td colspan="5" class="section-title">WEEKLY SUMMARY</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <tr>
+            <th>Week</th>
+            <th class="int">Transactions</th>
+            <th class="int">Paid</th>
+            <th class="int">Not Paid</th>
+            <th class="num">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $i = 0; foreach ($payload['weeklySummary'] as $row): $i++; ?>
+            <tr<?= $i % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($row['label']) ?></strong></td>
+                <td class="int"><?= number_format((int) $row['transactions']) ?></td>
+                <td class="int paid"><?= number_format((int) $row['paid']) ?></td>
+                <td class="int unpaid"><?= number_format((int) $row['not_paid']) ?></td>
+                <td class="num"><?= $money($row['total']) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if ($payload['weeklySummary']->isEmpty()): ?>
+            <tr><td colspan="5" class="center" style="color:#94a3b8;font-style:italic;">No weekly records found.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+<br>
+<?php endif; ?>
+
+<?php if ($period === 'month'): ?>
+<table>
+    <tr><td colspan="5" class="section-title">MONTHLY SUMMARY</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <tr>
+            <th>Month</th>
+            <th class="int">Transactions</th>
+            <th class="int">Paid</th>
+            <th class="int">Not Paid</th>
+            <th class="num">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $i = 0; foreach ($payload['monthlySummary'] as $row): $i++; ?>
+            <tr<?= $i % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($row['label']) ?></strong></td>
+                <td class="int"><?= number_format((int) $row['transactions']) ?></td>
+                <td class="int paid"><?= number_format((int) $row['paid']) ?></td>
+                <td class="int unpaid"><?= number_format((int) $row['not_paid']) ?></td>
+                <td class="num"><?= $money($row['total']) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if ($payload['monthlySummary']->isEmpty()): ?>
+            <tr><td colspan="5" class="center" style="color:#94a3b8;font-style:italic;">No monthly records found.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+<br>
+<?php endif; ?>
+
+<table>
+    <tr><td colspan="11" class="section-title">DETAILED TRANSACTIONS</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <tr>
+            <th>Log ID</th>
+            <th>Payment No.</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Vessel</th>
+            <th class="center">ARR/DEP</th>
+            <th>Origin</th>
+            <th class="center">Status</th>
+            <th class="num">Total Amount</th>
+            <th>Payer</th>
+            <th>Encoder</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $i = 0; foreach ($payload['transactions'] as $row): $i++; ?>
+            <tr<?= $i % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($row['log_id']) ?></strong></td>
+                <td><?= $esc($row['payment_no']) ?></td>
+                <td><?= $esc($row['date']) ?></td>
+                <td><?= $esc($row['time']) ?></td>
+                <td><?= $esc($row['vessel']) ?></td>
+                <td class="center"><?= $esc($row['arr_dep']) ?></td>
+                <td><?= $esc($row['origin']) ?></td>
+                <td class="center <?= $row['is_paid'] ? 'paid' : 'unpaid' ?>"><?= $esc($row['status']) ?></td>
+                <td class="num"><?= $money($row['total']) ?></td>
+                <td><?= $esc($row['payer_name']) ?></td>
+                <td><?= $esc($row['encoder']) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if ($payload['transactions']->isEmpty()): ?>
+            <tr><td colspan="11" class="center" style="color:#94a3b8;font-style:italic;">No transactions found in the selected range.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+
+<table>
+    <tr><td colspan="11" class="footer">Fishport Management System &middot; Confidential Report &middot; Generated <?= $esc(now()->format('F d, Y h:i A')) ?></td></tr>
+</table>
+
+</body>
+</html>
+        <?php
+        return (string) ob_get_clean();
+    }
+
     /**
      * @return array{0:string,1:Carbon,2:Carbon,3:string,4:string,5:string}
      */
     private function resolveRange(Request $request): array
     {
         $period = strtolower((string) $request->query('period', 'month'));
-        if (! in_array($period, ['week', 'month', 'range'], true)) {
+        if (! in_array($period, ['day', 'week', 'month', 'range'], true)) {
             $period = 'month';
         }
 
@@ -83,7 +342,11 @@ class FishportReportController extends Controller
         $fromParsed = $this->parseDate((string) $request->query('date_from', ''));
         $toParsed = $this->parseDate((string) $request->query('date_to', ''));
 
-        if ($period === 'week') {
+        if ($period === 'day') {
+            $start = $today->copy()->startOfDay();
+            $end = $today->copy()->endOfDay();
+            $label = 'This Day';
+        } elseif ($period === 'week') {
             $start = $today->copy()->startOfWeek();
             $end = $today->copy()->endOfWeek();
             $label = 'This Week';

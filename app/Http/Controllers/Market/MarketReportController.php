@@ -69,6 +69,24 @@ class MarketReportController extends Controller
         ])->download($filename);
     }
 
+    public function csv(Request $request)
+    {
+        [$period, $rangeStart, $rangeEnd, , , $rangeLabel] = $this->resolveRange($request);
+        $payload = $this->buildReportPayload($rangeStart, $rangeEnd);
+        $filename = 'market-report-' . $rangeStart->format('Ymd') . '-' . $rangeEnd->format('Ymd') . '.xls';
+
+        $headers = [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+            'Pragma' => 'no-cache',
+        ];
+
+        return response()->streamDownload(function () use ($payload, $period, $rangeStart, $rangeEnd, $rangeLabel): void {
+            echo "\xEF\xBB\xBF";
+            echo $this->renderExcelHtml($payload, $period, $rangeStart, $rangeEnd, $rangeLabel);
+        }, $filename, $headers);
+    }
+
     /**
      * @return array{0:string,1:Carbon,2:Carbon,3:string,4:string,5:string}
      */
@@ -156,6 +174,7 @@ class MarketReportController extends Controller
             $updatedAt = $item->updated_at;
 
             return [
+                'record_id' => 'MKT-CN-' . now()->format('Y') . '-' . str_pad((string) $item->id, 4, '0', STR_PAD_LEFT),
                 'stall_no' => (string) ($stall?->stall_no ?: '-'),
                 'location' => (string) ($stall?->location?->location_code ?: ($stall?->location?->location_name ?: '-')),
                 'tenant_name' => (string) ($tenant ? $tenant->fullName() : '-'),
@@ -165,6 +184,7 @@ class MarketReportController extends Controller
                 'date' => $updatedAt?->format('m/d/Y') ?? '-',
                 'time' => $updatedAt?->format('h:i A') ?? '-',
                 'collector' => (string) ($item->collectedBy?->name ?? $item->dispatch?->collector?->name ?? '-'),
+                'encoder' => (string) ($item->dispatch?->collector?->name ?? $item->collectedBy?->name ?? '-'),
                 'payer_name' => (string) ($item->payer_name ?? '-'),
                 'status' => $this->statusLabel((string) $item->status),
                 'status_key' => (string) $item->status,
@@ -267,5 +287,260 @@ class MarketReportController extends Controller
             'cancelled' => 'Cancelled',
             default => 'Unknown',
         };
+    }
+
+    private function renderExcelHtml(array $payload, string $period, Carbon $rangeStart, Carbon $rangeEnd, string $rangeLabel): string
+    {
+        $esc = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $money = static fn ($value): string => 'PHP ' . number_format((float) $value, 2);
+
+        $css = '
+            body { font-family: Calibri, "Segoe UI", Arial, sans-serif; color:#0f172a; }
+            table { border-collapse: collapse; width: 100%; }
+            .title { font-size:18pt; font-weight:bold; color:#0c3a5b; }
+            .subtitle { font-size:11pt; color:#475569; }
+            .meta { font-size:10pt; color:#475569; }
+            .section-title {
+                background:#0c3a5b; color:#ffffff; font-weight:bold;
+                padding:6pt 10pt; font-size:11pt; letter-spacing:1pt;
+            }
+            .info th {
+                background:#eaf2f9; color:#0c3a5b; text-align:left;
+                font-weight:bold; padding:6pt 10pt; border:1px solid #cbd5e1;
+            }
+            .info td {
+                background:#f8fafc; padding:6pt 10pt;
+                border:1px solid #cbd5e1; font-weight:bold;
+            }
+            .data th {
+                background:#155f8f; color:#ffffff; font-weight:bold;
+                padding:6pt 8pt; border:1px solid #0c3a5b;
+                text-align:left; font-size:10pt;
+            }
+            .data td {
+                padding:5pt 8pt; border:1px solid #cbd5e1; font-size:10pt;
+                vertical-align:top;
+            }
+            .data tr.alt td { background:#f8fafc; }
+            .num { mso-number-format:"#,##0.00"; text-align:right; }
+            .int { mso-number-format:"#,##0"; text-align:right; }
+            .center { text-align:center; }
+            .accepted { color:#047857; font-weight:bold; }
+            .awaiting { color:#0e7490; font-weight:bold; }
+            .pending { color:#b45309; font-weight:bold; }
+            .rejected { color:#b91c1c; font-weight:bold; }
+            .cancelled { color:#475569; font-weight:bold; }
+            .kpi-main { background:#eff6ff; color:#1d4ed8; font-weight:bold; }
+            .kpi-good { background:#ecfdf5; color:#047857; font-weight:bold; }
+            .kpi-pend { background:#fffbeb; color:#b45309; font-weight:bold; }
+            .footer { font-size:9pt; color:#64748b; font-style:italic; padding-top:8pt; }
+        ';
+
+        ob_start();
+        ?>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="UTF-8">
+    <title>Public Market Transactions Report</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                    <x:Name>Market Report</x:Name>
+                    <x:WorksheetOptions>
+                        <x:DisplayGridlines/>
+                    </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+    </xml>
+    <![endif]-->
+    <style><?= $css ?></style>
+</head>
+<body>
+
+<table>
+    <tr><td colspan="12" class="title">Public Market Office</td></tr>
+    <tr><td colspan="12" class="subtitle">Transactions &amp; Collection Report</td></tr>
+    <tr><td colspan="12" class="meta">Generated: <?= $esc(now()->format('F d, Y h:i A')) ?></td></tr>
+    <tr><td colspan="12">&nbsp;</td></tr>
+</table>
+
+<table class="info">
+    <tr>
+        <th style="width:18%;">Period</th>
+        <td style="width:32%;"><?= $esc($rangeLabel) ?></td>
+        <th style="width:18%;">Total Records</th>
+        <td style="width:32%;"><?= number_format((int) $payload['totalTransactions']) ?> transaction(s)</td>
+    </tr>
+    <tr>
+        <th>Date From</th>
+        <td><?= $esc($rangeStart->format('F d, Y')) ?></td>
+        <th>Date To</th>
+        <td><?= $esc($rangeEnd->format('F d, Y')) ?></td>
+    </tr>
+</table>
+
+<br>
+
+<table>
+    <tr><td colspan="4" class="section-title">SUMMARY</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <tr>
+            <th style="width:25%;">Total Transactions</th>
+            <th style="width:25%;">Accepted</th>
+            <th style="width:25%;">Pending / Awaiting</th>
+            <th style="width:25%;">Total Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="kpi-main int center"><?= (int) $payload['totalTransactions'] ?></td>
+            <td class="kpi-good int center">
+                <?= (int) $payload['acceptedTransactions'] ?>
+                &nbsp;(<?= $money($payload['acceptedAmount']) ?>)
+            </td>
+            <td class="kpi-pend int center">
+                <?= (int) $payload['pendingTransactions'] ?> / <?= (int) $payload['awaitingTransactions'] ?>
+                &nbsp;(<?= $money($payload['pendingAmount']) ?>)
+            </td>
+            <td class="num center" style="font-weight:bold;color:#0c3a5b;">
+                <?= $money($payload['totalAmount']) ?>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<br>
+
+<?php if ($period === 'week'): ?>
+<table>
+    <tr><td colspan="7" class="section-title">WEEKLY SUMMARY</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <tr>
+            <th>Week</th>
+            <th class="int">Transactions</th>
+            <th class="int">Accepted</th>
+            <th class="int">Pending</th>
+            <th class="int">Awaiting</th>
+            <th class="int">Cancelled</th>
+            <th class="num">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $i = 0; foreach ($payload['weeklySummary'] as $row): $i++; ?>
+            <tr<?= $i % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($row['label']) ?></strong></td>
+                <td class="int"><?= number_format((int) $row['transactions']) ?></td>
+                <td class="int accepted"><?= number_format((int) $row['accepted']) ?></td>
+                <td class="int pending"><?= number_format((int) $row['pending']) ?></td>
+                <td class="int awaiting"><?= number_format((int) $row['awaiting']) ?></td>
+                <td class="int cancelled"><?= number_format((int) $row['cancelled']) ?></td>
+                <td class="num"><?= $money($row['total']) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if ($payload['weeklySummary']->isEmpty()): ?>
+            <tr><td colspan="7" class="center" style="color:#94a3b8;font-style:italic;">No weekly records found.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+<br>
+<?php endif; ?>
+
+<?php if ($period === 'month'): ?>
+<table>
+    <tr><td colspan="7" class="section-title">MONTHLY SUMMARY</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <tr>
+            <th>Month</th>
+            <th class="int">Transactions</th>
+            <th class="int">Accepted</th>
+            <th class="int">Pending</th>
+            <th class="int">Awaiting</th>
+            <th class="int">Cancelled</th>
+            <th class="num">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $i = 0; foreach ($payload['monthlySummary'] as $row): $i++; ?>
+            <tr<?= $i % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($row['label']) ?></strong></td>
+                <td class="int"><?= number_format((int) $row['transactions']) ?></td>
+                <td class="int accepted"><?= number_format((int) $row['accepted']) ?></td>
+                <td class="int pending"><?= number_format((int) $row['pending']) ?></td>
+                <td class="int awaiting"><?= number_format((int) $row['awaiting']) ?></td>
+                <td class="int cancelled"><?= number_format((int) $row['cancelled']) ?></td>
+                <td class="num"><?= $money($row['total']) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if ($payload['monthlySummary']->isEmpty()): ?>
+            <tr><td colspan="7" class="center" style="color:#94a3b8;font-style:italic;">No monthly records found.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+<br>
+<?php endif; ?>
+
+<table>
+    <tr><td colspan="12" class="section-title">DETAILED TRANSACTIONS</td></tr>
+</table>
+<table class="data">
+    <thead>
+        <tr>
+            <th>Record ID</th>
+            <th>Stall</th>
+            <th>Location</th>
+            <th>Tenant</th>
+            <th>Business</th>
+            <th>Contract No.</th>
+            <th>Payment No.</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Status</th>
+            <th class="num">Amount</th>
+            <th>Collector</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php $i = 0; foreach ($payload['transactions'] as $row): $i++; ?>
+            <tr<?= $i % 2 === 0 ? ' class="alt"' : '' ?>>
+                <td><strong><?= $esc($row['record_id']) ?></strong></td>
+                <td><?= $esc($row['stall_no']) ?></td>
+                <td><?= $esc($row['location']) ?></td>
+                <td><?= $esc($row['tenant_name']) ?></td>
+                <td><?= $esc($row['business_name']) ?></td>
+                <td><?= $esc($row['contract_no']) ?></td>
+                <td><?= $esc($row['payment_no']) ?></td>
+                <td><?= $esc($row['date']) ?></td>
+                <td><?= $esc($row['time']) ?></td>
+                <td class="center <?= $esc(strtolower($row['status_key'])) ?>"><?= $esc($row['status']) ?></td>
+                <td class="num"><?= $money($row['amount']) ?></td>
+                <td><?= $esc($row['collector']) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if ($payload['transactions']->isEmpty()): ?>
+            <tr><td colspan="12" class="center" style="color:#94a3b8;font-style:italic;">No transactions found in the selected range.</td></tr>
+        <?php endif; ?>
+    </tbody>
+</table>
+
+<table>
+    <tr><td colspan="12" class="footer">Public Market System &middot; Confidential Report &middot; Generated <?= $esc(now()->format('F d, Y h:i A')) ?></td></tr>
+</table>
+
+</body>
+</html>
+        <?php
+
+        return (string) ob_get_clean();
     }
 }

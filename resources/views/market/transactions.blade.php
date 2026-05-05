@@ -6,36 +6,48 @@
 @endphp
 
 <style>
-    .mtr-page { display:grid; gap:16px; font-family:'Inter',system-ui,sans-serif; color:#334155; }
-    .mtr-hero { background:linear-gradient(135deg,#0a3d6b 0%,#0f5fa8 55%,#1a7fd4 100%); color:#fff; border-radius:16px; padding:1.35rem 1.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; box-shadow:0 4px 14px rgba(10,63,168,.22); }
-    .mtr-hero h2 { margin:0 0 4px; font-size:1.45rem; font-weight:800; }
-    .mtr-hero p { margin:0; opacity:.88; font-size:.9rem; }
-    .mtr-stats { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
-    .mtr-pill { background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.3); border-radius:999px; padding:.25rem .7rem; font-size:.77rem; font-weight:700; display:inline-flex; gap:6px; align-items:center; }
-
-    .mtr-card { border:1px solid #e2e8f0; border-radius:14px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.05); overflow:hidden; }
-    .mtr-head { border-bottom:1px solid #e2e8f0; padding:1rem 1.2rem; background:#fafcff; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    #contentArea { padding:10px !important; }
+    .mtr-page { display:grid; gap:10px; font-family:'Inter',system-ui,sans-serif; color:#334155; }
+    .mtr-card { border:1px solid #e2e8f0; border-radius:12px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.05); overflow:hidden; }
+    .mtr-head { border-bottom:1px solid #e2e8f0; padding:10px; background:#fafcff; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
     .mtr-head h3 { margin:0; color:#0f172a; font-weight:800; font-size:1rem; }
-    .mtr-filter { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .mtr-filter {
+        display: grid;
+        grid-template-columns: 190px minmax(520px, 1fr);
+        gap: 10px;
+        align-items: center;
+        width: min(100%, 920px);
+        margin-left: auto;
+    }
     .mtr-input { min-height:38px; border:1.5px solid #e2e8f0; border-radius:9px; background:#f8fafc; padding:.45rem .7rem; font-size:.86rem; color:#0f172a; font-family:inherit; }
     .mtr-input:focus { outline:none; border-color:#0f5fa8; box-shadow:0 0 0 3px rgba(15,95,168,.1); background:#fff; }
-    .mtr-range-bar { display:flex; gap:6px; flex-wrap:wrap; align-items:center; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:11px; padding:4px; }
+    .mtr-filter input[name="q"] {
+        min-height: 42px;
+        width: 100%;
+        font-size: .95rem;
+        padding: .55rem .8rem;
+    }
+    .mtr-filter select[name="status"] {
+        min-height: 42px;
+        font-size: .92rem;
+    }
+    .mtr-range-bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:11px; padding:10px; }
     .mtr-range-chip { display:inline-flex; align-items:center; gap:6px; text-decoration:none; font-size:.8rem; font-weight:700; color:#475569; padding:.4rem .8rem; border-radius:8px; border:1px solid transparent; cursor:pointer; background:transparent; font-family:inherit; transition:all .15s; }
     .mtr-range-chip:hover { color:#0f5fa8; background:#e2e8f0; }
     .mtr-range-chip.is-active { background:#fff; color:#0f5fa8; border-color:#bfdbfe; box-shadow:0 1px 3px rgba(15,95,168,.12); }
-    .mtr-range-custom { display:flex; gap:6px; align-items:center; padding:0 6px; border-left:1px solid #cbd5e1; margin-left:2px; }
+    .mtr-range-custom { display:flex; gap:10px; align-items:center; padding:0 10px; border-left:1px solid #cbd5e1; margin-left:0; }
     .mtr-range-custom label { font-size:.72rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
     .mtr-range-custom input[type=date] { min-height:32px; border:1.5px solid #cbd5e1; border-radius:7px; background:#fff; padding:.25rem .5rem; font-size:.8rem; color:#0f172a; font-family:inherit; }
     .mtr-range-custom input[type=date]:focus { outline:none; border-color:#0f5fa8; box-shadow:0 0 0 2px rgba(15,95,168,.12); }
     .mtr-range-apply { background:#0f5fa8; color:#fff; border:none; border-radius:7px; padding:.38rem .75rem; font-size:.78rem; font-weight:700; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:5px; }
     .mtr-range-apply:hover { background:#0a4880; }
-    .mtr-range-label { font-size:.78rem; color:#64748b; font-weight:600; margin-left:6px; }
+    .mtr-range-label { font-size:.78rem; color:#64748b; font-weight:600; margin-left:10px; }
     .mtr-range-label strong { color:#0f172a; font-weight:800; }
 
     .mtr-table-wrap { overflow:auto; }
     .mtr-table { width:100%; border-collapse:collapse; min-width:1080px; }
-    .mtr-table th { background:#eef5fb; color:#103250; text-transform:uppercase; letter-spacing:.04em; font-size:.73rem; font-weight:800; text-align:left; padding:.86rem 1rem; border-bottom:1px solid #e2e8f0; }
-    .mtr-table td { padding:.86rem 1rem; border-bottom:1px solid #f1f5f9; font-size:.88rem; color:#334155; vertical-align:middle; }
+    .mtr-table th { background:#eef5fb; color:#103250; text-transform:uppercase; letter-spacing:.04em; font-size:.73rem; font-weight:800; text-align:left; padding:10px; border-bottom:1px solid #e2e8f0; }
+    .mtr-table td { padding:10px; border-bottom:1px solid #f1f5f9; font-size:.88rem; color:#334155; vertical-align:middle; }
     .mtr-table tbody tr:hover td { background:#f8fafc; }
     .mtr-sub { color:#64748b; font-size:.8rem; }
     .mtr-code { font-family:'Courier New',monospace; font-size:.8rem; }
@@ -45,34 +57,62 @@
     .mtr-accepted { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
     .mtr-rejected { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
     .mtr-cancelled { background:#f1f5f9; border-color:#cbd5e1; color:#475569; }
-    .mtr-empty { text-align:center; color:#64748b; padding:2.2rem 1rem !important; }
+    .mtr-empty { text-align:center; color:#64748b; padding:10px !important; }
     .mtr-proof-btn { display:inline-flex; align-items:center; gap:5px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; color:#334155; padding:.26rem .58rem; font-size:.76rem; text-decoration:none; }
     .mtr-proof-btn:hover { border-color:#0f5fa8; color:#0f5fa8; background:#f0f7ff; }
+    .mtr-pager {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .mtr-pager-meta { color:#64748b; font-size:.82rem; font-weight:700; }
+    .mtr-pager-actions { display:flex; align-items:center; gap:10px; }
+    .mtr-page-link {
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        color: #0f5fa8;
+        font-size: .84rem;
+        font-weight: 700;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .mtr-page-link:hover { background:#f1f5f9; }
+    .mtr-page-link.is-disabled {
+        background:#f8fafc;
+        color:#94a3b8;
+        border-color:#e2e8f0;
+        pointer-events:none;
+    }
+
+    @media (max-width: 980px) {
+        .mtr-filter {
+            grid-template-columns: 1fr;
+            width: 100%;
+        }
+    }
 </style>
 
 <div class="mtr-page" data-server-rendered-page="market_records" data-page-title="Market Transactions">
-    <section class="mtr-hero">
-        <div>
-            <h2><i class="fa-solid fa-file-invoice-dollar" style="margin-right:8px;opacity:.9;"></i>Market Payment Transactions</h2>
-            <p>All dispatched, collected, approved, and rejected market payment transactions.</p>
-            <div class="mtr-stats">
-                <span class="mtr-pill"><i class="fa-solid fa-list"></i> All: {{ number_format((int) $summary['all_count']) }}</span>
-                <span class="mtr-pill"><i class="fa-solid fa-check"></i> Accepted: {{ number_format((int) $summary['accepted_count']) }}</span>
-                <span class="mtr-pill"><i class="fa-solid fa-clock"></i> Awaiting: {{ number_format((int) $summary['awaiting_count']) }}</span>
-                <span class="mtr-pill"><i class="fa-solid fa-hourglass-half"></i> Pending: {{ number_format((int) $summary['pending_count']) }}</span>
-            </div>
-        </div>
-    </section>
-
     <section class="mtr-card">
-        <div class="mtr-head" style="flex-direction:column;align-items:stretch;gap:12px;">
+        <div class="mtr-head" style="flex-direction:column;align-items:stretch;gap:10px;">
             <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
                 <h3>Transaction Ledger <span class="mtr-range-label">Showing: <strong>{{ $rangeLabel }}</strong></span></h3>
                 <form method="GET" action="{{ route('market.records') }}" class="mtr-filter" id="mtrFilterForm">
                     <input type="hidden" name="range" value="{{ $range }}" id="mtrRangeInput">
                     <input type="hidden" name="from" value="{{ $from }}" id="mtrFromHidden">
                     <input type="hidden" name="to" value="{{ $to }}" id="mtrToHidden">
-                    <select name="status" class="mtr-input" onchange="document.getElementById('mtrFilterForm').submit()">
+                    <select name="status" class="mtr-input" id="mtrStatusSelect" onchange="document.getElementById('mtrFilterForm').submit()">
                         <option value="all" {{ $status === 'all' ? 'selected' : '' }}>All Status</option>
                         <option value="sent" {{ $status === 'sent' ? 'selected' : '' }}>Sent</option>
                         <option value="collected_pending_confirmation" {{ $status === 'collected_pending_confirmation' ? 'selected' : '' }}>Awaiting Approval</option>
@@ -80,7 +120,7 @@
                         <option value="rejected" {{ $status === 'rejected' ? 'selected' : '' }}>Rejected</option>
                         <option value="cancelled" {{ $status === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
                     </select>
-                    <input type="search" name="q" value="{{ $search }}" class="mtr-input" placeholder="Search stall, tenant, payment no...">
+                    <input type="search" name="q" value="{{ $search }}" class="mtr-input" id="mtrSearchInput" placeholder="Search stall, tenant, payment no..." autocomplete="off">
                 </form>
             </div>
 
@@ -118,6 +158,7 @@
                 const fromInput = document.getElementById('mtrFrom');
                 const toInput = document.getElementById('mtrTo');
                 const applyBtn = document.getElementById('mtrApplyCustom');
+                const searchInput = document.getElementById('mtrSearchInput');
                 if (!form) return;
 
                 document.querySelectorAll('.mtr-range-chip').forEach((chip) => {
@@ -135,6 +176,18 @@
                     fromHidden.value = fromInput.value;
                     toHidden.value = toInput.value;
                     form.submit();
+                });
+
+                let searchDebounce = null;
+                let lastSearch = searchInput ? searchInput.value : '';
+                searchInput?.addEventListener('input', () => {
+                    window.clearTimeout(searchDebounce);
+                    searchDebounce = window.setTimeout(() => {
+                        const nextValue = searchInput.value;
+                        if (nextValue === lastSearch) return;
+                        lastSearch = nextValue;
+                        form.requestSubmit();
+                    }, 350);
                 });
             })();
         </script>
@@ -211,7 +264,24 @@
         </div>
     </section>
 
-    <div>{{ $items->links() }}</div>
+    @if ($items->total() > 0)
+        <div class="mtr-pager">
+            <div class="mtr-pager-meta">
+                Page {{ $items->currentPage() }} of {{ $items->lastPage() }} | Showing {{ $items->firstItem() }} to {{ $items->lastItem() }} of {{ $items->total() }} results
+            </div>
+            <div class="mtr-pager-actions">
+                @if ($items->previousPageUrl())
+                    <a class="mtr-page-link" href="{{ $items->previousPageUrl() }}">Previous</a>
+                @else
+                    <span class="mtr-page-link is-disabled">Previous</span>
+                @endif
+                @if ($items->nextPageUrl())
+                    <a class="mtr-page-link" href="{{ $items->nextPageUrl() }}">Next</a>
+                @else
+                    <span class="mtr-page-link is-disabled">Next</span>
+                @endif
+            </div>
+        </div>
+    @endif
 </div>
 @endsection
-

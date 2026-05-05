@@ -11,7 +11,7 @@
 .cp-page{max-width:1200px;margin:0 auto;display:grid;gap:16px;padding-bottom:2rem}
 .cp-alert{border-radius:10px;padding:.8rem 1rem;display:flex;gap:8px;align-items:center;font-size:.9rem;font-weight:600}
 .cp-alert-success{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}.cp-alert-error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
-.cp-hero{border-radius:14px;padding:1.2rem 1.4rem;color:#fff;background:linear-gradient(135deg,#0a3d6b 0%,#0f5fa8 55%,#1a7fd4 100%);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.cp-hero{border-radius:14px;padding:1.2rem 1.4rem;color:#fff;background:#155e8f;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
 .cp-hero h1{margin:0 0 4px;font-size:1.35rem;font-weight:800;display:flex;align-items:center;gap:8px}.cp-hero p{margin:0;font-size:.9rem;opacity:.9}
 .cp-search{position:relative;width:360px;max-width:100%}.cp-search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.65)}
 .cp-search input{width:100%;min-height:40px;border-radius:999px;border:1.5px solid rgba(255,255,255,.35);background:rgba(255,255,255,.15);color:#fff;padding:.5rem .9rem .5rem 2.2rem}
@@ -73,13 +73,6 @@ body.cp-lock-scroll{overflow:hidden}
     <section class="cp-hero">
         <div>
             <h1><i class="fa-solid fa-clock-rotate-left"></i>Pending Collections</h1>
-            <p>
-                @if($assignment?->department?->name)
-                    Department queue: <strong>{{ $assignment->department->name }}</strong>
-                @else
-                    No department assignment. Please contact admin.
-                @endif
-            </p>
         </div>
         <form method="GET" action="{{ route('collector.pending_collections') }}" class="cp-search">
             <i class="fa-solid fa-magnifying-glass"></i>
@@ -309,7 +302,6 @@ body.cp-lock-scroll{overflow:hidden}
     const collectForm = document.getElementById('collectForm');
     const uploadInput = document.getElementById('uploadInput');
     const cameraInput = document.getElementById('cameraInput');
-    let allowExistingProof = false;
 
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     const money = (v) => Number.isFinite(Number(v)) ? Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
@@ -384,8 +376,7 @@ body.cp-lock-scroll{overflow:hidden}
         set('cRoute', btn.dataset.route || '-'); set('cDt', btn.dataset.dt || '-'); set('cTotal', `PHP ${money(btn.dataset.total)}`);
         renderItems('cItems', 'cItemsCount', items);
         setRejectNote('cNoteBox', 'cNoteText', btn.dataset.status || '', btn.dataset.note || '');
-        allowExistingProof = btn.dataset.allowProof === '1';
-        if (allowExistingProof) set('proofNote', 'Existing proof can be reused. Upload new proof only if needed.');
+        set('proofNote', 'Upload from gallery or capture using your camera.');
         if (collectForm) {
             collectForm.action = btn.dataset.action || '#';
             collectForm.dataset.log = btn.dataset.log || '-';
@@ -411,7 +402,7 @@ body.cp-lock-scroll{overflow:hidden}
 
     collectForm?.addEventListener('submit', (e) => {
         if (collectForm.dataset.confirmed === '1') { collectForm.dataset.confirmed = '0'; return; }
-        const hasProof = (uploadInput?.files?.length || 0) > 0 || (cameraInput?.files?.length || 0) > 0 || allowExistingProof;
+        const hasProof = (uploadInput?.files?.length || 0) > 0 || (cameraInput?.files?.length || 0) > 0;
         if (uploadInput) uploadInput.setCustomValidity('');
         if (!hasProof) {
             e.preventDefault();

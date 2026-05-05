@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Fishport;
 
 use App\Http\Controllers\Controller;
 use App\Models\FishportCommodity;
+use App\Models\FishportCommodityClassification;
 use App\Models\FishportLog;
 use App\Models\FishportOrigin;
 use App\Models\FishportPaymentType;
@@ -305,16 +306,17 @@ class FishportLogController extends Controller
                 ]);
             }
 
-            if ($log->payments()->exists()) {
+            if (! $this->isLogInsideOperationalWindow($log)) {
                 throw ValidationException::withMessages([
-                    'source_log_id' => 'Selected vessel log already has payment and is already completed.',
+                    'source_log_id' => 'Selected vessel log is outside today\'s active window. Please log the vessel again.',
                 ]);
             }
 
-            // Force header values from selected vessel log to keep one-to-one linkage.
+            // Keep core linkage fields from selected source log.
+            // ARR/DEP is intentionally taken from the transaction form so changing it here
+            // will update the linked vessel log on save.
             $validated['log_date'] = optional($log->log_date)->format('Y-m-d');
             $validated['log_time'] = substr((string) $log->log_time, 0, 5);
-            $validated['arr_dep'] = $log->arr_dep;
             $validated['vessel_id'] = (int) $log->fishport_vessel_id;
             $validated['origin_id'] = (int) $log->fishport_origin_id;
             $validated['remarks'] = $log->remarks;
@@ -483,6 +485,8 @@ class FishportLogController extends Controller
     private function renderRecordsPage(?FishportLog $editingLog = null, ?Request $request = null): View
     {
         $request ??= request();
+        [$windowStart, $windowEnd] = $this->currentOperationalWindow();
+
         $pendingLogs = FishportLog::query()
             ->with([
                 'vessel:id,name',
@@ -490,7 +494,10 @@ class FishportLogController extends Controller
                 $this->paymentRecordSelectColumns(),
             ])
             ->whereHas('vessel', static fn ($query) => $query->where('is_active', true))
-            ->whereDoesntHave('payments')
+            ->whereRaw(
+                "TIMESTAMP(log_date, COALESCE(log_time, '00:00:00')) >= ? AND TIMESTAMP(log_date, COALESCE(log_time, '00:00:00')) < ?",
+                [$windowStart->format('Y-m-d H:i:s'), $windowEnd->format('Y-m-d H:i:s')]
+            )
             ->orderByDesc('log_date')
             ->orderByDesc('log_time')
             ->orderByDesc('id')
@@ -767,7 +774,9 @@ class FishportLogController extends Controller
             ['items' => $items],
             [
                 'items' => ['required', 'array', 'min:1'],
-                'items.*.commodity_id' => ['required', Rule::exists('fishport_commodities', 'id')],
+                'items.*.commodity_id' => ['nullable', Rule::exists('fishport_commodities', 'id')],
+                'items.*.commodity_name' => ['nullable', 'string', 'max:150'],
+                'items.*.classification' => ['nullable', 'string', 'max:80'],
                 'items.*.unit_id' => ['required', Rule::exists('fishport_units', 'id')],
                 'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
                 'items.*.unit_conversion' => ['required', 'numeric', 'min:0.0001'],
@@ -776,6 +785,16 @@ class FishportLogController extends Controller
 
         if ($itemsValidator->fails()) {
             throw ValidationException::withMessages($itemsValidator->errors()->toArray());
+        }
+
+        foreach ($items as $index => $item) {
+            $commodityId = (int) ($item['commodity_id'] ?? 0);
+            $commodityName = trim((string) ($item['commodity_name'] ?? ''));
+            if ($commodityId <= 0 && $commodityName === '') {
+                throw ValidationException::withMessages([
+                    "items.{$index}.commodity_name" => 'Commodity name is required.',
+                ]);
+            }
         }
 
         $paymentsValidator = Validator::make(
@@ -807,13 +826,14 @@ class FishportLogController extends Controller
             ->whereIn('id', $paymentTypeIds)
             ->pluck('default_fee', 'id');
 
-        $normalizedItems = array_map(static function (array $item): array {
+        $normalizedItems = array_map(function (array $item): array {
             $quantity = round((float) $item['quantity'], 2);
             $unitConversion = round((float) $item['unit_conversion'], 4);
             $volume = round($quantity * $unitConversion, 4);
+            $resolvedCommodityId = $this->resolveCommodityIdForPayloadItem($item);
 
             return [
-                'fishport_commodity_id' => (int) $item['commodity_id'],
+                'fishport_commodity_id' => $resolvedCommodityId,
                 'unit_id' => (int) $item['unit_id'],
                 'quantity' => $quantity,
                 'unit_conversion' => $unitConversion,
@@ -836,6 +856,54 @@ class FishportLogController extends Controller
         }, $payments);
 
         return [$validated, $normalizedItems, $normalizedPayments];
+    }
+
+    private function resolveCommodityIdForPayloadItem(array $item): int
+    {
+        $commodityId = (int) ($item['commodity_id'] ?? 0);
+        if ($commodityId > 0) {
+            return $commodityId;
+        }
+
+        $commodityName = trim((string) ($item['commodity_name'] ?? ''));
+        if ($commodityName === '') {
+            throw ValidationException::withMessages([
+                'items_payload' => 'Commodity name is required.',
+            ]);
+        }
+
+        $existingCommodity = FishportCommodity::query()
+            ->whereRaw('LOWER(name) = ?', [strtolower($commodityName)])
+            ->first();
+
+        if ($existingCommodity) {
+            return (int) $existingCommodity->id;
+        }
+
+        $classificationLabel = $this->normalizeCommodityClassificationLabel((string) ($item['classification'] ?? ''));
+        $classification = FishportCommodityClassification::query()->firstOrCreate([
+            'name' => $classificationLabel,
+        ]);
+
+        $newCommodity = FishportCommodity::query()->create([
+            'name' => $commodityName,
+            'classification_id' => (int) $classification->id,
+            'default_unit_id' => (int) ($item['unit_id'] ?? 0) ?: null,
+            'default_conversion' => round((float) ($item['unit_conversion'] ?? 1), 4),
+            'is_active' => true,
+        ]);
+
+        return (int) $newCommodity->id;
+    }
+
+    private function normalizeCommodityClassificationLabel(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        if (str_contains($normalized, 'ice')) {
+            return 'Ice';
+        }
+
+        return 'Marine';
     }
 
     /**
@@ -893,6 +961,68 @@ class FishportLogController extends Controller
     private function formatPaymentNumberFromLogId(int $logId): string
     {
         return 'FP-PAY-' . str_pad((string) $logId, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function currentOperationalWindow(?Carbon $referenceMoment = null): array
+    {
+        $moment = $referenceMoment?->copy() ?? now();
+        $start = $this->operationalDayStartFor($moment);
+        $end = $start->copy()->addDay();
+
+        return [$start, $end];
+    }
+
+    private function operationalDayStartFor(Carbon $moment): Carbon
+    {
+        $startHour = $this->operationalDayStartHour();
+        $start = $moment->copy()->setTime($startHour, 0, 0);
+
+        if ($moment->lt($start)) {
+            $start->subDay();
+        }
+
+        return $start;
+    }
+
+    private function operationalDayStartHour(): int
+    {
+        $rawHour = (int) env('FISHPORT_OPERATIONAL_DAY_START_HOUR', 0);
+        return max(0, min(23, $rawHour));
+    }
+
+    private function logDateTime(FishportLog $log): ?Carbon
+    {
+        if (! $log->log_date) {
+            return null;
+        }
+
+        $datePart = optional($log->log_date)->format('Y-m-d');
+        if (! $datePart) {
+            return null;
+        }
+
+        $rawTime = trim((string) $log->log_time);
+        $timePart = $rawTime === '' ? '00:00:00' : substr($rawTime, 0, 8);
+        if (strlen($timePart) === 5) {
+            $timePart .= ':00';
+        }
+
+        return Carbon::parse("{$datePart} {$timePart}");
+    }
+
+    private function isLogInsideOperationalWindow(FishportLog $log, ?Carbon $referenceMoment = null): bool
+    {
+        $logDateTime = $this->logDateTime($log);
+        if (! $logDateTime) {
+            return false;
+        }
+
+        [$windowStart, $windowEnd] = $this->currentOperationalWindow($referenceMoment);
+
+        return $logDateTime->greaterThanOrEqualTo($windowStart) && $logDateTime->lessThan($windowEnd);
     }
 
     private function baseHeaderFeeTotal(): float

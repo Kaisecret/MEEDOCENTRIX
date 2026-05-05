@@ -1,65 +1,69 @@
 @include('terminal.partials.terminal_shared_styles')
 @php
     $historyMode = (bool) ($isHistoryMode ?? false);
+    $routeFareConfig = $routeFareConfig ?? [];
+    $routeGroups = [
+        'Jeep - PHP 20.00' => ['jeep_bugasong', 'jeep_lindero', 'jeep_guinsangan', 'jeep_patnongon', 'jeep_sibalom', 'jeep_bugo', 'jeep_san_remegio'],
+        'Jeep - PHP 35.00' => ['jeep_dao', 'jeep_aniniy', 'jeep_valderrama'],
+        'Bus - PHP 60.00' => ['bus_ceres_iloilo'],
+        'Bus - PHP 100.00' => ['bus_roro_alps', 'bus_roro_ceres'],
+    ];
 @endphp
 
-<div class="tm" data-server-rendered-page="{{ $serverRenderedPage }}" data-page-title="{{ $pageTitle }}">
-    <section class="tm-hero">
-        <div>
-            <h2>{{ $pageTitle }}</h2>
-            <p>
-                {{ $historyMode
-                    ? 'Read-only payment history with filters for Today, Week, Month, All, and Custom range.'
-                    : 'Manage pending transactions. Mark as paid to move records to Payment History.' }}
-            </p>
+<div class="tm tm-transactions-compact" data-server-rendered-page="{{ $serverRenderedPage }}" data-page-title="{{ $pageTitle }}">
+    @if (session('status') || session('error') || $errors->any())
+        <div class="tm-toast-stack">
+            @if (session('status'))
+                <div class="tm-toast tm-toast-success js-tm-toast"><i class="fas fa-check-circle"></i> {{ session('status') }}</div>
+            @endif
+            @if (session('error'))
+                <div class="tm-toast tm-toast-error js-tm-toast"><i class="fas fa-circle-exclamation"></i> {{ session('error') }}</div>
+            @endif
+            @if ($errors->any())
+                <div class="tm-toast tm-toast-error js-tm-toast"><i class="fas fa-triangle-exclamation"></i> {{ $errors->first() }}</div>
+            @endif
         </div>
-        @if (! $historyMode)
-            <div class="tm-action-row">
-                <button type="button" class="tm-btn-primary" id="openAddPaymentModal">
-                    <i class="fas fa-plus"></i> Add Payment
-                </button>
-            </div>
-        @endif
-    </section>
-
-    @if (session('status'))
-        <div class="tm-flash">{{ session('status') }}</div>
-    @endif
-    @if (session('error'))
-        <div class="tm-error">{{ session('error') }}</div>
-    @endif
-    @if ($errors->any())
-        <div class="tm-error">{{ $errors->first() }}</div>
     @endif
 
     <section class="tm-card">
         <div class="tm-card-head">
-            <h3>
-                <i class="fas fa-list"></i>
-                {{ $historyMode ? 'Payment History' : 'Pending Transactions' }}
-            </h3>
-            <span>{{ number_format($payments->total()) }} total records</span>
+            <div class="tm-card-head-main">
+                @if (! $historyMode)
+                    <h3>
+                        <i class="fas fa-list"></i>
+                        Pending Transactions
+                    </h3>
+                @endif
+            </div>
+            <div class="tm-card-head-side">
+                <span>{{ number_format($payments->total()) }} total records</span>
+                @if (! $historyMode)
+                    <button type="button" class="tm-btn-primary" id="openAddPaymentModal">
+                        <i class="fas fa-plus"></i> Add Payment
+                    </button>
+                @endif
+            </div>
         </div>
-        <form method="GET" action="{{ request()->url() }}" class="tm-filter-bar">
-            <select name="period" class="tm-input">
+        <form method="GET" action="{{ request()->url() }}" class="tm-filter-bar js-tm-auto-filter-form">
+            <select name="period" class="tm-input js-tm-auto-filter">
                 <option value="today" {{ ($period ?? 'all') === 'today' ? 'selected' : '' }}>Today</option>
                 <option value="week" {{ ($period ?? 'all') === 'week' ? 'selected' : '' }}>This Week</option>
                 <option value="month" {{ ($period ?? 'all') === 'month' ? 'selected' : '' }}>This Month</option>
                 <option value="all" {{ ($period ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
                 <option value="custom" {{ ($period ?? 'all') === 'custom' ? 'selected' : '' }}>Custom Range</option>
             </select>
-            <input type="date" name="date_from" class="tm-input" value="{{ $dateFrom ?? '' }}">
-            <input type="date" name="date_to" class="tm-input" value="{{ $dateTo ?? '' }}">
-            <input type="text" name="q" value="{{ $search }}" placeholder="Search payer or remarks..." class="tm-input tm-input--grow">
-            <button type="submit" class="tm-btn-outline"><i class="fas fa-search"></i> Search</button>
-            <a href="{{ request()->url() }}" class="tm-btn-outline"><i class="fas fa-rotate"></i> Reset</a>
+            <input type="date" name="date_from" class="tm-input js-tm-auto-filter" value="{{ $dateFrom ?? '' }}">
+            <input type="date" name="date_to" class="tm-input js-tm-auto-filter" value="{{ $dateTo ?? '' }}">
+            <input type="text" name="q" value="{{ $search }}" placeholder="Search ticket, route, remarks..." class="tm-input tm-filter-search js-tm-auto-filter-search">
         </form>
         <div class="tm-table-wrap">
             <table class="tm-table">
                 <thead>
                     <tr>
-                        <th>Payer Name</th>
-                        <th>Total Payment</th>
+                        <th>Ticket #</th>
+                        <th>Vehicle</th>
+                        <th>Route / Operator</th>
+                        <th>Terminal Fee</th>
                         <th>{{ $historyMode ? 'Paid At' : 'Recorded Date' }}</th>
                         <th>Remarks</th>
                         <th>Saved By</th>
@@ -73,7 +77,9 @@
                 <tbody>
                     @forelse ($payments as $payment)
                         <tr>
-                            <td>{{ $payment->payer_name }}</td>
+                            <td>{{ $payment->ticket_number ?: '-' }}</td>
+                            <td>{{ $payment->vehicle_kind ?: '-' }}</td>
+                            <td>{{ $payment->route_name ?: '-' }}</td>
                             <td>PHP {{ number_format((float) $payment->total_payment, 2) }}</td>
                             <td>
                                 {{ $historyMode
@@ -91,8 +97,8 @@
                                             type="button"
                                             class="tm-btn-outline js-edit-payment"
                                             data-id="{{ $payment->id }}"
-                                            data-name="{{ $payment->payer_name }}"
-                                            data-total="{{ number_format((float) $payment->total_payment, 2, '.', '') }}"
+                                            data-ticket-number="{{ $payment->ticket_number }}"
+                                            data-route-code="{{ $payment->route_code }}"
                                             data-date="{{ optional($payment->payment_date)->format('Y-m-d\TH:i') }}"
                                             data-remarks="{{ $payment->remarks }}"
                                         >
@@ -102,7 +108,7 @@
                                             type="button"
                                             class="tm-btn-success js-mark-paid"
                                             data-id="{{ $payment->id }}"
-                                            data-name="{{ $payment->payer_name }}"
+                                            data-name="{{ $payment->ticket_number }}"
                                             data-total="{{ number_format((float) $payment->total_payment, 2) }}"
                                         >
                                             <i class="fas fa-check-circle"></i> Mark as Paid
@@ -111,7 +117,7 @@
                                             type="button"
                                             class="tm-btn-danger js-delete-payment"
                                             data-id="{{ $payment->id }}"
-                                            data-name="{{ $payment->payer_name }}"
+                                            data-name="{{ $payment->ticket_number }}"
                                         >
                                             <i class="fas fa-trash"></i> Delete
                                         </button>
@@ -121,7 +127,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ $historyMode ? 6 : 6 }}" class="tm-empty">
+                            <td colspan="8" class="tm-empty">
                                 {{ $historyMode
                                     ? 'No paid records found for this filter.'
                                     : 'No pending transactions found. Add a payment first.' }}
@@ -131,9 +137,54 @@
                 </tbody>
             </table>
         </div>
-        <div class="tm-card-body">
-            {{ $payments->links() }}
-        </div>
+        @if ($payments->hasPages())
+            <div class="tm-card-body tm-pagination-wrap">
+                <span class="tm-pagination-summary">
+                    Showing {{ number_format((int) $payments->firstItem()) }}-{{ number_format((int) $payments->lastItem()) }}
+                    of {{ number_format((int) $payments->total()) }}
+                </span>
+                <nav class="tm-pagination" aria-label="Transactions pagination">
+                    @if ($payments->onFirstPage())
+                        <span class="tm-page-btn is-disabled">Prev</span>
+                    @else
+                        <a href="{{ $payments->previousPageUrl() }}" class="tm-page-btn">Prev</a>
+                    @endif
+
+                    @php
+                        $startPage = max(1, $payments->currentPage() - 1);
+                        $endPage = min($payments->lastPage(), $payments->currentPage() + 1);
+                    @endphp
+
+                    @if ($startPage > 1)
+                        <a href="{{ $payments->url(1) }}" class="tm-page-btn">1</a>
+                        @if ($startPage > 2)
+                            <span class="tm-page-dots">...</span>
+                        @endif
+                    @endif
+
+                    @for ($page = $startPage; $page <= $endPage; $page++)
+                        @if ($page === $payments->currentPage())
+                            <span class="tm-page-btn is-active">{{ $page }}</span>
+                        @else
+                            <a href="{{ $payments->url($page) }}" class="tm-page-btn">{{ $page }}</a>
+                        @endif
+                    @endfor
+
+                    @if ($endPage < $payments->lastPage())
+                        @if ($endPage < $payments->lastPage() - 1)
+                            <span class="tm-page-dots">...</span>
+                        @endif
+                        <a href="{{ $payments->url($payments->lastPage()) }}" class="tm-page-btn">{{ $payments->lastPage() }}</a>
+                    @endif
+
+                    @if ($payments->hasMorePages())
+                        <a href="{{ $payments->nextPageUrl() }}" class="tm-page-btn">Next</a>
+                    @else
+                        <span class="tm-page-btn is-disabled">Next</span>
+                    @endif
+                </nav>
+            </div>
+        @endif
     </section>
 </div>
 
@@ -149,12 +200,29 @@
                     @csrf
                     <input type="hidden" name="form_context" value="add">
                     <div class="tm-field">
-                        <label for="add_payer_name">Name</label>
-                        <input id="add_payer_name" name="payer_name" class="tm-input" value="{{ old('form_context') === 'add' ? old('payer_name') : '' }}" required>
+                        <label for="add_ticket_number">Ticket Number</label>
+                        <input id="add_ticket_number" name="ticket_number" class="tm-input" value="{{ old('form_context') === 'add' ? old('ticket_number') : '' }}" required>
                     </div>
                     <div class="tm-field">
-                        <label for="add_total_payment">Total Payment</label>
-                        <input id="add_total_payment" type="number" min="0.01" step="0.01" name="total_payment" class="tm-input" value="{{ old('form_context') === 'add' ? old('total_payment') : '' }}" required>
+                        <label for="add_route_code">Route / Operator</label>
+                        <select id="add_route_code" name="route_code" class="tm-input js-route-select" data-target-fare="add_total_payment" required>
+                            <option value="">Select route or bus operator</option>
+                            @foreach ($routeGroups as $groupLabel => $groupCodes)
+                                <optgroup label="{{ $groupLabel }}">
+                                    @foreach ($groupCodes as $routeCode)
+                                        @if (isset($routeFareConfig[$routeCode]))
+                                            <option value="{{ $routeCode }}" {{ old('form_context') === 'add' && old('route_code') === $routeCode ? 'selected' : '' }}>
+                                                {{ $routeFareConfig[$routeCode]['label'] }}
+                                            </option>
+                                        @endif
+                                    @endforeach
+                                </optgroup>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="tm-field">
+                        <label for="add_total_payment">Terminal Fee (Auto)</label>
+                        <input id="add_total_payment" type="text" class="tm-input" value="{{ old('form_context') === 'add' && old('route_code') && isset($routeFareConfig[old('route_code')]) ? number_format((float) $routeFareConfig[old('route_code')]['fare'], 2) : '0.00' }}" readonly>
                     </div>
                     <div class="tm-field">
                         <label for="add_payment_date">Recorded Date</label>
@@ -185,12 +253,29 @@
                     @method('PUT')
                     <input type="hidden" name="form_context" id="edit_form_context" value="{{ old('form_context', '') }}">
                     <div class="tm-field">
-                        <label for="edit_payer_name">Name</label>
-                        <input id="edit_payer_name" name="payer_name" class="tm-input" value="{{ old('payer_name', '') }}" required>
+                        <label for="edit_ticket_number">Ticket Number</label>
+                        <input id="edit_ticket_number" name="ticket_number" class="tm-input" value="{{ old('ticket_number', '') }}" required>
                     </div>
                     <div class="tm-field">
-                        <label for="edit_total_payment">Total Payment</label>
-                        <input id="edit_total_payment" type="number" min="0.01" step="0.01" name="total_payment" class="tm-input" value="{{ old('total_payment', '') }}" required>
+                        <label for="edit_route_code">Route / Operator</label>
+                        <select id="edit_route_code" name="route_code" class="tm-input js-route-select" data-target-fare="edit_total_payment" required>
+                            <option value="">Select route or bus operator</option>
+                            @foreach ($routeGroups as $groupLabel => $groupCodes)
+                                <optgroup label="{{ $groupLabel }}">
+                                    @foreach ($groupCodes as $routeCode)
+                                        @if (isset($routeFareConfig[$routeCode]))
+                                            <option value="{{ $routeCode }}" {{ old('route_code', '') === $routeCode ? 'selected' : '' }}>
+                                                {{ $routeFareConfig[$routeCode]['label'] }}
+                                            </option>
+                                        @endif
+                                    @endforeach
+                                </optgroup>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="tm-field">
+                        <label for="edit_total_payment">Terminal Fee (Auto)</label>
+                        <input id="edit_total_payment" type="text" class="tm-input" value="{{ old('route_code') && isset($routeFareConfig[old('route_code')]) ? number_format((float) $routeFareConfig[old('route_code')]['fare'], 2) : '0.00' }}" readonly>
                     </div>
                     <div class="tm-field">
                         <label for="edit_payment_date">Recorded Date</label>
@@ -209,7 +294,7 @@
         </div>
     </div>
 
-    <div id="markPaidSheet" class="tm-sheet-wrap" style="display:none;">
+    <div id="markPaidSheet" class="tm-sheet-wrap tm-sheet-wrap-center" style="display:none;">
         <div class="tm-sheet-card">
             <h4><i class="fas fa-check-circle"></i> Confirm Mark as Paid</h4>
             <p id="markPaidSheetText">Are you sure you want to mark this transaction as paid?</p>
@@ -217,10 +302,26 @@
                 <span id="markPaidSheetName"></span>
                 <span id="markPaidSheetAmount"></span>
             </div>
-            <div class="tm-form-actions" style="border-top:0;padding-top:0;position:static;">
+            <div class="tm-form-actions tm-sheet-actions" style="border-top:0;padding-top:0;position:static;">
                 <button type="button" class="tm-btn-outline" id="markPaidCancelBtn"><i class="fas fa-times"></i> Cancel</button>
                 <button type="button" class="tm-btn-primary tm-btn-primary-strong" id="markPaidConfirmBtn">
                     <i class="fas fa-check"></i> Yes, Mark Paid
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deletePaymentSheet" class="tm-sheet-wrap tm-sheet-wrap-center" style="display:none;">
+        <div class="tm-sheet-card">
+            <h4><i class="fas fa-trash"></i> Confirm Delete</h4>
+            <p id="deletePaymentSheetText">Delete this transaction record?</p>
+            <div class="tm-sheet-meta">
+                <span id="deletePaymentSheetName"></span>
+            </div>
+            <div class="tm-form-actions tm-sheet-actions" style="border-top:0;padding-top:0;position:static;">
+                <button type="button" class="tm-btn-outline" id="deletePaymentCancelBtn"><i class="fas fa-times"></i> Cancel</button>
+                <button type="button" class="tm-btn-danger" id="deletePaymentConfirmBtn">
+                    <i class="fas fa-trash"></i> Yes, Delete
                 </button>
             </div>
         </div>
@@ -238,6 +339,155 @@
 @endif
 
 <style>
+    .tm-toast-stack {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 2500;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .5rem;
+        pointer-events: none;
+    }
+    .tm-toast {
+        border-radius: 10px;
+        padding: .7rem .92rem;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: .86rem;
+        font-weight: 600;
+        width: min(360px, calc(100vw - 2rem));
+        animation: tmToastIn .24s ease both;
+        pointer-events: auto;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
+    }
+    .tm-toast-success { background: #059669; border: 1px solid #047857; color: #fff; }
+    .tm-toast-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    .tm-toast.tm-toast-exit { animation: tmToastOut .24s ease forwards; }
+    @keyframes tmToastIn {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes tmToastOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-8px); }
+    }
+
+    .tm-transactions-compact .tm-hero {
+        gap: 10px;
+        padding: 10px 0;
+    }
+    .tm-transactions-compact .tm-hero h2 {
+        margin: 0;
+    }
+    .tm-transactions-compact {
+        gap: 10px;
+    }
+    .tm-transactions-compact .tm-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .tm-transactions-compact .tm-card-head-main {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .tm-transactions-compact .tm-card-head-side {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-left: auto;
+        flex-wrap: wrap;
+    }
+    .tm-transactions-compact .tm-card {
+        margin-top: 0;
+    }
+    .tm-transactions-compact .tm-filter-bar {
+        display: grid;
+        grid-template-columns: 180px 170px 170px minmax(240px, 1fr);
+        gap: 10px;
+        align-items: end;
+        padding: 10px;
+    }
+    .tm-transactions-compact .tm-filter-search {
+        flex: 1 1 560px;
+        min-width: 280px;
+        max-width: none;
+        width: 100%;
+    }
+    .tm-transactions-compact .tm-table {
+        min-width: 980px;
+    }
+    .tm-transactions-compact .tm-card-head,
+    .tm-transactions-compact .tm-card-body,
+    .tm-transactions-compact .tm-kpi,
+    .tm-transactions-compact .tm-field {
+        gap: 10px;
+    }
+    .tm-pagination-wrap {
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding-top: .8rem;
+        padding-bottom: .8rem;
+    }
+    .tm-pagination-summary {
+        font-size: .8rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+    .tm-pagination {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .tm-page-btn {
+        min-width: 36px;
+        height: 34px;
+        padding: 0 .7rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 9px;
+        background: #fff;
+        color: #0f172a;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .83rem;
+        font-weight: 700;
+        text-decoration: none;
+    }
+    .tm-page-btn:hover {
+        border-color: #93c5fd;
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+    .tm-page-btn.is-active {
+        border-color: #0f5fa8;
+        background: #0f5fa8;
+        color: #fff;
+    }
+    .tm-page-btn.is-disabled {
+        opacity: .5;
+        pointer-events: none;
+        background: #f8fafc;
+        color: #64748b;
+    }
+    .tm-page-dots {
+        color: #64748b;
+        font-weight: 700;
+        padding: 0 .1rem;
+    }
+
     .tm-btn-success {
         border-radius: 9px;
         padding: .55rem .95rem;
@@ -315,6 +565,10 @@
         justify-content: center;
         padding: 0 1rem 1rem;
     }
+    .tm-sheet-wrap-center {
+        align-items: center;
+        padding: 1rem;
+    }
     .tm-sheet-wrap.is-open { display: flex !important; }
     .tm-sheet-card {
         width: min(760px, 100%);
@@ -325,6 +579,8 @@
         padding: 1rem 1.2rem 1.1rem;
         display: grid;
         gap: 10px;
+        text-align: center;
+        justify-items: center;
         animation: tmSheetIn .18s ease-out;
     }
     .tm-sheet-card h4 {
@@ -336,7 +592,28 @@
         color: #0f172a;
     }
     .tm-sheet-card p { margin: 0; color: #475569; }
-    .tm-sheet-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tm-sheet-meta { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .tm-sheet-actions {
+        justify-content: center;
+        gap: 12px;
+        width: 100%;
+    }
+    #deletePaymentSheet .tm-sheet-card h4 { color: #991b1b; }
+    #deletePaymentSheet .tm-sheet-card {
+        width: min(620px, 100%);
+        border: 1px solid #fecaca;
+        box-shadow: 0 22px 48px rgba(127, 29, 29, .2);
+    }
+    #deletePaymentSheet .tm-sheet-card p {
+        max-width: 520px;
+    }
+    #deletePaymentSheet .tm-sheet-meta span {
+        border-color: #fecaca;
+        background: #fef2f2;
+        color: #991b1b;
+        font-size: .95rem;
+        padding: .35rem .9rem;
+    }
     .tm-sheet-meta span {
         padding: .25rem .6rem;
         border-radius: 999px;
@@ -352,6 +629,9 @@
     }
 
     @media (max-width: 640px) {
+        .tm-transactions-compact .tm-filter-bar {
+            grid-template-columns: 1fr;
+        }
         .tm-form-actions {
             flex-direction: column-reverse;
             align-items: stretch;
@@ -363,6 +643,49 @@
         }
     }
 </style>
+
+<script>
+    (function () {
+        document.querySelectorAll('.js-tm-toast').forEach(function (toast) {
+            window.setTimeout(function () {
+                toast.classList.add('tm-toast-exit');
+                window.setTimeout(function () {
+                    toast.remove();
+                }, 280);
+            }, 3000);
+        });
+
+        const filterForm = document.querySelector('.js-tm-auto-filter-form');
+        if (!filterForm) return;
+
+        let submitTimer = null;
+        let submitting = false;
+
+        function submitFilters() {
+            if (submitting) return;
+            submitting = true;
+            filterForm.submit();
+        }
+
+        filterForm.querySelectorAll('.js-tm-auto-filter').forEach(function (input) {
+            input.addEventListener('change', function () {
+                submitFilters();
+            });
+        });
+
+        const searchInput = filterForm.querySelector('.js-tm-auto-filter-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                if (submitTimer) {
+                    window.clearTimeout(submitTimer);
+                }
+                submitTimer = window.setTimeout(function () {
+                    submitFilters();
+                }, 420);
+            });
+        }
+    })();
+</script>
 
 @if (! $historyMode)
 <script>
@@ -376,7 +699,24 @@
         const markPaidSheet = document.getElementById('markPaidSheet');
         const markPaidConfirmBtn = document.getElementById('markPaidConfirmBtn');
         const markPaidCancelBtn = document.getElementById('markPaidCancelBtn');
+        const deletePaymentSheet = document.getElementById('deletePaymentSheet');
+        const deletePaymentConfirmBtn = document.getElementById('deletePaymentConfirmBtn');
+        const deletePaymentCancelBtn = document.getElementById('deletePaymentCancelBtn');
+        const routeFareConfig = @json($routeFareConfig);
         let markPaidTargetId = '';
+        let deleteTargetId = '';
+
+        function syncFareInput(routeSelect) {
+            if (!routeSelect) return;
+            const targetId = String(routeSelect.getAttribute('data-target-fare') || '');
+            const fareInput = document.getElementById(targetId);
+            if (!fareInput) return;
+
+            const code = String(routeSelect.value || '');
+            const selectedConfig = routeFareConfig[code] || null;
+            const fareValue = selectedConfig ? Number(selectedConfig.fare || 0) : 0;
+            fareInput.value = fareValue.toFixed(2);
+        }
 
         function openModal(modal) {
             if (!modal) return;
@@ -440,6 +780,29 @@
             });
         }
 
+        if (deletePaymentSheet) {
+            deletePaymentSheet.addEventListener('click', function (event) {
+                if (event.target === deletePaymentSheet) {
+                    closeSheet(deletePaymentSheet);
+                }
+            });
+        }
+
+        if (deletePaymentCancelBtn) {
+            deletePaymentCancelBtn.addEventListener('click', function () {
+                closeSheet(deletePaymentSheet);
+            });
+        }
+
+        if (deletePaymentConfirmBtn) {
+            deletePaymentConfirmBtn.addEventListener('click', function () {
+                if (!deleteForm || deleteTargetId === '') return;
+                const routeTemplate = String(deleteForm.dataset.routeTemplate || '');
+                deleteForm.action = routeTemplate.replace('__ID__', deleteTargetId);
+                deleteForm.submit();
+            });
+        }
+
         if (markPaidConfirmBtn) {
             markPaidConfirmBtn.addEventListener('click', function () {
                 if (!markPaidForm || markPaidTargetId === '') return;
@@ -461,24 +824,31 @@
                     formContextInput.value = 'edit-' + id;
                 }
 
-                document.getElementById('edit_payer_name').value = button.getAttribute('data-name') || '';
-                document.getElementById('edit_total_payment').value = button.getAttribute('data-total') || '';
+                document.getElementById('edit_ticket_number').value = button.getAttribute('data-ticket-number') || '';
+                document.getElementById('edit_route_code').value = button.getAttribute('data-route-code') || '';
+                syncFareInput(document.getElementById('edit_route_code'));
                 document.getElementById('edit_payment_date').value = button.getAttribute('data-date') || '';
                 document.getElementById('edit_remarks').value = button.getAttribute('data-remarks') || '';
                 openModal(editModal);
             });
         });
 
+        document.querySelectorAll('.js-route-select').forEach(function (select) {
+            select.addEventListener('change', function () {
+                syncFareInput(select);
+            });
+            syncFareInput(select);
+        });
+
         document.querySelectorAll('.js-delete-payment').forEach(function (button) {
             button.addEventListener('click', function () {
-                if (!deleteForm) return;
                 const name = button.getAttribute('data-name') || 'this record';
-                if (!window.confirm('Delete transaction for ' + name + '?')) return;
-
-                const id = String(button.getAttribute('data-id') || '');
-                const routeTemplate = String(deleteForm.dataset.routeTemplate || '');
-                deleteForm.action = routeTemplate.replace('__ID__', id);
-                deleteForm.submit();
+                deleteTargetId = String(button.getAttribute('data-id') || '');
+                const sheetName = document.getElementById('deletePaymentSheetName');
+                const sheetText = document.getElementById('deletePaymentSheetText');
+                if (sheetName) sheetName.textContent = name;
+                if (sheetText) sheetText.textContent = 'Delete transaction for ' + name + '? This action cannot be undone.';
+                openSheet(deletePaymentSheet);
             });
         });
 
@@ -503,6 +873,7 @@
                 closeModal(addModal);
                 closeModal(editModal);
                 closeSheet(markPaidSheet);
+                closeSheet(deletePaymentSheet);
             }
         });
 
@@ -524,4 +895,3 @@
     })();
 </script>
 @endif
-

@@ -844,19 +844,6 @@
         @endif
 
         {{-- ── Hero ── --}}
-        <section class="cpm-hero">
-            <div class="cpm-hero-left">
-                <h1><i class="fa-solid fa-hand-holding-dollar" style="opacity:.85;"></i>Collector Payments</h1>
-                <p>
-                    @if($assignment?->department?->name)
-                        <span class="cpm-dept-badge"><i class="fa-solid fa-building"></i>
-                            {{ $assignment->department->name }}</span>
-                    @else
-                        No department assignment yet.
-                    @endif
-                </p>
-            </div>
-        </section>
 
         {{-- ── Status Tabs ── --}}
         <section class="cpm-tabs">
@@ -1188,19 +1175,16 @@
                     payerName.value = button.dataset.payerName || '';
                     collectorNote.value = button.dataset.collectorNote || '';
 
-                    proofHint.innerHTML = button.dataset.hasProof === '1'
-                        ? '<i class="fa-solid fa-circle-info"></i> Existing proof is saved. You may keep it or upload a new one.'
-                        : '<i class="fa-solid fa-circle-info"></i> Upload or capture a new proof photo.';
+                    proofHint.innerHTML = '<i class="fa-solid fa-circle-info"></i> Upload or capture a new proof photo (required).';
 
                     openModal();
                 });
             });
 
             resendForm.addEventListener('submit', (event) => {
-                const hasExistingProof = resendForm.getAttribute('data-has-existing-proof') === '1';
                 const hasUpload = (proofUpload?.files?.length || 0) > 0;
                 const hasCamera = (proofCamera?.files?.length || 0) > 0;
-                if (!hasExistingProof && !hasUpload && !hasCamera) {
+                if (!hasUpload && !hasCamera) {
                     event.preventDefault();
                     if (proofUpload) {
                         proofUpload.setCustomValidity('Upload a proof photo or capture one using camera.');
@@ -1293,3 +1277,4 @@
         })();
     </script>
 @endsection
+

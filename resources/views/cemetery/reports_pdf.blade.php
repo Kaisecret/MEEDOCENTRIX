@@ -5,25 +5,204 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cemetery Report</title>
     <style>
-        @page { size: A4 portrait; margin: 12mm; }
-        body { margin:0; font-family: "Segoe UI", Arial, sans-serif; color:#0f172a; }
-        .sheet { max-width: 1000px; margin: 0 auto; }
-        .head { border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px 16px; background: #f8fafc; margin-bottom: 10px; }
-        .head h1 { margin: 0 0 6px; font-size: 22px; }
-        .meta { font-size: 12px; color:#475569; line-height: 1.5; }
-        .grid { display:grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap:8px; margin-bottom: 10px; }
-        .kpi { border:1px solid #cbd5e1; border-radius: 8px; padding:8px 10px; }
-        .kpi span { display:block; font-size:11px; text-transform: uppercase; color:#64748b; font-weight:700; margin-bottom: 3px; letter-spacing: .04em; }
-        .kpi strong { font-size:15px; }
-        .section-title { margin: 12px 0 6px; font-size: 14px; font-weight: 800; }
-        table { width:100%; border-collapse: collapse; font-size: 11px; }
-        th { background: #e2e8f0; color:#0f172a; text-transform: uppercase; letter-spacing:.04em; font-size: 10px; text-align: left; padding: 6px; border:1px solid #cbd5e1; }
-        td { padding:6px; border:1px solid #e2e8f0; vertical-align: top; }
-        .status-paid { color:#047857; font-weight:700; }
-        .status-unpaid { color:#b91c1c; font-weight:700; }
-        .status-partial { color:#1d4ed8; font-weight:700; }
-        .status-overdue { color:#92400e; font-weight:700; }
-        .note { margin-top: 8px; font-size: 11px; color:#475569; }
+        @page { size: A4 portrait; margin: 10mm 10mm 10mm 10mm; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            color: #0f172a;
+            font-size: 11px;
+            line-height: 1.45;
+            background: #ffffff;
+        }
+        .sheet {
+            width: 100%;
+            padding-bottom: 36mm;
+        }
+        .letterhead {
+            border-bottom: 3px solid #155f8f;
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+        }
+        .letterhead-row {
+            display: table;
+            width: 100%;
+        }
+        .letterhead-left, .letterhead-right {
+            display: table-cell;
+            vertical-align: middle;
+        }
+        .letterhead-right { text-align: right; }
+        .brand-title {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 800;
+            color: #0c3a5b;
+            letter-spacing: -0.01em;
+        }
+        .brand-sub {
+            margin: 2px 0 0;
+            font-size: 11px;
+            color: #475569;
+            font-weight: 600;
+        }
+        .doc-title {
+            display: inline-block;
+            background: #155f8f;
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .doc-meta {
+            margin-top: 6px;
+            font-size: 10px;
+            color: #475569;
+        }
+        .info-bar {
+            display: table;
+            width: 100%;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+        .info-cell {
+            display: table-cell;
+            padding: 8px 12px;
+            border-right: 1px solid #e2e8f0;
+            width: 25%;
+            vertical-align: middle;
+        }
+        .info-cell:last-child { border-right: none; }
+        .info-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .info-value {
+            font-size: 11px;
+            color: #0f172a;
+            font-weight: 700;
+        }
+        .section { margin-bottom: 14px; page-break-inside: avoid; }
+        .section.section-detail { page-break-inside: auto; }
+        .section-title {
+            background: #0c3a5b;
+            color: #ffffff;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            border-radius: 4px 4px 0 0;
+            margin: 0;
+        }
+        .section-note {
+            float: right;
+            font-size: 9px;
+            font-weight: 500;
+            color: #cbd5e1;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+            background: #ffffff;
+        }
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; }
+        th {
+            background: #eaf2f9;
+            color: #0c3a5b;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-size: 9px;
+            text-align: left;
+            padding: 7px 8px;
+            border: 1px solid #cbd5e1;
+            font-weight: 800;
+        }
+        td {
+            padding: 6px 8px;
+            border: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+        tbody tr:nth-child(even) td { background: #f8fafc; }
+        td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+        td.center, th.center { text-align: center; }
+        td strong { color: #0c3a5b; }
+        .pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 9px;
+            font-weight: 700;
+            border: 1px solid transparent;
+        }
+        .pill-paid { color:#047857; background:#ecfdf5; border-color:#a7f3d0; }
+        .pill-partial { color:#1d4ed8; background:#eff6ff; border-color:#bfdbfe; }
+        .pill-overdue { color:#92400e; background:#fffbeb; border-color:#fde68a; }
+        .pill-pending { color:#b45309; background:#fffbeb; border-color:#fde68a; }
+        .pill-unpaid { color:#b91c1c; background:#fef2f2; border-color:#fecaca; }
+        .pill-cancelled { color:#475569; background:#f8fafc; border-color:#cbd5e1; }
+        .empty {
+            text-align: center;
+            padding: 14px !important;
+            color: #94a3b8;
+            font-style: italic;
+        }
+        .footer {
+            margin-top: 0;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 9px;
+            color: #64748b;
+            display: table;
+            width: 100%;
+        }
+        .footer-left, .footer-right { display: table-cell; }
+        .footer-right { text-align: right; }
+        .report-end {
+            position: fixed;
+            left: 10mm;
+            right: 10mm;
+            bottom: 3mm;
+            page-break-inside: avoid;
+        }
+        .signatures {
+            display: table;
+            width: 100%;
+            border-spacing: 14px 0;
+            margin-bottom: 8px;
+        }
+        .sig-cell {
+            display: table-cell;
+            width: 50%;
+            text-align: center;
+            font-size: 10px;
+            color: #475569;
+        }
+        .sig-line {
+            height: 22px;
+            border-bottom: 1px solid #475569;
+            margin: 0 22px 6px;
+        }
+        .sig-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
@@ -32,128 +211,138 @@
         if ((int) $selectedSiteId > 0) {
             $selectedSiteName = (string) ($sites->firstWhere('id', (int) $selectedSiteId)?->site_name ?? 'Selected Cemetery');
         }
-        $dateRangeLabel = 'All Dates';
-        if ($dateFrom !== '' && $dateTo !== '') {
-            $dateRangeLabel = $dateFrom . ' to ' . $dateTo;
-        } elseif ($dateFrom !== '') {
-            $dateRangeLabel = 'From ' . $dateFrom;
-        } elseif ($dateTo !== '') {
-            $dateRangeLabel = 'Until ' . $dateTo;
-        }
     @endphp
-
     <div class="sheet">
-        <section class="head">
-            <h1>Cemetery Reports Summary</h1>
-            <div class="meta">
-                Cemetery: <strong>{{ $selectedSiteName }}</strong><br>
-                Date Range: <strong>{{ $dateRangeLabel }}</strong><br>
-                Generated: {{ $generatedAt->format('F d, Y h:i A') }}<br>
-                Section row limit: {{ number_format((int) $pdfMaxRows) }} row(s) each
+        <header class="letterhead">
+            <div class="letterhead-row">
+                <div class="letterhead-left">
+                    <h1 class="brand-title">Cemetery Management Office</h1>
+                    <p class="brand-sub">Transactions & Collection Report</p>
+                </div>
+                <div class="letterhead-right">
+                    <span class="doc-title">Official Report</span>
+                    <div class="doc-meta">Generated: {{ $generatedAt->format('F d, Y h:i A') }}</div>
+                </div>
             </div>
+        </header>
+
+        <div class="info-bar">
+            <div class="info-cell">
+                <div class="info-label">Period</div>
+                <div class="info-value">{{ $rangeLabel }}</div>
+            </div>
+            <div class="info-cell">
+                <div class="info-label">Date From</div>
+                <div class="info-value">{{ $period === 'all' ? 'All Dates' : $rangeStart->format('M d, Y') }}</div>
+            </div>
+            <div class="info-cell">
+                <div class="info-label">Date To</div>
+                <div class="info-value">{{ $period === 'all' ? 'All Dates' : $rangeEnd->format('M d, Y') }}</div>
+            </div>
+            <div class="info-cell">
+                <div class="info-label">Total Records</div>
+                <div class="info-value">{{ number_format((int) $summary['transaction_total']) }} transaction(s)</div>
+            </div>
+        </div>
+
+        <div class="info-bar" style="margin-top:-4px;margin-bottom:12px;">
+            <div class="info-cell">
+                <div class="info-label">Cemetery</div>
+                <div class="info-value">{{ $selectedSiteName }}</div>
+            </div>
+            <div class="info-cell">
+                <div class="info-label">Total Amount Due</div>
+                <div class="info-value">PHP {{ number_format((float) $summary['amount_due_total'], 2) }}</div>
+            </div>
+            <div class="info-cell">
+                <div class="info-label">Total Collected</div>
+                <div class="info-value">PHP {{ number_format((float) $summary['amount_collected_total'], 2) }}</div>
+            </div>
+            <div class="info-cell">
+                <div class="info-label">Outstanding</div>
+                <div class="info-value">PHP {{ number_format(max(0, (float) $summary['amount_due_total'] - (float) $summary['amount_collected_total']), 2) }}</div>
+            </div>
+        </div>
+
+        <section class="section section-detail">
+            <h2 class="section-title">
+                Detailed Transactions
+                @if(($summary['transaction_total'] ?? 0) > ($transactions->count() ?? 0))
+                    <span class="section-note">Showing first {{ number_format($transactions->count()) }} of {{ number_format((int) $summary['transaction_total']) }} rows</span>
+                @endif
+            </h2>
+            <table>
+                <thead>
+                <tr>
+                    <th style="width:8%;">Txn No.</th>
+                    <th style="width:7%;">Date</th>
+                    <th style="width:6%;">Time</th>
+                    <th style="width:10%;">Deceased</th>
+                    <th style="width:7%;">Niche/Lot</th>
+                    <th style="width:12%;">Cemetery</th>
+                    <th style="width:9%;">Category</th>
+                    <th style="width:10%;">Type</th>
+                    <th class="center" style="width:7%;">Status</th>
+                    <th class="num" style="width:8%;">Amount Due</th>
+                    <th class="num" style="width:8%;">Paid</th>
+                    <th class="num" style="width:8%;">Balance</th>
+                </tr>
+                </thead>
+                <tbody>
+                @forelse($transactions as $transaction)
+                    @php
+                        $status = strtolower((string) ($transaction->status ?? 'pending'));
+                        $statusClass = match ($status) {
+                            'paid' => 'pill-paid',
+                            'partial' => 'pill-partial',
+                            'overdue' => 'pill-overdue',
+                            'unpaid' => 'pill-unpaid',
+                            'cancelled' => 'pill-cancelled',
+                            default => 'pill-pending',
+                        };
+                    @endphp
+                    <tr>
+                        <td><strong>{{ $transaction->transaction_no }}</strong></td>
+                        <td>{{ optional($transaction->transaction_date)->format('m/d/Y') ?: '-' }}</td>
+                        <td>{{ optional($transaction->transaction_date)->format('h:i A') ?: '-' }}</td>
+                        <td>{{ $transaction->deceased_name ?: '-' }}</td>
+                        <td>{{ $transaction->plot_reference ?: '-' }}</td>
+                        <td>{{ $transaction->site?->site_name ?: '-' }}</td>
+                        <td>{{ $transaction->category?->category_name ?: '-' }}</td>
+                        <td>{{ $transaction->transactionType?->type_name ?: '-' }}</td>
+                        <td class="center"><span class="pill {{ $statusClass }}">{{ strtoupper($status) }}</span></td>
+                        <td class="num">PHP {{ number_format((float) ($transaction->amount_due ?? 0), 2) }}</td>
+                        <td class="num">PHP {{ number_format((float) ($transaction->total_paid ?? 0), 2) }}</td>
+                        <td class="num">PHP {{ number_format((float) ($transaction->remaining_balance ?? 0), 2) }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="12" class="empty">No detailed records found in the selected range.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
         </section>
 
-        <section class="grid">
-            <div class="kpi"><span>Occupant Records</span><strong>{{ number_format((int) $summary['occupant_total']) }}</strong></div>
-            <div class="kpi"><span>Service Logs</span><strong>{{ number_format((int) $summary['service_total']) }}</strong></div>
-            <div class="kpi"><span>Transactions</span><strong>{{ number_format((int) $summary['transaction_total']) }}</strong></div>
-            <div class="kpi"><span>Payments</span><strong>{{ number_format((int) $summary['payment_total']) }}</strong></div>
-            <div class="kpi"><span>Total Amount Due</span><strong>PHP {{ number_format((float) $summary['amount_due_total'], 2) }}</strong></div>
-            <div class="kpi"><span>Total Collected</span><strong>PHP {{ number_format((float) $summary['amount_collected_total'], 2) }}</strong></div>
-            <div class="kpi"><span>Overdue Maintenance</span><strong>{{ number_format((int) $summary['overdue_maintenance_total']) }}</strong></div>
-            <div class="kpi"><span>Overdue Payments</span><strong>{{ number_format((int) $summary['overdue_payment_total']) }}</strong></div>
-        </section>
+        <div class="report-end">
+            <div class="signatures">
+                <div class="sig-cell">
+                    <div class="sig-line"></div>
+                    <div class="sig-label">Prepared By</div>
+                </div>
+                <div class="sig-cell">
+                    <div class="sig-line"></div>
+                    <div class="sig-label">Verified By</div>
+                </div>
+            </div>
 
-        <div class="section-title">Occupant Maintenance Report</div>
-        <table>
-            <thead><tr><th>Record No.</th><th>Cemetery</th><th>Deceased</th><th>Niche/Lot</th><th>Contact</th><th>Maintenance</th><th>Coverage End</th></tr></thead>
-            <tbody>
-            @forelse($occupants as $record)
-                <tr>
-                    <td>{{ $record->record_no }}</td>
-                    <td>{{ $record->site?->site_name ?: '-' }}</td>
-                    <td>{{ $record->deceased_name }}</td>
-                    <td>{{ $record->plot?->plot_reference ?: '-' }}</td>
-                    <td>{{ $record->contact?->contact_person ?: '-' }}</td>
-                    <td>{{ strtoupper((string) $record->maintenance_fee_status) }}</td>
-                    <td>{{ optional($record->coverage_end_date)->format('Y-m-d') ?: '-' }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="7">No occupant data for selected filter.</td></tr>
-            @endforelse
-            </tbody>
-        </table>
-
-        <div class="section-title">Service Logs Report</div>
-        <table>
-            <thead><tr><th>Service Date</th><th>Cemetery</th><th>Service Type</th><th>Deceased</th><th>Status</th><th>Fee</th></tr></thead>
-            <tbody>
-            @forelse($services as $service)
-                <tr>
-                    <td>{{ optional($service->service_date)->format('Y-m-d') ?: '-' }}</td>
-                    <td>{{ $service->site?->site_name ?: '-' }}</td>
-                    <td>{{ $service->serviceType?->type_name ?: '-' }}</td>
-                    <td>{{ $service->deceased_name ?: '-' }}</td>
-                    <td>{{ strtoupper((string) $service->status) }}</td>
-                    <td>PHP {{ number_format((float) ($service->suggested_fee_total ?? $service->service_fee ?? 0), 2) }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="6">No service data for selected filter.</td></tr>
-            @endforelse
-            </tbody>
-        </table>
-
-        <div class="section-title">Cemetery Transactions Report</div>
-        <table>
-            <thead><tr><th>Transaction No.</th><th>Date</th><th>Cemetery</th><th>Type</th><th>Deceased</th><th>Amount Due</th><th>Status</th></tr></thead>
-            <tbody>
-            @forelse($transactions as $transaction)
-                <tr>
-                    <td>{{ $transaction->transaction_no }}</td>
-                    <td>{{ optional($transaction->transaction_date)->format('Y-m-d') ?: '-' }}</td>
-                    <td>{{ $transaction->site?->site_name ?: '-' }}</td>
-                    <td>{{ $transaction->transactionType?->type_name ?: '-' }}</td>
-                    <td>{{ $transaction->deceased_name }}</td>
-                    <td>PHP {{ number_format((float) $transaction->amount_due, 2) }}</td>
-                    <td>{{ strtoupper((string) $transaction->status) }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="7">No transaction data for selected filter.</td></tr>
-            @endforelse
-            </tbody>
-        </table>
-
-        <div class="section-title">Payment Collection Report</div>
-        <table>
-            <thead><tr><th>Payment Ref.</th><th>Transaction Ref.</th><th>Cemetery</th><th>OR No.</th><th>Payment Date</th><th>Amount Paid</th><th>Status</th></tr></thead>
-            <tbody>
-            @forelse($payments as $payment)
-                <tr>
-                    <td>{{ $payment->payment_no }}</td>
-                    <td>{{ $payment->transaction?->transaction_no ?: '-' }}</td>
-                    <td>{{ $payment->transaction?->site?->site_name ?: '-' }}</td>
-                    <td>{{ $payment->official_receipt_no ?: '-' }}</td>
-                    <td>{{ optional($payment->payment_date)->format('Y-m-d') ?: '-' }}</td>
-                    <td>PHP {{ number_format((float) $payment->amount_paid, 2) }}</td>
-                    <td>
-                        @if($payment->payment_status === 'paid')
-                            <span class="status-paid">PAID</span>
-                        @elseif($payment->payment_status === 'partial')
-                            <span class="status-partial">PARTIAL</span>
-                        @elseif($payment->payment_status === 'overdue')
-                            <span class="status-overdue">OVERDUE</span>
-                        @else
-                            <span class="status-unpaid">UNPAID</span>
-                        @endif
-                    </td>
-                </tr>
-            @empty
-                <tr><td colspan="7">No payment data for selected filter.</td></tr>
-            @endforelse
-            </tbody>
-        </table>
-
-        <p class="note">This report is printable and optimized for saving as PDF from browser print settings.</p>
+            <footer class="footer">
+                <div class="footer-left">
+                    Cemetery Management System &middot; Confidential Report
+                </div>
+                <div class="footer-right">
+                    Generated {{ $generatedAt->format('F d, Y h:i A') }}
+                </div>
+            </footer>
+        </div>
     </div>
 </body>
 </html>

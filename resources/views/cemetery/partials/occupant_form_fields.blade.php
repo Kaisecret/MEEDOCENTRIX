@@ -10,6 +10,10 @@
     $defaultTxDate = old('tx_transaction_date', now()->format('Y-m-d\TH:i'));
     $defaultTxStatus = old('tx_status', 'pending');
     $defaultTxMaintenanceType = old('tx_maintenance_type', 'none');
+    $defaultTxTypeId = (string) old(
+        'tx_transaction_type_id',
+        (string) optional(($transactionTypes ?? collect())->first())->id
+    );
 @endphp
 
 <div class="cor-form-grid">
@@ -129,7 +133,7 @@
     @if(! $isEditMode)
         <div class="cor-field cor-field-full" style="margin-top:6px;">
             <div style="border:1px solid #dbe6f0; border-radius:10px; background:#f8fbff; padding:10px 12px; color:#1f2937; font-size:0.8rem; line-height:1.5;">
-                <strong>Initial Transaction (Optional)</strong>: if you set transaction type below, this form will save both Occupant Record and Transaction.
+                <strong>Initial Transaction</strong>: this form saves both Occupant Record and Transaction by default.
             </div>
         </div>
 
@@ -156,9 +160,9 @@
         <div class="cor-field">
             <label for="{{ $prefix }}TxType"><i class="fa-solid fa-list-check"></i>Transaction Type</label>
             <select id="{{ $prefix }}TxType" name="tx_transaction_type_id" class="cor-control">
-                <option value="">Select transaction type...</option>
+                <option value="" @selected($defaultTxTypeId === '')>Select transaction type...</option>
                 @foreach(($transactionTypes ?? collect()) as $transactionType)
-                    <option value="{{ $transactionType->id }}" data-type-code="{{ $transactionType->type_code }}" @selected((string) old('tx_transaction_type_id') === (string) $transactionType->id)>
+                    <option value="{{ $transactionType->id }}" data-type-code="{{ $transactionType->type_code }}" @selected($defaultTxTypeId === (string) $transactionType->id)>
                         {{ $transactionType->type_name }}
                     </option>
                 @endforeach

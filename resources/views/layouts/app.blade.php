@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Meedocentrix</title>
     <link rel="stylesheet" href="{{ asset('css/styles.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -16,6 +17,21 @@
     $authRoleLabel = $authUser?->roleLabel() ?? 'Administrator';
     $topbarName = $authUser ? explode(' ', trim($authUser->name))[0] : 'User';
     $userAvatar = $authUser?->avatar ?? 'boy';
+    $topbarNotifications = collect();
+    $topbarUnreadCount = 0;
+
+    if ($authUser && \Illuminate\Support\Facades\Schema::hasTable('app_notifications')) {
+        $topbarNotifications = \App\Models\AppNotification::query()
+            ->where('user_id', (int) $authUser->id)
+            ->latest('created_at')
+            ->limit(8)
+            ->get();
+
+        $topbarUnreadCount = \App\Models\AppNotification::query()
+            ->where('user_id', (int) $authUser->id)
+            ->where('is_read', false)
+            ->count();
+    }
 
     $roleNavMap = [
         'administrator' => [
@@ -46,7 +62,6 @@
             ['id' => 'dashboard', 'icon' => 'fas fa-chart-pie', 'label' => 'Dashboard'],
             ['id' => 'atrium_bookings', 'icon' => 'fas fa-calendar-check', 'label' => 'Bookings'],
             ['id' => 'atrium_payments', 'icon' => 'fas fa-money-check-dollar', 'label' => 'Payments'],
-            ['id' => 'atrium_supplies', 'icon' => 'fas fa-boxes-stacked', 'label' => 'Supplies'],
             ['id' => 'atrium_reports', 'icon' => 'fas fa-chart-pie', 'label' => 'Reports'],
         ],
         'collector' => [
@@ -72,6 +87,9 @@
     data-auth-role-key="{{ $authRoleKey }}"
     data-auth-user-name="{{ $authUser?->name }}"
     data-auth-user-role-label="{{ $authRoleLabel }}"
+    data-notif-feed-url="{{ route('notifications.feed') }}"
+    data-notif-read-all-url="{{ route('notifications.read_all') }}"
+    data-notif-view-all-url="{{ route('notifications') }}"
 >
 
     <!-- Sidebar -->
@@ -158,7 +176,7 @@
                 <button class="hamburger" onclick="toggleSidebar()">
                     <i class="fas fa-bars"></i>
                 </button>
-                <div class="breadcrumb" hidden>
+                <div class="breadcrumb">
                     <h3 id="pageTitle">Dashboard</h3>
                 </div>
             </div>
@@ -168,7 +186,7 @@
             <div class="topbar-right">
                 <button class="topbar-btn" onclick="toggleNotifications()" id="notifBtn">
                     <i class="fas fa-bell"></i>
-                    <span class="badge">5</span>
+                    <span class="badge" id="notifBadge" @if($topbarUnreadCount <= 0) style="display:none;" @endif>{{ $topbarUnreadCount }}</span>
                 </button>
                 <div class="topbar-profile" onclick="toggleProfileMenu()">
                     <div class="topbar-avatar" style="overflow:hidden;display:flex;align-items:center;justify-content:center;background:transparent;padding:0;">
@@ -201,52 +219,41 @@
                     <i class="fas fa-chevron-down"></i>
                 </div>
             </div>
-
             <!-- Notifications Dropdown -->
             <div id="notifDropdown" class="dropdown-panel notif-dropdown" style="display:none;">
                 <div class="dropdown-header">
                     <h4>Notifications</h4>
-                    <button class="btn-text">Mark all as read</button>
+                    <button class="btn-text" id="notifMarkAllBtn" type="button">Mark all as read</button>
                 </div>
-                <div class="dropdown-body">
-                    <div class="notif-item unread">
-                        <div class="notif-icon blue"><i class="fas fa-money-bill-wave"></i></div>
-                        <div class="notif-content">
-                            <p>New remittance of <strong>₱24,500</strong> received from Fishport Collector</p>
-                            <span>2 minutes ago</span>
-                        </div>
-                    </div>
-                    <div class="notif-item unread">
-                        <div class="notif-icon green"><i class="fas fa-check-circle"></i></div>
-                        <div class="notif-content">
-                            <p>Vendor <strong>Maria Santos</strong> registration approved</p>
-                            <span>15 minutes ago</span>
-                        </div>
-                    </div>
-                    <div class="notif-item unread">
-                        <div class="notif-icon orange"><i class="fas fa-exclamation-triangle"></i></div>
-                        <div class="notif-content">
-                            <p>Hall booking conflict detected for <strong>March 20</strong></p>
-                            <span>1 hour ago</span>
-                        </div>
-                    </div>
-                    <div class="notif-item">
-                        <div class="notif-icon blue"><i class="fas fa-ship"></i></div>
-                        <div class="notif-content">
-                            <p>Vessel <strong>FV Esperanza</strong> arrival recorded</p>
-                            <span>3 hours ago</span>
-                        </div>
-                    </div>
-                    <div class="notif-item">
-                        <div class="notif-icon purple"><i class="fas fa-chart-line"></i></div>
-                        <div class="notif-content">
-                            <p>Daily collection report is ready for review</p>
-                            <span>5 hours ago</span>
-                        </div>
-                    </div>
+                <div class="dropdown-body" id="notifList">
+                    @forelse($topbarNotifications as $notification)
+                        @php
+                            $notifTypeClass = match ((string) $notification->type) {
+                                'success' => 'green',
+                                'warning' => 'orange',
+                                'danger' => 'orange',
+                                'info' => 'blue',
+                                default => 'purple',
+                            };
+                        @endphp
+                        <a
+                            href="{{ $notification->action_url ?: route('notifications') }}"
+                            class="notif-item {{ $notification->is_read ? '' : 'unread' }}"
+                            data-notif-id="{{ $notification->id }}"
+                            data-mark-url="{{ route('notifications.mark_read', ['notification' => $notification->id]) }}"
+                        >
+                            <div class="notif-icon {{ $notifTypeClass }}"><i class="fas fa-bell"></i></div>
+                            <div class="notif-content">
+                                <p><strong>{{ $notification->title }}</strong><br>{{ $notification->message }}</p>
+                                <span>{{ optional($notification->created_at)->diffForHumans() }}</span>
+                            </div>
+                        </a>
+                    @empty
+                        <div class="notif-empty">No notifications yet.</div>
+                    @endforelse
                 </div>
                 <div class="dropdown-footer">
-                    <button onclick="navigateTo('notifications')" class="btn-text">View All Notifications</button>
+                    <button onclick="navigateTo('notifications')" class="btn-text" type="button">View All Notifications</button>
                 </div>
             </div>
 
@@ -488,3 +495,4 @@
 @endif
 </body>
 </html>
+

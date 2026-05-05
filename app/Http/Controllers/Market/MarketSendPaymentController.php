@@ -8,8 +8,12 @@ use App\Models\CollectionDispatchItem;
 use App\Models\CollectorDepartmentAssignment;
 use App\Models\MarketPaymentCollection;
 use App\Models\MarketStallLease;
+use App\Support\AppNotificationService;
+use App\Support\MarketDueLogService;
+use App\Support\MarketQueueLifecycle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -19,19 +23,23 @@ class MarketSendPaymentController extends Controller
     public function index(Request $request): View
     {
         $period = (string) $request->query('period', 'today');
-        if (! in_array($period, ['today', 'week', 'all', 'custom'], true)) {
+        if (! in_array($period, ['today', 'week', 'month', 'all', 'custom'], true)) {
             $period = 'today';
         }
 
         $search = trim((string) $request->query('q', ''));
         $from = trim((string) $request->query('from', ''));
         $to = trim((string) $request->query('to', ''));
+        $now = Carbon::now();
+        MarketQueueLifecycle::autoCancelStaleSentItems($now);
+        MarketDueLogService::sync($now);
 
         $query = MarketStallLease::query()
             ->with([
                 'stall.location',
                 'tenant',
             ])
+            ->withMax('paymentCollections as last_payment_at', 'payment_date')
             ->where('lease_status', 'active')
             ->whereHas('stall', static function ($stallQuery): void {
                 $stallQuery
@@ -60,23 +68,15 @@ class MarketSendPaymentController extends Controller
         }
 
         if ($period === 'today') {
-            $query->whereDate('updated_at', now()->toDateString());
+            $query->where('billing_period', 'daily');
         } elseif ($period === 'week') {
-            $query->whereBetween('updated_at', [
-                now()->startOfWeek()->startOfDay()->toDateTimeString(),
-                now()->endOfWeek()->endOfDay()->toDateTimeString(),
-            ]);
-        } elseif ($period === 'custom') {
-            if ($from !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) === 1) {
-                $query->whereDate('updated_at', '>=', $from);
-            }
-            if ($to !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to) === 1) {
-                $query->whereDate('updated_at', '<=', $to);
-            }
+            $query->where('billing_period', 'weekly');
+        } elseif ($period === 'month') {
+            $query->where('billing_period', 'monthly');
         }
 
         $openLeaseIds = CollectionDispatchItem::query()
-            ->whereIn('status', ['sent', 'collected_pending_confirmation'])
+            ->whereIn('status', ['sent', 'rejected', 'collected_pending_confirmation'])
             ->whereNotNull('market_stall_lease_id')
             ->whereHas('dispatch', static function ($dispatchQuery): void {
                 $dispatchQuery->where('department_code', 'market');
@@ -92,9 +92,33 @@ class MarketSendPaymentController extends Controller
         }
 
         $leases = $query
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
+            ->orderBy('start_date')
+            ->orderBy('id')
             ->get();
+
+        if ($period !== 'all') {
+            $customFromAt = $this->parseDateInput($from)?->setTime(7, 0, 0);
+            $customToAt = $this->parseDateInput($to)?->addDay()->setTime(7, 0, 0);
+
+            $leases = $leases
+                ->filter(function (MarketStallLease $lease) use ($period, $now, $customFromAt, $customToAt): bool {
+                    $nextDueAt = $this->resolveNextDueAt($lease);
+                    if ($nextDueAt === null) {
+                        return false;
+                    }
+
+                    if ($period === 'custom') {
+                        if (! $customFromAt || ! $customToAt || $customFromAt->gt($customToAt)) {
+                            return false;
+                        }
+
+                        return $nextDueAt->gte($customFromAt) && $nextDueAt->lt($customToAt);
+                    }
+
+                    return $nextDueAt->lte($now);
+                })
+                ->values();
+        }
 
         $collectors = CollectorDepartmentAssignment::query()
             ->with(['collector:id,name,is_active', 'department:id,code,name'])
@@ -131,6 +155,19 @@ class MarketSendPaymentController extends Controller
             'search' => $search,
             'from' => $from,
             'to' => $to,
+        ]);
+    }
+
+    public function dueTracker(Request $request): View
+    {
+        $now = Carbon::now();
+        MarketQueueLifecycle::autoCancelStaleSentItems($now);
+        MarketDueLogService::sync($now);
+        $dailyDueSummary = MarketDueLogService::dailySummary(30);
+
+        return view('market.send_payment_due_tracker', [
+            'dueTrackerRows' => $dailyDueSummary['rows'],
+            'dueTrackerToday' => $dailyDueSummary['today'],
         ]);
     }
 
@@ -179,7 +216,7 @@ class MarketSendPaymentController extends Controller
 
         $openLeaseIds = CollectionDispatchItem::query()
             ->whereIn('market_stall_lease_id', $leases->pluck('id'))
-            ->whereIn('status', ['sent', 'collected_pending_confirmation'])
+            ->whereIn('status', ['sent', 'rejected', 'collected_pending_confirmation'])
             ->pluck('market_stall_lease_id')
             ->map(static fn ($id): int => (int) $id)
             ->all();
@@ -194,7 +231,8 @@ class MarketSendPaymentController extends Controller
                 ->with('error', 'Selected leases are already in an active collector queue.');
         }
 
-        DB::transaction(function () use ($request, $validated, $eligibleLeases): void {
+        $dispatchId = null;
+        DB::transaction(function () use ($request, $validated, $eligibleLeases, &$dispatchId): void {
             $dispatch = CollectionDispatch::query()->create([
                 'department_code' => 'market',
                 'collector_user_id' => (int) $validated['collector_user_id'],
@@ -206,6 +244,7 @@ class MarketSendPaymentController extends Controller
                 'status' => 'sent',
                 'sent_at' => now(),
             ]);
+            $dispatchId = (int) $dispatch->id;
 
             $itemRows = $eligibleLeases->map(static function (MarketStallLease $lease) use ($dispatch): array {
                 $amount = round((float) ($lease->computed_rate_amount ?? 0), 2);
@@ -225,6 +264,17 @@ class MarketSendPaymentController extends Controller
 
             CollectionDispatchItem::query()->insert($itemRows);
         });
+
+        if ($dispatchId) {
+            AppNotificationService::notifyDispatchSent(
+                departmentCode: 'market',
+                dispatchId: (int) $dispatchId,
+                collectorUserId: (int) $validated['collector_user_id'],
+                itemCount: $eligibleLeases->count(),
+                actorName: (string) ($request->user()?->name ?? 'Market personnel'),
+                createdByUserId: $request->user()?->id
+            );
+        }
 
         return redirect()
             ->back()
@@ -266,6 +316,7 @@ class MarketSendPaymentController extends Controller
             ]);
 
             $this->refreshDispatchStatus((int) $item->collection_dispatch_id);
+            AppNotificationService::notifyDispatchItemReviewed($item, 'cancelled', $request->user()?->id);
         });
 
         return redirect()
@@ -311,6 +362,7 @@ class MarketSendPaymentController extends Controller
             ]);
 
             $this->refreshDispatchStatus((int) $item->collection_dispatch_id);
+            AppNotificationService::notifyDispatchItemReviewed($item, 'accepted', $request->user()?->id);
         });
 
         return redirect()
@@ -331,6 +383,7 @@ class MarketSendPaymentController extends Controller
         DB::transaction(function () use ($request, $dispatchItem, $validated): void {
             /** @var CollectionDispatchItem $item */
             $item = CollectionDispatchItem::query()
+                ->with('dispatch')
                 ->lockForUpdate()
                 ->findOrFail($dispatchItem->id);
 
@@ -346,6 +399,7 @@ class MarketSendPaymentController extends Controller
             ]);
 
             $this->refreshDispatchStatus((int) $item->collection_dispatch_id);
+            AppNotificationService::notifyDispatchItemReviewed($item, 'rejected', $request->user()?->id);
         });
 
         return redirect()
@@ -353,43 +407,115 @@ class MarketSendPaymentController extends Controller
             ->with('status', 'Collection proof rejected and returned to collector for correction.');
     }
 
+    private function parseDateInput(string $value): ?Carbon
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $trimmed)->startOfDay();
+        } catch (\Throwable) {
+            try {
+                return Carbon::parse($trimmed)->startOfDay();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+    }
+
+    private function resolveNextDueAt(MarketStallLease $lease): ?Carbon
+    {
+        $period = strtolower((string) ($lease->billing_period ?? 'monthly'));
+        if (! in_array($period, ['daily', 'weekly', 'monthly'], true)) {
+            $period = 'monthly';
+        }
+
+        $cycles = max(1, (int) ($lease->billing_cycles ?? 1));
+
+        $registrationAt = $lease->start_date instanceof Carbon
+            ? $lease->start_date->copy()->setTime(7, 0, 0)
+            : ($lease->created_at?->copy()->setTime(7, 0, 0));
+
+        if (! $registrationAt) {
+            return null;
+        }
+
+        $lastPaymentAt = null;
+        if ($lease->last_payment_at !== null) {
+            try {
+                $lastPaymentAt = Carbon::parse((string) $lease->last_payment_at);
+            } catch (\Throwable) {
+                $lastPaymentAt = null;
+            }
+        }
+
+        if ($period === 'daily') {
+            $base = $lastPaymentAt
+                ? $this->marketDayStart($lastPaymentAt)
+                : $this->marketDayStart($registrationAt);
+
+            return $base->addDays($cycles);
+        }
+
+        if ($period === 'weekly') {
+            $base = $lastPaymentAt
+                ? $this->marketWeekStart($lastPaymentAt)
+                : $this->marketWeekStart($registrationAt);
+
+            return $base->addWeeks($cycles);
+        }
+
+        if (! $lastPaymentAt) {
+            return $registrationAt->copy()->addMonthsNoOverflow($cycles);
+        }
+
+        $base = $this->monthlyCycleStartFromRegistration($registrationAt, $lastPaymentAt);
+
+        return $base->addMonthsNoOverflow($cycles);
+    }
+
+    private function marketDayStart(Carbon $moment): Carbon
+    {
+        $start = $moment->copy()->setTime(7, 0, 0);
+        if ($moment->lt($start)) {
+            $start->subDay();
+        }
+
+        return $start;
+    }
+
+    private function marketWeekStart(Carbon $moment): Carbon
+    {
+        $start = $moment->copy()->startOfWeek(Carbon::MONDAY)->setTime(7, 0, 0);
+        if ($moment->lt($start)) {
+            $start->subWeek();
+        }
+
+        return $start;
+    }
+
+    private function monthlyCycleStartFromRegistration(Carbon $registrationAt, Carbon $moment): Carbon
+    {
+        $day = (int) $registrationAt->day;
+        $hour = (int) $registrationAt->hour;
+        $minute = (int) $registrationAt->minute;
+        $second = (int) $registrationAt->second;
+
+        $candidate = $moment->copy()->startOfMonth();
+        $candidate->day(min($day, $candidate->daysInMonth))->setTime($hour, $minute, $second);
+
+        if ($moment->lt($candidate)) {
+            $candidate->subMonthNoOverflow()->startOfMonth();
+            $candidate->day(min($day, $candidate->daysInMonth))->setTime($hour, $minute, $second);
+        }
+
+        return $candidate;
+    }
+
     private function refreshDispatchStatus(int $dispatchId): void
     {
-        $dispatch = CollectionDispatch::query()->find($dispatchId);
-        if (! $dispatch) {
-            return;
-        }
-
-        $statusCounts = CollectionDispatchItem::query()
-            ->where('collection_dispatch_id', $dispatchId)
-            ->selectRaw('status, COUNT(*) as aggregate')
-            ->groupBy('status')
-            ->pluck('aggregate', 'status');
-
-        $pendingCount = (int) ($statusCounts['sent'] ?? 0);
-        $forApprovalCount = (int) ($statusCounts['collected_pending_confirmation'] ?? 0);
-
-        if ($pendingCount === 0 && $forApprovalCount === 0) {
-            $dispatch->update([
-                'status' => 'completed',
-                'completed_at' => now(),
-            ]);
-
-            return;
-        }
-
-        if ($forApprovalCount > 0) {
-            $dispatch->update([
-                'status' => 'awaiting_confirmation',
-                'completed_at' => null,
-            ]);
-
-            return;
-        }
-
-        $dispatch->update([
-            'status' => 'sent',
-            'completed_at' => null,
-        ]);
+        MarketQueueLifecycle::refreshDispatchStatus($dispatchId);
     }
 }

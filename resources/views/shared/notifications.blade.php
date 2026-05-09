@@ -1,5 +1,16 @@
 @extends('layouts.app')
 @section('content')
+@php
+    $roleKey = auth()->user()?->uiRoleKey() ?? 'shared';
+    $sessionScope = $roleKey === 'administrator' ? 'admin' : $roleKey;
+    $scopeParams = ['session_scope' => $sessionScope];
+    if ($sessionScope === 'collector') {
+        $collectorToken = preg_replace('/[^a-zA-Z0-9]/', '', (string) request('s', ''));
+        if (is_string($collectorToken) && $collectorToken !== '') {
+            $scopeParams['s'] = substr($collectorToken, 0, 16);
+        }
+    }
+@endphp
 <div
     data-server-rendered-page="notifications"
     data-page-title="All Notifications"
@@ -11,7 +22,7 @@
             <h2 style="margin: 0; font-size: 1.25rem;">Notifications</h2>
             <p class="text-muted" style="margin: 4px 0 0 0;">Unread: {{ $unreadCount }}</p>
         </div>
-        <a href="{{ route('notifications.read_all_link') }}" class="btn btn-outline">Mark All as Read</a>
+        <a href="{{ route('notifications.read_all_link', $scopeParams) }}" class="btn btn-outline">Mark All as Read</a>
     </div>
 
     <div class="card" style="margin: 0; border-radius: 10px;">
@@ -37,7 +48,6 @@
                                 <span class="status-badge {{ $notification->is_read ? 'inactive' : 'active' }}">
                                     {{ $notification->is_read ? 'Read' : 'Unread' }}
                                 </span>
-                                <a href="{{ route('notifications.mark_read_link', $notification) }}" class="btn btn-outline btn-sm">Open</a>
                             </div>
                         </div>
                     </div>

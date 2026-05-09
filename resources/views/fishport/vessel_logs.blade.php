@@ -438,6 +438,31 @@
         background: #f8fafc;
     }
 
+    .vl-modal-foot .btn-primary {
+        background: #155f8f !important;
+        border-color: #155f8f !important;
+        color: #fff !important;
+        opacity: 1 !important;
+        box-shadow: 0 6px 14px rgba(21, 95, 143, 0.2) !important;
+    }
+
+    .vl-modal-foot .btn-primary:hover,
+    .vl-modal-foot .btn-primary:focus,
+    .vl-modal-foot .btn-primary:active {
+        background: #0f4b73 !important;
+        border-color: #0f4b73 !important;
+        color: #fff !important;
+        opacity: 1 !important;
+    }
+
+    .vl-modal-foot .btn-primary:disabled,
+    .vl-modal-foot .btn-primary.disabled {
+        background: #7fa8c5 !important;
+        border-color: #7fa8c5 !important;
+        color: #fff !important;
+        opacity: 1 !important;
+    }
+
     .vl-modal-card-form {
         width: min(760px, 97vw);
     }
@@ -481,6 +506,12 @@
         outline: none;
         border-color: #1e6a99;
         box-shadow: 0 0 0 3px rgba(30, 106, 153, .15);
+    }
+
+    .vl-form-input:disabled {
+        background: #edf2f7;
+        color: #6b7280;
+        cursor: not-allowed;
     }
 
     .vl-form-note {
@@ -603,7 +634,6 @@
                             'today' => 'Today',
                             'week' => 'This Week',
                             'month' => 'This Month',
-                            'custom' => 'Custom',
                         ];
                     @endphp
                     @foreach ($tabLabels as $tabKey => $tabLabel)
@@ -626,7 +656,7 @@
                     <input class="vl-input" type="text" name="q" value="{{ $search }}" placeholder="Search log no., vessel, origin, ...">
                 </div>
                 <div class="vl-input-wrap">
-                    <input class="vl-date" type="date" name="date" value="{{ $date }}" title="Filter by date (for Custom tab)">
+                    <input class="vl-date" type="date" name="date" value="{{ $date }}" title="Filter by specific date">
                 </div>
             </form>
         </div>
@@ -741,10 +771,10 @@
                         <input id="quickLogTime" name="log_time" type="time" class="vl-form-input" value="{{ old('log_time', now()->format('H:i')) }}" required>
                     </div>
                     <div class="vl-form-field">
-                        <label for="quickArrDep">ARR/DEP</label>
+                        <label for="quickArrDep">Movement</label>
                         <select id="quickArrDep" name="arr_dep" class="vl-form-select" required>
-                            <option value="ARR" {{ old('arr_dep', 'ARR') === 'ARR' ? 'selected' : '' }}>ARR</option>
-                            <option value="DEP" {{ old('arr_dep') === 'DEP' ? 'selected' : '' }}>DEP</option>
+                            <option value="ARR" {{ old('arr_dep', 'ARR') === 'ARR' ? 'selected' : '' }}>Arrival</option>
+                            <option value="DEP" {{ old('arr_dep') === 'DEP' ? 'selected' : '' }}>Departure</option>
                         </select>
                     </div>
                     <div class="vl-form-field">
@@ -752,21 +782,22 @@
                         <select id="quickVesselId" name="vessel_id" class="vl-form-select" required>
                             <option value="">Select registered vessel</option>
                             @foreach ($vessels as $vessel)
-                                <option value="{{ $vessel->id }}" data-logged-today="{{ collect($todayLoggedVesselIds ?? [])->contains($vessel->id) ? '1' : '0' }}" {{ (string) old('vessel_id') === (string) $vessel->id ? 'selected' : '' }}>{{ $vessel->name }}</option>
+                                <option value="{{ $vessel->id }}" {{ (string) old('vessel_id') === (string) $vessel->id ? 'selected' : '' }}>{{ $vessel->name }}</option>
                             @endforeach
                         </select>
-                        <div class="vl-form-note" style="padding:8px 10px;">
-                            One vessel can be logged only once per day.
-                        </div>
                     </div>
                     <div class="vl-form-field full">
                         <label for="quickOriginId">Origin</label>
-                        <select id="quickOriginId" name="origin_id" class="vl-form-select" required>
+                        <select id="quickOriginId" name="origin_id" class="vl-form-select">
                             <option value="">Select origin</option>
                             @foreach ($origins as $origin)
                                 <option value="{{ $origin->id }}" {{ (string) old('origin_id') === (string) $origin->id ? 'selected' : '' }}>{{ $origin->name }}</option>
                             @endforeach
                         </select>
+                    </div>
+                    <div class="vl-form-field full">
+                        <label for="quickOriginName">Or Type Custom Origin</label>
+                        <input id="quickOriginName" name="origin_name" type="text" class="vl-form-input" value="{{ old('origin_name') }}" placeholder="Type origin if not in dropdown">
                     </div>
                     <div class="vl-form-field full">
                         <label for="quickRemarks">Remarks</label>
@@ -804,10 +835,10 @@
                         <input id="editLogTime" name="log_time" type="time" class="vl-form-input" required>
                     </div>
                     <div class="vl-form-field">
-                        <label for="editArrDep">ARR/DEP</label>
+                        <label for="editArrDep">Movement</label>
                         <select id="editArrDep" name="arr_dep" class="vl-form-select" required>
-                            <option value="ARR">ARR</option>
-                            <option value="DEP">DEP</option>
+                            <option value="ARR">Arrival</option>
+                            <option value="DEP">Departure</option>
                         </select>
                     </div>
                     <div class="vl-form-field">
@@ -821,12 +852,16 @@
                     </div>
                     <div class="vl-form-field full">
                         <label for="editOriginId">Origin</label>
-                        <select id="editOriginId" name="origin_id" class="vl-form-select" required>
+                        <select id="editOriginId" name="origin_id" class="vl-form-select">
                             <option value="">Select origin</option>
                             @foreach ($origins as $origin)
                                 <option value="{{ $origin->id }}">{{ $origin->name }}</option>
                             @endforeach
                         </select>
+                    </div>
+                    <div class="vl-form-field full">
+                        <label for="editOriginName">Or Type Custom Origin</label>
+                        <input id="editOriginName" name="origin_name" type="text" class="vl-form-input" placeholder="Type origin if not in dropdown">
                     </div>
                     <div class="vl-form-field full">
                         <label for="editRemarks">Remarks</label>
@@ -867,9 +902,12 @@
         || $errors->has('arr_dep')
         || $errors->has('vessel_id')
         || $errors->has('origin_id')
+        || $errors->has('origin_name')
         || $errors->has('remarks');
     $vesselLogsBootstrap = [
-        'todayLoggedVesselIds' => collect($todayLoggedVesselIds ?? [])->map(static fn ($id) => (int) $id)->values(),
+        'todayLoggedMovementsByVessel' => collect($todayLogsByVesselMovement ?? [])->mapWithKeys(static function ($movements, $vesselId) {
+            return [(string) $vesselId => collect($movements)->values()->all()];
+        })->all(),
         'todayDate' => now()->format('Y-m-d'),
         'shouldOpenQuickLogModal' => $shouldOpenQuickLogModal,
         'filterFormAction' => route('fishport.vessel_logs'),
@@ -889,7 +927,6 @@
     const quickLogModal = document.getElementById('vlQuickLogModal');
     const editLogModal = document.getElementById('vlEditLogModal');
     const deleteModal = document.getElementById('vlDeleteModal');
-    const openQuickLogBtn = document.getElementById('openQuickLogBtn');
     const cancelQuickLogBtn = document.getElementById('vlCancelQuickLogBtn');
     const editLogForm = document.getElementById('vlEditLogForm');
     const editLogActionTemplate = editLogForm ? (editLogForm.dataset.actionTemplate || '') : '';
@@ -899,14 +936,17 @@
     const editArrDep = document.getElementById('editArrDep');
     const editVesselId = document.getElementById('editVesselId');
     const editOriginId = document.getElementById('editOriginId');
+    const editOriginName = document.getElementById('editOriginName');
     const editRemarks = document.getElementById('editRemarks');
     const quickLogDateInput = document.getElementById('quickLogDate');
+    const quickArrDepSelect = document.getElementById('quickArrDep');
     const quickVesselSelect = document.getElementById('quickVesselId');
-    const todayLoggedVesselIds = new Set(
-        Array.isArray(bootstrap.todayLoggedVesselIds)
-            ? bootstrap.todayLoggedVesselIds.map((id) => Number(id))
-            : []
-    );
+    const quickOriginId = document.getElementById('quickOriginId');
+    const quickOriginName = document.getElementById('quickOriginName');
+    const todayLoggedMovementsByVessel = bootstrap.todayLoggedMovementsByVessel
+        && typeof bootstrap.todayLoggedMovementsByVessel === 'object'
+        ? bootstrap.todayLoggedMovementsByVessel
+        : {};
     const todayDate = String(bootstrap.todayDate || '');
     const deleteLogNo = document.getElementById('vlDeleteLogNo');
     const deleteVesselName = document.getElementById('vlDeleteVesselName');
@@ -1044,12 +1084,6 @@
         run();
     };
 
-    if (openQuickLogBtn) {
-        openQuickLogBtn.addEventListener('click', () => {
-            openModal(quickLogModal);
-        });
-    }
-
     if (cancelQuickLogBtn) {
         cancelQuickLogBtn.addEventListener('click', () => {
             closeModal(quickLogModal);
@@ -1057,8 +1091,9 @@
     }
 
     const refreshQuickVesselAvailability = () => {
-        if (!quickVesselSelect || !quickLogDateInput) return;
+        if (!quickVesselSelect || !quickLogDateInput || !quickArrDepSelect) return;
         const selectedDate = quickLogDateInput.value || '';
+        const selectedMovement = String(quickArrDepSelect.value || '');
         const isToday = selectedDate === todayDate;
 
         Array.from(quickVesselSelect.options).forEach((option, index) => {
@@ -1069,8 +1104,11 @@
             }
 
             const vesselId = Number(option.value || 0);
-            const loggedToday = todayLoggedVesselIds.has(vesselId);
-            const shouldHide = isToday && loggedToday;
+            const movementList = Array.isArray(todayLoggedMovementsByVessel[String(vesselId)])
+                ? todayLoggedMovementsByVessel[String(vesselId)]
+                : [];
+            const hasSelectedMovementToday = movementList.includes(selectedMovement);
+            const shouldHide = isToday && hasSelectedMovementToday;
             option.hidden = shouldHide;
             option.disabled = shouldHide;
         });
@@ -1081,9 +1119,28 @@
         }
     };
 
+    const syncOriginCustomInputState = (originSelect, customOriginInput) => {
+        if (!originSelect || !customOriginInput) return;
+        const hasSelectedOrigin = String(originSelect.value || '').trim() !== '';
+        customOriginInput.disabled = hasSelectedOrigin;
+    };
+
     if (quickLogDateInput) {
         quickLogDateInput.addEventListener('change', refreshQuickVesselAvailability);
         quickLogDateInput.addEventListener('input', refreshQuickVesselAvailability);
+    }
+    if (quickArrDepSelect) {
+        quickArrDepSelect.addEventListener('change', refreshQuickVesselAvailability);
+    }
+    if (quickOriginId) {
+        quickOriginId.addEventListener('change', () => {
+            syncOriginCustomInputState(quickOriginId, quickOriginName);
+        });
+    }
+    if (editOriginId) {
+        editOriginId.addEventListener('change', () => {
+            syncOriginCustomInputState(editOriginId, editOriginName);
+        });
     }
 
     const setFieldValue = (field, value) => {
@@ -1092,6 +1149,12 @@
     };
 
     document.addEventListener('click', (event) => {
+        const openQuickLogTrigger = event.target.closest('#openQuickLogBtn');
+        if (openQuickLogTrigger) {
+            openModal(quickLogModal);
+            return;
+        }
+
         const tabButton = event.target.closest('[data-period-tab]');
         if (tabButton) {
             const { form, periodInput } = currentFilterNodes();
@@ -1114,7 +1177,9 @@
             setFieldValue(editArrDep, editButton.dataset.arrDep);
             setFieldValue(editVesselId, editButton.dataset.vesselId);
             setFieldValue(editOriginId, editButton.dataset.originId);
+            setFieldValue(editOriginName, '');
             setFieldValue(editRemarks, editButton.dataset.remarks);
+            syncOriginCustomInputState(editOriginId, editOriginName);
             openModal(editLogModal);
             return;
         }
@@ -1266,6 +1331,8 @@
     }
 
     refreshQuickVesselAvailability();
+    syncOriginCustomInputState(quickOriginId, quickOriginName);
+    syncOriginCustomInputState(editOriginId, editOriginName);
     syncTabState();
 
     if (statusToast) {

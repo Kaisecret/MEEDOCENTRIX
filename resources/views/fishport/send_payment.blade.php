@@ -5,6 +5,7 @@
     /** @var \Illuminate\Support\Collection<int, \App\Models\FishportLog> $logs */
     /** @var \Illuminate\Support\Collection<int, array{user_id:int,name:string,department:string}> $collectors */
     /** @var array<int, array{item_id:int,status:string}> $openDispatchByLogId */
+    /** @var int $awaitingConfirmationCount */
     /** @var \Illuminate\Support\Collection<int, \App\Models\CollectionDispatchItem> $awaitingConfirmationItems */
 @endphp
 
@@ -31,7 +32,7 @@
         <div class="sp-kpis">
             <div><span>Unpaid</span><strong>{{ $logs->count() }}</strong></div>
             <div><span>Collectors</span><strong>{{ $collectors->count() }}</strong></div>
-            <div><span>For Approval</span><strong>{{ $awaitingConfirmationItems->count() }}</strong></div>
+            <div><span>For Approval</span><strong>{{ $awaitingConfirmationCount }}</strong></div>
         </div>
     </section>
 
@@ -162,7 +163,7 @@
 
     <section class="sp-card">
         <div class="sp-batch-head">
-            <h3><i class="fa-solid fa-clock-rotate-left"></i>Collection Proofs Waiting for Fishport Approval</h3>
+            <h3><i class="fa-solid fa-clock-rotate-left"></i>Collection Proof Submissions (Latest 50)</h3>
         </div>
         <div class="sp-table-wrap">
             <table class="sp-table">
@@ -174,11 +175,15 @@
                         <th>Total</th>
                         <th>Proof</th>
                         <th>Collected</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($awaitingConfirmationItems as $item)
+                        @php
+                            $itemStatus = (string) $item->status;
+                        @endphp
                         <tr>
                             <td>{{ $item->fishportLog?->log_number ?? '-' }}</td>
                             <td>{{ $item->dispatch?->collector?->name ?? '-' }}</td>
@@ -186,37 +191,73 @@
                             <td>PHP {{ number_format((float) $item->amount_snapshot, 2) }}</td>
                             <td>
                                 @if ($item->proof_image_path)
-                                    <a href="{{ route('collection.proof', $item) }}" target="_blank" class="sp-btn-outline">
+                                    <button
+                                        type="button"
+                                        class="sp-btn-outline js-proof-preview-btn"
+                                        data-proof-url="{{ route('collection.proof', $item) }}"
+                                        data-proof-log="{{ $item->fishportLog?->log_number ?? '-' }}"
+                                    >
                                         <i class="fas fa-image"></i> View
-                                    </a>
+                                    </button>
                                 @else
                                     <span class="sp-sub">No image</span>
                                 @endif
                             </td>
                             <td class="sp-sub">{{ optional($item->collected_at)->format('m/d/Y h:i A') ?: '-' }}</td>
                             <td>
-                                <div class="sp-action-row">
-                                    <form method="POST" action="{{ route('fishport.send_payment.items.approve', $item) }}">
-                                        @csrf
-                                        @method('PATCH')
-                                        <button type="submit" class="sp-btn-approve"><i class="fas fa-check"></i> Approve</button>
-                                    </form>
-                                    <form method="POST" action="{{ route('fishport.send_payment.items.reject', $item) }}">
-                                        @csrf
-                                        @method('PATCH')
-                                        <input type="hidden" name="review_note" value="Proof needs correction. Please review and resubmit.">
-                                        <button type="submit" class="sp-btn-reject"><i class="fas fa-rotate-left"></i> Reject</button>
-                                    </form>
-                                </div>
+                                @if ($itemStatus === 'collected_pending_confirmation')
+                                    <span class="sp-pill sp-pill-orange">Waiting Approval</span>
+                                @elseif ($itemStatus === 'accepted')
+                                    <span class="sp-pill sp-pill-green">Approved</span>
+                                @elseif ($itemStatus === 'rejected')
+                                    <span class="sp-pill sp-pill-blue">Rejected</span>
+                                @else
+                                    <span class="sp-sub">{{ ucfirst(str_replace('_', ' ', $itemStatus)) }}</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($itemStatus === 'collected_pending_confirmation')
+                                    <div class="sp-action-row">
+                                        <form method="POST" action="{{ route('fishport.send_payment.items.approve', $item) }}">
+                                            @csrf
+                                            @method('PATCH')
+                                            <button type="submit" class="sp-btn-approve"><i class="fas fa-check"></i> Approve</button>
+                                        </form>
+                                        <form method="POST" action="{{ route('fishport.send_payment.items.reject', $item) }}">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="hidden" name="review_note" value="Proof needs correction. Please review and resubmit.">
+                                            <button type="submit" class="sp-btn-reject"><i class="fas fa-rotate-left"></i> Reject</button>
+                                        </form>
+                                    </div>
+                                @else
+                                    <span class="sp-sub">No action</span>
+                                @endif
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="sp-empty"><span class="sp-empty-icon"><i class="fa-solid fa-inbox"></i></span>No collection proofs waiting for approval.</td></tr>
+                        <tr><td colspan="8" class="sp-empty"><span class="sp-empty-icon"><i class="fa-solid fa-inbox"></i></span>No collection proof submissions found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </section>
+</div>
+
+<div class="sp-modal-backdrop" id="proofPreviewModal">
+    <div class="sp-modal sp-proof-modal" role="dialog" aria-modal="true" aria-labelledby="proofPreviewTitle">
+        <div class="sp-modal-head">
+            <h3 id="proofPreviewTitle">Collection Proof Preview</h3>
+            <button type="button" class="sp-modal-close" data-close-modal="proofPreviewModal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="sp-proof-body">
+            <div class="sp-proof-meta" id="proofPreviewMeta">Log: -</div>
+            <img id="proofPreviewImage" src="" alt="Collection proof image preview">
+        </div>
+        <div class="sp-modal-foot">
+            <button type="button" class="btn btn-secondary" data-close-modal="proofPreviewModal">Close</button>
+        </div>
+    </div>
 </div>
 
 <form
@@ -568,6 +609,32 @@
     background: var(--sp-soft);
 }
 
+.sp-proof-modal {
+    width: min(900px, 96vw);
+}
+
+.sp-proof-body {
+    padding: 1rem 1.2rem;
+    display: grid;
+    gap: 10px;
+    background: #fff;
+}
+
+.sp-proof-meta {
+    color: var(--sp-muted);
+    font-size: .82rem;
+    font-weight: 700;
+}
+
+#proofPreviewImage {
+    width: 100%;
+    max-height: 72vh;
+    object-fit: contain;
+    border: 1px solid var(--sp-border);
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
 /* Animations */
 @keyframes spToastIn  { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes spToastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(14px); } }
@@ -605,6 +672,9 @@
         const confirmCancelModal = document.getElementById('confirmCancelModal');
         const confirmSendBtn = document.getElementById('confirmSendBtn');
         const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+        const proofPreviewModal = document.getElementById('proofPreviewModal');
+        const proofPreviewImage = document.getElementById('proofPreviewImage');
+        const proofPreviewMeta = document.getElementById('proofPreviewMeta');
         const cancelSendForm = document.getElementById('cancelSendForm');
         const cancelSendRouteTemplate = cancelSendForm
             ? String(cancelSendForm.dataset.routeTemplate || '')
@@ -641,6 +711,9 @@
         function closeModal(modal) {
             if (!modal) return;
             modal.classList.remove('is-open');
+            if (modal === proofPreviewModal && proofPreviewImage) {
+                proofPreviewImage.src = '';
+            }
             if (!document.querySelector('.sp-modal-backdrop.is-open')) {
                 document.body.style.overflow = '';
             }
@@ -653,12 +726,26 @@
             });
         });
 
-        [confirmSendModal, confirmCancelModal].forEach((modal) => {
+        [confirmSendModal, confirmCancelModal, proofPreviewModal].forEach((modal) => {
             if (!modal) return;
             modal.addEventListener('click', function (event) {
                 if (event.target === modal) {
                     closeModal(modal);
                 }
+            });
+        });
+
+        document.querySelectorAll('.js-proof-preview-btn').forEach((button) => {
+            button.addEventListener('click', function () {
+                if (!proofPreviewModal || !proofPreviewImage) return;
+                const proofUrl = button.getAttribute('data-proof-url') || '';
+                const logNo = button.getAttribute('data-proof-log') || '-';
+                if (!proofUrl) return;
+                proofPreviewImage.src = proofUrl;
+                if (proofPreviewMeta) {
+                    proofPreviewMeta.textContent = 'Log: ' + logNo;
+                }
+                openModal(proofPreviewModal);
             });
         });
 
@@ -760,6 +847,7 @@
             if (event.key === 'Escape') {
                 closeModal(confirmSendModal);
                 closeModal(confirmCancelModal);
+                closeModal(proofPreviewModal);
             }
         });
 

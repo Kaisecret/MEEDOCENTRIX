@@ -9,6 +9,7 @@ use App\Models\FishportCommodityClassification;
 use App\Models\FishportPaymentType;
 use App\Models\MarketStallLocation;
 use App\Models\MarketStallType;
+use App\Models\TerminalRouteFare;
 use App\Models\TerminalVehicleType;
 use App\Models\User;
 use App\Support\CemeteryFeeCalculator;
@@ -210,6 +211,18 @@ class AdminRateManagementTest extends TestCase
                         'parking_fee_per_hour' => (float) $type->parking_fee_per_hour,
                         'description' => $type->description,
                         'is_active' => $type->is_active ? 1 : 0,
+                    ],
+                ])
+                ->all(),
+            'terminal_route_fares' => TerminalRouteFare::query()
+                ->get()
+                ->mapWithKeys(fn (TerminalRouteFare $routeFare): array => [
+                    $routeFare->id => [
+                        'id' => $routeFare->id,
+                        'vehicle_kind' => $routeFare->vehicle_kind,
+                        'route_name' => $routeFare->route_name,
+                        'fare_amount' => (float) $routeFare->fare_amount,
+                        'is_active' => $routeFare->is_active ? 1 : 0,
                     ],
                 ])
                 ->all(),

@@ -39,23 +39,114 @@
     .tm-hero-meta { display: grid; justify-items: end; gap: 10px; }
     .tm-hero-clock { font-size: 1.42rem; font-weight: 800; letter-spacing: -.01em; color: var(--tm-head); }
 
-    .tm-flash {
-        background: #f0fdf4;
-        border: 1px solid #a7f3d0;
-        color: #047857;
-        padding: .7rem 1rem;
-        border-radius: 10px;
-        font-weight: 600;
-        font-size: .88rem;
+    .tm-toast-stack {
+        position: fixed;
+        top: 14px;
+        right: 14px;
+        z-index: 3000;
+        display: grid;
+        gap: 8px;
+        justify-items: end;
+        pointer-events: none;
     }
-    .tm-error {
-        background: #fef2f2;
-        border: 1px solid #fecaca;
-        color: #b91c1c;
-        padding: .7rem 1rem;
-        border-radius: 10px;
-        font-weight: 600;
-        font-size: .88rem;
+    .tm-toast {
+        position: relative;
+        display: flex;
+        align-items: stretch;
+        gap: 8px;
+        border-radius: 8px;
+        padding: 0;
+        border: 1px solid transparent;
+        box-shadow: 0 10px 26px rgba(15, 23, 42, 0.2);
+        font-size: 0.8rem;
+        line-height: 1.35;
+        width: min(380px, calc(100vw - 28px));
+        pointer-events: auto;
+        animation: tmToastIn 0.2s ease both;
+        overflow: hidden;
+    }
+    .tm-toast, .tm-toast * {
+        pointer-events: auto;
+    }
+    .tm-toast-success {
+        background: #0a8c8d;
+        border-color: #0a7f80;
+        color: #ffffff;
+    }
+    .tm-toast-error {
+        background: #b91c1c;
+        border-color: #991b1b;
+        color: #ffffff;
+    }
+    .tm-toast-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        padding: 11px 12px 11px 12px;
+    }
+    .tm-toast-message {
+        color: inherit;
+        font-weight: 700;
+        font-size: 0.95rem;
+        letter-spacing: 0;
+        white-space: normal;
+        word-break: break-word;
+    }
+    .tm-toast-close {
+        position: relative;
+        z-index: 2;
+        width: 36px;
+        border: 0;
+        border-left: 1px solid rgba(255, 255, 255, 0.16);
+        background: transparent;
+        color: #ffffff;
+        font-size: 1.45rem;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.92;
+        transition: background 0.15s ease, opacity 0.15s ease;
+    }
+    .tm-toast-close:hover {
+        background: rgba(255, 255, 255, 0.12);
+        opacity: 1;
+    }
+    .tm-toast i.mx-3 {
+        margin-right: 6px;
+        font-size: 1rem;
+        opacity: 0.98;
+    }
+    .tm-toast::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 3px;
+        width: 100%;
+        background: #f59e0b;
+        transform-origin: left;
+        animation: tmToastTimer var(--tm-toast-duration, 3000ms) linear forwards;
+        pointer-events: none;
+    }
+    .tm-toast.is-exit {
+        animation: tmToastOut 0.18s ease forwards;
+    }
+    @keyframes tmToastIn {
+        from { opacity: 0; transform: translateY(-6px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes tmToastOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-6px); }
+    }
+    @keyframes tmToastTimer {
+        from { transform: scaleX(1); }
+        to { transform: scaleX(0); }
     }
 
     .tm-action-row { display: flex; gap: 8px; flex-wrap: wrap; }

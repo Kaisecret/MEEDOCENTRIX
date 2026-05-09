@@ -17,15 +17,7 @@
         </div>
     </section>
 
-    @if (session('status'))
-        <div class="tm-flash">{{ session('status') }}</div>
-    @endif
-    @if (session('error'))
-        <div class="tm-error">{{ session('error') }}</div>
-    @endif
-    @if ($errors->any())
-        <div class="tm-error">{{ $errors->first() }}</div>
-    @endif
+    @include('terminal.partials.toast_stack')
 
     <section class="tm-card">
         <div class="tm-card-head">

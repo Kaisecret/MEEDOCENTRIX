@@ -341,6 +341,15 @@
             background: #f8fafc;
         }
 
+        .col-history-table tbody tr.col-history-row-link {
+            cursor: pointer;
+        }
+
+        .col-history-table tbody tr.col-history-row-link:focus-visible {
+            outline: 2px solid rgba(15, 95, 168, 0.35);
+            outline-offset: -2px;
+        }
+
         .col-history-table tbody tr:last-child td {
             border-bottom: 0;
         }
@@ -425,7 +434,7 @@
             }
 
             .col-filter-row {
-                grid-template-columns: 1.2fr 1fr 1fr;
+                grid-template-columns: 1fr;
                 gap: 8px;
             }
 
@@ -463,6 +472,64 @@
             .col-chart-body canvas {
                 height: 190px !important;
             }
+
+            .col-chart-head {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .col-history-table {
+                min-width: 0;
+            }
+
+            .col-history-table thead {
+                display: none;
+            }
+
+            .col-history-table,
+            .col-history-table tbody,
+            .col-history-table tr,
+            .col-history-table td {
+                display: block;
+                width: 100%;
+            }
+
+            .col-history-table tbody tr {
+                padding: .55rem .68rem;
+                border-bottom: 1px solid #e8eef5;
+            }
+
+            .col-history-table tbody td {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 10px;
+                padding: .32rem 0;
+                white-space: normal;
+            }
+
+            .col-history-table tbody td::before {
+                content: attr(data-label);
+                color: #5a738b;
+                font-size: .68rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: .04em;
+                flex: 0 0 42%;
+            }
+
+            .col-history-num {
+                text-align: right;
+            }
+
+            .col-history-empty {
+                text-align: left;
+            }
+
+            .col-history-empty::before {
+                content: none !important;
+            }
         }
 
         @media (max-width: 480px) {
@@ -476,42 +543,39 @@
                 display: none;
             }
 
-            /* Ultra-Compact Filter (Forces 1 line) */
+            /* Single-line compact filter on phones */
             .col-filter-wrap {
-                padding: .4rem .3rem;
+                padding: .5rem .45rem;
             }
 
             .col-filter-row {
-                display: flex;
-                gap: 4px;
+                display: grid;
+                grid-template-columns: .95fr 1fr 1fr;
+                gap: 5px;
                 width: 100%;
+                align-items: end;
             }
 
             .col-filter-row>div {
-                flex: 1 1 0%;
                 min-width: 0;
             }
 
             .col-filter-label {
                 margin-bottom: 2px;
-                font-size: .55rem;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                font-size: .53rem;
                 display: block;
+                letter-spacing: .03em;
             }
 
             .col-filter-input {
-                min-height: 28px;
-                padding: 0;
-                font-size: .6rem;
-                border-radius: 5px;
+                min-height: 30px;
+                padding: .2rem .38rem;
+                font-size: .72rem;
+                border-radius: 7px;
                 min-width: 0;
                 width: 100%;
-                text-align: center;
+                text-align: left;
             }
-            .col-filter-input::-webkit-datetime-edit { padding: 0; }
-            .col-filter-input::-webkit-datetime-edit-fields-wrapper { padding: 0; }
 
             /* Force 2x2 grid on mobile */
             .col-kpi-grid {
@@ -522,14 +586,14 @@
             }
 
             .col-kpi {
-                padding: .75rem .5rem;
+                padding: .78rem .68rem;
                 gap: 8px;
                 border-radius: 10px;
                 min-width: 0;
             }
 
             .col-kpi-label {
-                font-size: .65rem;
+                font-size: .74rem;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -543,13 +607,13 @@
             }
 
             .col-kpi-value {
-                font-size: 1.05rem;
+                font-size: 1.28rem;
                 overflow-wrap: anywhere;
-                word-break: break-all;
+                word-break: break-word;
             }
 
             .col-kpi-sub {
-                font-size: .55rem;
+                font-size: .68rem;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -581,7 +645,7 @@
         }
     </style>
 
-    <div data-server-rendered-page="dashboard" data-page-title="Collector Dashboard" class="col-page">
+    <div data-server-rendered-page="dashboard" data-page-title="Collector Dashboard" data-live-refresh-ms="120000" class="col-page">
 
         @if(session('status'))
             <div class="col-alert col-alert-success"><i class="fa-solid fa-circle-check"></i> {{ session('status') }}</div>
@@ -702,13 +766,17 @@
                     </thead>
                     <tbody>
                         @forelse ($recentTransactions as $tx)
-                            <tr>
-                                <td>{{ $tx['date'] }}</td>
-                                <td>{{ $tx['reference'] }}</td>
-                                <td>{{ $tx['source'] }}</td>
-                                <td><span class="col-status-badge {{ $tx['status_class'] }}">{{ $tx['status'] }}</span></td>
-                                <td class="col-history-num">PHP {{ number_format((float) $tx['amount'], 2) }}</td>
-                                <td>{{ $tx['payer'] }}</td>
+                            <tr class="col-history-row-link"
+                                data-open-url="{{ route('collector.pending_collections', ['q' => (string) ($tx['reference'] ?? '')]) }}"
+                                tabindex="0"
+                                role="link"
+                                aria-label="Open collection for {{ $tx['reference'] }}">
+                                <td data-label="Date">{{ $tx['date'] }}</td>
+                                <td data-label="Reference">{{ $tx['reference'] }}</td>
+                                <td data-label="Source">{{ $tx['source'] }}</td>
+                                <td data-label="Status"><span class="col-status-badge {{ $tx['status_class'] }}">{{ $tx['status'] }}</span></td>
+                                <td data-label="Amount" class="col-history-num">PHP {{ number_format((float) $tx['amount'], 2) }}</td>
+                                <td data-label="Payer">{{ $tx['payer'] }}</td>
                             </tr>
                         @empty
                             <tr>
@@ -750,6 +818,26 @@
                     toInput.addEventListener('change', submitCustomDateRange);
                 }
             }
+
+            const openCollectionFromRow = (row) => {
+                if (!row) return;
+                const url = row.getAttribute('data-open-url');
+                if (!url) return;
+                window.location.href = url;
+            };
+
+            document.querySelectorAll('.col-history-row-link').forEach((row) => {
+                row.addEventListener('click', (event) => {
+                    if (event.target.closest('a, button, input, select, textarea, label')) return;
+                    openCollectionFromRow(row);
+                });
+
+                row.addEventListener('keydown', (event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    openCollectionFromRow(row);
+                });
+            });
         })();
     </script>
 @endsection

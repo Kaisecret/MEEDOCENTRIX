@@ -7,6 +7,7 @@ use App\Models\FishportVessel;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
 use Illuminate\View\View;
@@ -51,7 +52,6 @@ class FishportVesselRegistryController extends Controller
         $search = trim((string) $request->query('search', ''));
 
         $vesselQuery = FishportVessel::query()
-            ->where('is_active', true)
             ->with([
                 'ownerProfile',
                 'operatorProfile',
@@ -79,6 +79,7 @@ class FishportVesselRegistryController extends Controller
         }
 
         $vessels = $vesselQuery
+            ->orderByDesc('is_active')
             ->orderByDesc('id')
             ->paginate(15)
             ->withQueryString();
@@ -136,20 +137,16 @@ class FishportVesselRegistryController extends Controller
 
     public function destroy(FishportVessel $fishportVessel): RedirectResponse
     {
-        if ($fishportVessel->logs()->exists()) {
-            $fishportVessel->update(['is_active' => false]);
-
-            return redirect()
-                ->back()
-                ->with('status', "Vessel {$fishportVessel->name} is used in logs and was set to inactive.");
-        }
-
         $vesselName = $fishportVessel->name;
-        $fishportVessel->delete();
+        DB::transaction(function () use ($fishportVessel): void {
+            // Permanent delete request: remove dependent logs first, then vessel.
+            $fishportVessel->logs()->delete();
+            $fishportVessel->delete();
+        });
 
         return redirect()
             ->back()
-            ->with('status', "Vessel {$vesselName} removed from registry.");
+            ->with('status', "Vessel {$vesselName} permanently deleted.");
     }
 
     /**

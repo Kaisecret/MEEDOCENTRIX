@@ -35,7 +35,7 @@
 
     $roleNavMap = [
         'administrator' => [
-            ['id' => 'dashboard', 'icon' => 'fas fa-chart-pie', 'label' => 'Dashboard'],
+            ['id' => 'dashboard', 'icon' => 'fas fa-gauge-high', 'label' => 'Dashboard'],
             ['id' => 'users', 'icon' => 'fas fa-users-gear', 'label' => 'User Management'],
             ['id' => 'roles', 'icon' => 'fas fa-shield-halved', 'label' => 'Roles & Permissions'],
             ['id' => 'rates', 'icon' => 'fas fa-tags', 'label' => 'Rates & Fees'],
@@ -43,7 +43,7 @@
             ['id' => 'reports', 'icon' => 'fas fa-file-invoice', 'label' => 'Reports & Analytics'],
         ],
         'fishport' => [
-            ['id' => 'dashboard', 'icon' => 'fas fa-chart-pie', 'label' => 'Dashboard'],
+            ['id' => 'dashboard', 'icon' => 'fas fa-gauge-high', 'label' => 'Dashboard'],
             ['id' => 'vessels', 'icon' => 'fas fa-ship', 'label' => 'Vessel Logs'],
             ['id' => 'vessel_registry', 'icon' => 'fas fa-clipboard-list', 'label' => 'Vessel Registry'],
             ['id' => 'fishport_records', 'icon' => 'fas fa-fish', 'label' => 'Fishport Transactions'],
@@ -51,7 +51,7 @@
             ['id' => 'reports', 'icon' => 'fas fa-file-lines', 'label' => 'Reports'],
         ],
         'market' => [
-            ['id' => 'dashboard', 'icon' => 'fas fa-chart-pie', 'label' => 'Dashboard'],
+            ['id' => 'dashboard', 'icon' => 'fas fa-gauge-high', 'label' => 'Dashboard'],
             ['id' => 'vendors', 'icon' => 'fas fa-users', 'label' => 'Tenant Directory'],
             ['id' => 'stalls', 'icon' => 'fas fa-store', 'label' => 'Stall Management'],
             ['id' => 'market_records', 'icon' => 'fas fa-receipt', 'label' => 'Market Transactions'],
@@ -59,19 +59,19 @@
             ['id' => 'market_reports', 'icon' => 'fas fa-file-lines', 'label' => 'Reports'],
         ],
         'atrium' => [
-            ['id' => 'dashboard', 'icon' => 'fas fa-chart-pie', 'label' => 'Dashboard'],
+            ['id' => 'dashboard', 'icon' => 'fas fa-gauge-high', 'label' => 'Dashboard'],
             ['id' => 'atrium_bookings', 'icon' => 'fas fa-calendar-check', 'label' => 'Bookings'],
             ['id' => 'atrium_payments', 'icon' => 'fas fa-money-check-dollar', 'label' => 'Payments'],
             ['id' => 'atrium_reports', 'icon' => 'fas fa-chart-pie', 'label' => 'Reports'],
         ],
         'collector' => [
-            ['id' => 'dashboard', 'icon' => 'fas fa-chart-pie', 'label' => 'Dashboard'],
+            ['id' => 'dashboard', 'icon' => 'fas fa-gauge-high', 'label' => 'Dashboard'],
             ['id' => 'pending_collections', 'icon' => 'fas fa-clock', 'label' => 'Pending Collections'],
             ['id' => 'collector_payments', 'icon' => 'fas fa-hand-holding-dollar', 'label' => 'Received Payments'],
             ['id' => 'collector_reports', 'icon' => 'fas fa-file-lines', 'label' => 'Reports'],
         ],
         'cashier' => [
-            ['id' => 'dashboard', 'icon' => 'fas fa-chart-pie', 'label' => 'Dashboard'],
+            ['id' => 'dashboard', 'icon' => 'fas fa-gauge-high', 'label' => 'Dashboard'],
             ['id' => 'cashier_remittance', 'icon' => 'fas fa-inbox', 'label' => 'Verify Remittances'],
             ['id' => 'official_collections', 'icon' => 'fas fa-vault', 'label' => 'Official Collections'],
             ['id' => 'daily_summary', 'icon' => 'fas fa-file-contract', 'label' => 'Daily Summary'],
@@ -301,6 +301,10 @@
         <main class="content-area" id="contentArea">
             @yield("content")
         </main>
+
+        @if($authUser && $authRoleKey !== 'terminal')
+            @include('admin.partials.global_toast')
+        @endif
     </div>
 </div>
 
@@ -332,6 +336,8 @@
 </div>
 
 <div id="toastContainer" class="toast-container"></div>
+
+@include('shared.rate_limit_popup')
 
 
 <!-- Modals -->

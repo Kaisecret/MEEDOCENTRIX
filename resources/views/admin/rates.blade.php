@@ -10,7 +10,7 @@
     /** @var \Illuminate\Support\Collection<int, \App\Models\FishportCommodityClassification> $fishportCommodityClassifications */
     /** @var \Illuminate\Support\Collection<int, \App\Models\MarketStallType> $marketStallTypes */
     /** @var \Illuminate\Support\Collection<int, \App\Models\MarketStallLocation> $marketLocations */
-    /** @var \Illuminate\Support\Collection<int, \App\Models\TerminalVehicleType> $terminalVehicleTypes */
+    /** @var \Illuminate\Support\Collection<int, \App\Models\TerminalRouteFare> $terminalRouteFares */
     /** @var \Illuminate\Support\Collection<int, \App\Models\AtriumFunctionHall> $atriumFunctionHalls */
     /** @var \Illuminate\Support\Collection<int, \App\Models\CemeteryFeeRule> $cemeteryFeeRules */
 
@@ -57,7 +57,7 @@
     $oldDeleteCemeteryFeeRuleIds = collect(old('delete_cemetery_fee_rule_ids', []))
         ->map(static fn ($id): string => (string) $id)
         ->all();
-    $oldDeleteTerminalVehicleTypeIds = collect(old('delete_terminal_vehicle_type_ids', []))
+    $oldDeleteTerminalRouteFareIds = collect(old('delete_terminal_route_fare_ids', []))
         ->map(static fn ($id): string => (string) $id)
         ->all();
     $oldDeleteAtriumFunctionHallIds = collect(old('delete_atrium_function_hall_ids', []))
@@ -268,6 +268,7 @@
                         </tbody>
                     </table>
                 </div>
+
             </section>
 
             <section class="rate-panel" data-rate-panel="market">
@@ -400,6 +401,7 @@
                         </tbody>
                     </table>
                 </div>
+
             </section>
 
             <section class="rate-panel" data-rate-panel="cemetery">
@@ -464,50 +466,56 @@
                         </tbody>
                     </table>
                 </div>
+
             </section>
 
             <section class="rate-panel" data-rate-panel="terminal">
                 <div class="rate-panel-head">
                     <div>
-                        <h2>Terminal Parking Rates</h2>
-                        <p>Controls the hourly parking fee used when terminal parking logs compute billed amounts.</p>
+                        <h2>Terminal Route / Operator Rates</h2>
+                        <p>Controls the route/operator fee options used by Terminal Add Payment.</p>
                     </div>
+                </div>
+
+                <div class="rate-section-title">
+                    <h3>Route / Operator Fare Options</h3>
+                    <span>Used by Terminal Add Payment route/operator dropdown (dynamic, no hardcoded list)</span>
                 </div>
                 <div class="rate-table-wrap">
                     <table class="rate-table">
                         <thead>
                             <tr>
-                                <th>Vehicle Type</th>
+                                <th>Vehicle Kind</th>
+                                <th>Route / Operator</th>
                                 <th>Code</th>
-                                <th class="is-money">Hourly Fee</th>
-                                <th>Description</th>
+                                <th class="is-money">Terminal Fee</th>
                                 <th class="is-center">Delete</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($terminalVehicleTypes as $type)
-                                @php $key = (string) $type->id; @endphp
-                                <tr data-rate-row data-search="{{ strtolower($type->code . ' ' . $type->name . ' ' . $type->description . ' terminal') }}">
+                            @foreach ($terminalRouteFares as $routeFare)
+                                @php $key = (string) $routeFare->id; @endphp
+                                <tr data-rate-row data-search="{{ strtolower($routeFare->vehicle_kind . ' ' . $routeFare->route_name . ' ' . $routeFare->code . ' terminal route') }}">
                                     <td>
-                                        <input type="hidden" name="terminal_vehicle_types[{{ $type->id }}][id]" value="{{ $type->id }}">
-                                        <input type="hidden" name="terminal_vehicle_types[{{ $type->id }}][is_active]" value="{{ old("terminal_vehicle_types.{$key}.is_active", $type->is_active) ? '1' : '0' }}">
-                                        <strong>{{ $type->name }}</strong>
+                                        <input type="hidden" name="terminal_route_fares[{{ $routeFare->id }}][id]" value="{{ $routeFare->id }}">
+                                        <input type="hidden" name="terminal_route_fares[{{ $routeFare->id }}][is_active]" value="{{ old("terminal_route_fares.{$key}.is_active", $routeFare->is_active) ? '1' : '0' }}">
+                                        <input class="rate-input" type="text" name="terminal_route_fares[{{ $routeFare->id }}][vehicle_kind]" value="{{ old("terminal_route_fares.{$key}.vehicle_kind", $routeFare->vehicle_kind) }}" maxlength="80" required>
                                     </td>
-                                    <td><span class="rate-code">{{ $type->code }}</span></td>
+                                    <td>
+                                        <input class="rate-input" type="text" name="terminal_route_fares[{{ $routeFare->id }}][route_name]" value="{{ old("terminal_route_fares.{$key}.route_name", $routeFare->route_name) }}" maxlength="150" required>
+                                    </td>
+                                    <td><span class="rate-code">{{ $routeFare->code }}</span></td>
                                     <td class="is-money">
-                                        <input class="rate-input money-input" type="number" name="terminal_vehicle_types[{{ $type->id }}][parking_fee_per_hour]" value="{{ old("terminal_vehicle_types.{$key}.parking_fee_per_hour", number_format((float) $type->parking_fee_per_hour, 2, '.', '')) }}" min="0" step="0.01" required>
-                                    </td>
-                                    <td>
-                                        <input class="rate-input" type="text" name="terminal_vehicle_types[{{ $type->id }}][description]" value="{{ old("terminal_vehicle_types.{$key}.description", $type->description) }}" placeholder="Optional description">
+                                        <input class="rate-input money-input" type="number" name="terminal_route_fares[{{ $routeFare->id }}][fare_amount]" value="{{ old("terminal_route_fares.{$key}.fare_amount", number_format((float) $routeFare->fare_amount, 2, '.', '')) }}" min="0" step="0.01" required>
                                     </td>
                                     <td class="is-center">
-                                        <label class="rate-delete-check" for="delete_terminal_vehicle_type_{{ $type->id }}">
+                                        <label class="rate-delete-check" for="delete_terminal_route_fare_{{ $routeFare->id }}">
                                             <input
-                                                id="delete_terminal_vehicle_type_{{ $type->id }}"
+                                                id="delete_terminal_route_fare_{{ $routeFare->id }}"
                                                 type="checkbox"
-                                                name="delete_terminal_vehicle_type_ids[]"
-                                                value="{{ $type->id }}"
-                                                {{ in_array((string) $type->id, $oldDeleteTerminalVehicleTypeIds, true) ? 'checked' : '' }}
+                                                name="delete_terminal_route_fare_ids[]"
+                                                value="{{ $routeFare->id }}"
+                                                {{ in_array((string) $routeFare->id, $oldDeleteTerminalRouteFareIds, true) ? 'checked' : '' }}
                                             >
                                             Delete
                                         </label>
@@ -516,16 +524,16 @@
                             @endforeach
                             <tr class="rate-add-row">
                                 <td>
-                                    <input class="rate-input" type="text" name="new_terminal_vehicle_types[0][name]" value="{{ old('new_terminal_vehicle_types.0.name') }}" placeholder="New vehicle type" maxlength="120">
+                                    <input class="rate-input" type="text" name="new_terminal_route_fares[0][vehicle_kind]" value="{{ old('new_terminal_route_fares.0.vehicle_kind') }}" placeholder="Jeep, Bus, Van..." maxlength="80">
                                 </td>
                                 <td>
-                                    <input class="rate-input" type="text" name="new_terminal_vehicle_types[0][code]" value="{{ old('new_terminal_vehicle_types.0.code') }}" placeholder="CODE" maxlength="30">
+                                    <input class="rate-input" type="text" name="new_terminal_route_fares[0][route_name]" value="{{ old('new_terminal_route_fares.0.route_name') }}" placeholder="Route / operator name" maxlength="150">
+                                </td>
+                                <td>
+                                    <input class="rate-input" type="text" name="new_terminal_route_fares[0][code]" value="{{ old('new_terminal_route_fares.0.code') }}" placeholder="route_code" maxlength="80">
                                 </td>
                                 <td class="is-money">
-                                    <input class="rate-input money-input" type="number" name="new_terminal_vehicle_types[0][parking_fee_per_hour]" value="{{ old('new_terminal_vehicle_types.0.parking_fee_per_hour') }}" min="0" step="0.01" placeholder="0.00">
-                                </td>
-                                <td>
-                                    <input class="rate-input" type="text" name="new_terminal_vehicle_types[0][description]" value="{{ old('new_terminal_vehicle_types.0.description') }}" placeholder="Optional description">
+                                    <input class="rate-input money-input" type="number" name="new_terminal_route_fares[0][fare_amount]" value="{{ old('new_terminal_route_fares.0.fare_amount') }}" min="0" step="0.01" placeholder="0.00">
                                 </td>
                                 <td></td>
                             </tr>

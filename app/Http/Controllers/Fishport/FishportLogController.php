@@ -135,11 +135,11 @@ class FishportLogController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name']);
-        $todayLoggedVesselIds = FishportLog::query()
+        $todayLogsByVesselMovement = FishportLog::query()
             ->whereDate('log_date', Carbon::today()->toDateString())
-            ->pluck('fishport_vessel_id')
-            ->unique()
-            ->values();
+            ->get(['fishport_vessel_id', 'arr_dep'])
+            ->groupBy('fishport_vessel_id')
+            ->map(static fn ($rows) => $rows->pluck('arr_dep')->unique()->values()->all());
 
         $origins = FishportOrigin::query()
             ->where('is_active', true)
@@ -160,7 +160,7 @@ class FishportLogController extends Controller
                 default => 'All Dates',
             },
             'vessels' => $vessels,
-            'todayLoggedVesselIds' => $todayLoggedVesselIds,
+            'todayLogsByVesselMovement' => $todayLogsByVesselMovement,
             'origins' => $origins,
         ]);
     }
@@ -176,20 +176,24 @@ class FishportLogController extends Controller
                 Rule::exists('fishport_vessels', 'id')->where(static fn ($query) => $query->where('is_active', true)),
             ],
             'origin_id' => [
-                'required',
+                'nullable',
                 Rule::exists('fishport_origins', 'id')->where(static fn ($query) => $query->where('is_active', true)),
             ],
+            'origin_name' => ['nullable', 'string', 'max:150'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        $resolvedOriginId = $this->resolveOriginIdForLogEntry($validated);
 
         $duplicateExists = FishportLog::query()
             ->whereDate('log_date', $validated['log_date'])
             ->where('fishport_vessel_id', (int) $validated['vessel_id'])
+            ->where('arr_dep', (string) $validated['arr_dep'])
             ->exists();
 
         if ($duplicateExists) {
             throw ValidationException::withMessages([
-                'vessel_id' => 'This vessel is already logged for the selected date.',
+                'arr_dep' => 'This vessel already has this movement logged for the selected date.',
             ]);
         }
 
@@ -200,7 +204,7 @@ class FishportLogController extends Controller
             'log_time' => $validated['log_time'],
             'arr_dep' => $validated['arr_dep'],
             'fishport_vessel_id' => (int) $validated['vessel_id'],
-            'fishport_origin_id' => (int) $validated['origin_id'],
+            'fishport_origin_id' => $resolvedOriginId,
             'user_id' => Auth::id(),
             'remarks' => $validated['remarks'] ?: null,
         ]);
@@ -224,21 +228,25 @@ class FishportLogController extends Controller
                 Rule::exists('fishport_vessels', 'id')->where(static fn ($query) => $query->where('is_active', true)),
             ],
             'origin_id' => [
-                'required',
+                'nullable',
                 Rule::exists('fishport_origins', 'id')->where(static fn ($query) => $query->where('is_active', true)),
             ],
+            'origin_name' => ['nullable', 'string', 'max:150'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        $resolvedOriginId = $this->resolveOriginIdForLogEntry($validated);
 
         $duplicateExists = FishportLog::query()
             ->whereDate('log_date', $validated['log_date'])
             ->where('fishport_vessel_id', (int) $validated['vessel_id'])
+            ->where('arr_dep', (string) $validated['arr_dep'])
             ->whereKeyNot($fishportLog->id)
             ->exists();
 
         if ($duplicateExists) {
             throw ValidationException::withMessages([
-                'vessel_id' => 'This vessel is already logged for the selected date.',
+                'arr_dep' => 'This vessel already has this movement logged for the selected date.',
             ]);
         }
 
@@ -247,7 +255,7 @@ class FishportLogController extends Controller
             'log_time' => $validated['log_time'],
             'arr_dep' => $validated['arr_dep'],
             'fishport_vessel_id' => (int) $validated['vessel_id'],
-            'fishport_origin_id' => (int) $validated['origin_id'],
+            'fishport_origin_id' => $resolvedOriginId,
             'remarks' => $validated['remarks'] ?: null,
             'user_id' => Auth::id(),
         ]);
@@ -306,9 +314,9 @@ class FishportLogController extends Controller
                 ]);
             }
 
-            if (! $this->isLogInsideOperationalWindow($log)) {
+            if (! $this->isLogInsideCalendarDay($log)) {
                 throw ValidationException::withMessages([
-                    'source_log_id' => 'Selected vessel log is outside today\'s active window. Please log the vessel again.',
+                    'source_log_id' => 'Selected vessel log is outside today\'s date range (00:00 to 23:59). Please select a log from today.',
                 ]);
             }
 
@@ -347,7 +355,7 @@ class FishportLogController extends Controller
 
     public function update(Request $request, FishportLog $fishportLog): RedirectResponse
     {
-        [$validated, $items, $payments] = $this->validatedPayload($request, false);
+        [$validated, $items, $payments] = $this->validatedPayload($request, false, (bool) $fishportLog->is_paid);
         $shouldPrint = $request->boolean('print_receipt');
 
         DB::transaction(function () use ($fishportLog, $validated, $items, $payments): void {
@@ -485,7 +493,7 @@ class FishportLogController extends Controller
     private function renderRecordsPage(?FishportLog $editingLog = null, ?Request $request = null): View
     {
         $request ??= request();
-        [$windowStart, $windowEnd] = $this->currentOperationalWindow();
+        [$windowStart, $windowEnd] = $this->currentCalendarDayWindow();
 
         $pendingLogs = FishportLog::query()
             ->with([
@@ -743,7 +751,7 @@ class FishportLogController extends Controller
     /**
      * @return array{0: array<string, mixed>, 1: array<int, array<string, float|int>>, 2: array<int, array<string, float|int>>}
      */
-    private function validatedPayload(Request $request, bool $requireSourceLog = false): array
+    private function validatedPayload(Request $request, bool $requireSourceLog = false, bool $allowEmptyLineItems = false): array
     {
         $validated = $request->validate([
             'log_date' => ['required', 'date'],
@@ -770,10 +778,15 @@ class FishportLogController extends Controller
             ]);
         }
 
+        $itemArrayRules = ['required', 'array'];
+        if (! $allowEmptyLineItems) {
+            $itemArrayRules[] = 'min:1';
+        }
+
         $itemsValidator = Validator::make(
             ['items' => $items],
             [
-                'items' => ['required', 'array', 'min:1'],
+                'items' => $itemArrayRules,
                 'items.*.commodity_id' => ['nullable', Rule::exists('fishport_commodities', 'id')],
                 'items.*.commodity_name' => ['nullable', 'string', 'max:150'],
                 'items.*.classification' => ['nullable', 'string', 'max:80'],
@@ -797,10 +810,15 @@ class FishportLogController extends Controller
             }
         }
 
+        $paymentArrayRules = ['required', 'array'];
+        if (! $allowEmptyLineItems) {
+            $paymentArrayRules[] = 'min:1';
+        }
+
         $paymentsValidator = Validator::make(
             ['payments' => $payments],
             [
-                'payments' => ['required', 'array', 'min:1'],
+                'payments' => $paymentArrayRules,
                 'payments.*.payment_type_id' => ['required', Rule::exists('fishport_payment_types', 'id')],
                 'payments.*.fee' => ['nullable', 'numeric', 'min:0'],
                 'payments.*.quantity' => ['required', 'numeric', 'min:0'],
@@ -904,6 +922,39 @@ class FishportLogController extends Controller
         }
 
         return 'Marine';
+    }
+
+    private function resolveOriginIdForLogEntry(array $validated): int
+    {
+        $originId = (int) ($validated['origin_id'] ?? 0);
+        if ($originId > 0) {
+            return $originId;
+        }
+
+        $originName = trim((string) ($validated['origin_name'] ?? ''));
+        if ($originName === '') {
+            throw ValidationException::withMessages([
+                'origin_id' => 'Please select an origin or type a custom origin.',
+            ]);
+        }
+
+        $existingOrigin = FishportOrigin::query()
+            ->whereRaw('LOWER(name) = ?', [strtolower($originName)])
+            ->first();
+
+        if ($existingOrigin) {
+            if (! $existingOrigin->is_active) {
+                $existingOrigin->update(['is_active' => true]);
+            }
+            return (int) $existingOrigin->id;
+        }
+
+        $newOrigin = FishportOrigin::query()->create([
+            'name' => $originName,
+            'is_active' => true,
+        ]);
+
+        return (int) $newOrigin->id;
     }
 
     /**
@@ -1021,6 +1072,30 @@ class FishportLogController extends Controller
         }
 
         [$windowStart, $windowEnd] = $this->currentOperationalWindow($referenceMoment);
+
+        return $logDateTime->greaterThanOrEqualTo($windowStart) && $logDateTime->lessThan($windowEnd);
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function currentCalendarDayWindow(?Carbon $referenceMoment = null): array
+    {
+        $moment = $referenceMoment?->copy() ?? now();
+        $start = $moment->copy()->startOfDay();
+        $end = $start->copy()->addDay();
+
+        return [$start, $end];
+    }
+
+    private function isLogInsideCalendarDay(FishportLog $log, ?Carbon $referenceMoment = null): bool
+    {
+        $logDateTime = $this->logDateTime($log);
+        if (! $logDateTime) {
+            return false;
+        }
+
+        [$windowStart, $windowEnd] = $this->currentCalendarDayWindow($referenceMoment);
 
         return $logDateTime->greaterThanOrEqualTo($windowStart) && $logDateTime->lessThan($windowEnd);
     }

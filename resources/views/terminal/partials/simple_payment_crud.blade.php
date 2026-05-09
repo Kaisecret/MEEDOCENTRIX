@@ -2,28 +2,11 @@
 @php
     $historyMode = (bool) ($isHistoryMode ?? false);
     $routeFareConfig = $routeFareConfig ?? [];
-    $routeGroups = [
-        'Jeep - PHP 20.00' => ['jeep_bugasong', 'jeep_lindero', 'jeep_guinsangan', 'jeep_patnongon', 'jeep_sibalom', 'jeep_bugo', 'jeep_san_remegio'],
-        'Jeep - PHP 35.00' => ['jeep_dao', 'jeep_aniniy', 'jeep_valderrama'],
-        'Bus - PHP 60.00' => ['bus_ceres_iloilo'],
-        'Bus - PHP 100.00' => ['bus_roro_alps', 'bus_roro_ceres'],
-    ];
+    $routeGroups = $routeGroups ?? [];
 @endphp
 
 <div class="tm tm-transactions-compact" data-server-rendered-page="{{ $serverRenderedPage }}" data-page-title="{{ $pageTitle }}">
-    @if (session('status') || session('error') || $errors->any())
-        <div class="tm-toast-stack">
-            @if (session('status'))
-                <div class="tm-toast tm-toast-success js-tm-toast"><i class="fas fa-check-circle"></i> {{ session('status') }}</div>
-            @endif
-            @if (session('error'))
-                <div class="tm-toast tm-toast-error js-tm-toast"><i class="fas fa-circle-exclamation"></i> {{ session('error') }}</div>
-            @endif
-            @if ($errors->any())
-                <div class="tm-toast tm-toast-error js-tm-toast"><i class="fas fa-triangle-exclamation"></i> {{ $errors->first() }}</div>
-            @endif
-        </div>
-    @endif
+    @include('terminal.partials.toast_stack')
 
     <section class="tm-card">
         <div class="tm-card-head">
@@ -201,23 +184,39 @@
                     <input type="hidden" name="form_context" value="add">
                     <div class="tm-field">
                         <label for="add_ticket_number">Ticket Number</label>
-                        <input id="add_ticket_number" name="ticket_number" class="tm-input" value="{{ old('form_context') === 'add' ? old('ticket_number') : '' }}" required>
+                        <input
+                            id="add_ticket_number"
+                            name="ticket_number"
+                            class="tm-input"
+                            value="{{ old('form_context') === 'add' ? old('ticket_number') : '' }}"
+                            inputmode="numeric"
+                            pattern="\d{6}"
+                            maxlength="6"
+                            minlength="6"
+                            placeholder="6-digit ticket number"
+                            oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
+                            required
+                        >
                     </div>
                     <div class="tm-field">
                         <label for="add_route_code">Route / Operator</label>
                         <select id="add_route_code" name="route_code" class="tm-input js-route-select" data-target-fare="add_total_payment" required>
                             <option value="">Select route or bus operator</option>
-                            @foreach ($routeGroups as $groupLabel => $groupCodes)
-                                <optgroup label="{{ $groupLabel }}">
-                                    @foreach ($groupCodes as $routeCode)
-                                        @if (isset($routeFareConfig[$routeCode]))
-                                            <option value="{{ $routeCode }}" {{ old('form_context') === 'add' && old('route_code') === $routeCode ? 'selected' : '' }}>
-                                                {{ $routeFareConfig[$routeCode]['label'] }}
-                                            </option>
-                                        @endif
-                                    @endforeach
-                                </optgroup>
-                            @endforeach
+                            @if (count($routeGroups) === 0)
+                                <option value="" disabled>No active route/operator rates configured in Admin > Rates</option>
+                            @else
+                                @foreach ($routeGroups as $groupLabel => $groupCodes)
+                                    <optgroup label="{{ $groupLabel }}">
+                                        @foreach ($groupCodes as $routeCode)
+                                            @if (isset($routeFareConfig[$routeCode]))
+                                                <option value="{{ $routeCode }}" {{ old('form_context') === 'add' && old('route_code') === $routeCode ? 'selected' : '' }}>
+                                                    {{ $routeFareConfig[$routeCode]['label'] }}
+                                                </option>
+                                            @endif
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            @endif
                         </select>
                     </div>
                     <div class="tm-field">
@@ -254,23 +253,39 @@
                     <input type="hidden" name="form_context" id="edit_form_context" value="{{ old('form_context', '') }}">
                     <div class="tm-field">
                         <label for="edit_ticket_number">Ticket Number</label>
-                        <input id="edit_ticket_number" name="ticket_number" class="tm-input" value="{{ old('ticket_number', '') }}" required>
+                        <input
+                            id="edit_ticket_number"
+                            name="ticket_number"
+                            class="tm-input"
+                            value="{{ old('ticket_number', '') }}"
+                            inputmode="numeric"
+                            pattern="\d{6}"
+                            maxlength="6"
+                            minlength="6"
+                            placeholder="6-digit ticket number"
+                            oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
+                            required
+                        >
                     </div>
                     <div class="tm-field">
                         <label for="edit_route_code">Route / Operator</label>
                         <select id="edit_route_code" name="route_code" class="tm-input js-route-select" data-target-fare="edit_total_payment" required>
                             <option value="">Select route or bus operator</option>
-                            @foreach ($routeGroups as $groupLabel => $groupCodes)
-                                <optgroup label="{{ $groupLabel }}">
-                                    @foreach ($groupCodes as $routeCode)
-                                        @if (isset($routeFareConfig[$routeCode]))
-                                            <option value="{{ $routeCode }}" {{ old('route_code', '') === $routeCode ? 'selected' : '' }}>
-                                                {{ $routeFareConfig[$routeCode]['label'] }}
-                                            </option>
-                                        @endif
-                                    @endforeach
-                                </optgroup>
-                            @endforeach
+                            @if (count($routeGroups) === 0)
+                                <option value="" disabled>No active route/operator rates configured in Admin > Rates</option>
+                            @else
+                                @foreach ($routeGroups as $groupLabel => $groupCodes)
+                                    <optgroup label="{{ $groupLabel }}">
+                                        @foreach ($groupCodes as $routeCode)
+                                            @if (isset($routeFareConfig[$routeCode]))
+                                                <option value="{{ $routeCode }}" {{ old('route_code', '') === $routeCode ? 'selected' : '' }}>
+                                                    {{ $routeFareConfig[$routeCode]['label'] }}
+                                                </option>
+                                            @endif
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            @endif
                         </select>
                     </div>
                     <div class="tm-field">
@@ -339,42 +354,6 @@
 @endif
 
 <style>
-    .tm-toast-stack {
-        position: fixed;
-        top: 1rem;
-        right: 1rem;
-        z-index: 2500;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: .5rem;
-        pointer-events: none;
-    }
-    .tm-toast {
-        border-radius: 10px;
-        padding: .7rem .92rem;
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        font-size: .86rem;
-        font-weight: 600;
-        width: min(360px, calc(100vw - 2rem));
-        animation: tmToastIn .24s ease both;
-        pointer-events: auto;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
-    }
-    .tm-toast-success { background: #059669; border: 1px solid #047857; color: #fff; }
-    .tm-toast-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
-    .tm-toast.tm-toast-exit { animation: tmToastOut .24s ease forwards; }
-    @keyframes tmToastIn {
-        from { opacity: 0; transform: translateY(-8px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes tmToastOut {
-        from { opacity: 1; transform: translateY(0); }
-        to { opacity: 0; transform: translateY(-8px); }
-    }
-
     .tm-transactions-compact .tm-hero {
         gap: 10px;
         padding: 10px 0;
@@ -646,15 +625,6 @@
 
 <script>
     (function () {
-        document.querySelectorAll('.js-tm-toast').forEach(function (toast) {
-            window.setTimeout(function () {
-                toast.classList.add('tm-toast-exit');
-                window.setTimeout(function () {
-                    toast.remove();
-                }, 280);
-            }, 3000);
-        });
-
         const filterForm = document.querySelector('.js-tm-auto-filter-form');
         if (!filterForm) return;
 

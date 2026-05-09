@@ -57,6 +57,53 @@
     .vr-form-control { width:100%; min-height:40px; border:1px solid #cbd5e1; background:#fff; border-radius:8px; padding:.5rem .75rem; color:#0f172a; font-size:.92rem; outline:none; transition: all 0.2s; }
     .vr-form-control:focus { border-color:#155f8f; box-shadow:0 0 0 3px rgba(21,95,143,.15); }
     .vr-form-field--full { grid-column:1 / -1; }
+    .vr-doc-grid { gap:14px 16px; }
+    .vr-doc-field { border:1px solid #dbe7f3; background:#fff; border-radius:10px; padding:10px; gap:8px; }
+    .vr-doc-field > span { display:flex; align-items:center; gap:8px; font-size:.92rem; color:#103250; }
+    .vr-doc-field > span::before { content:''; width:8px; height:8px; border-radius:999px; background:#1d78b0; box-shadow:0 0 0 3px #e0f2fe; }
+    .vr-doc-input { position:absolute !important; width:1px !important; height:1px !important; opacity:0 !important; pointer-events:none !important; }
+    .vr-doc-actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .vr-doc-btn { min-height:34px; border-radius:8px; border:1px solid #c7d2e0; background:#f8fafc; color:#0f172a; font-size:.82rem; font-weight:700; display:inline-flex; align-items:center; gap:7px; padding:0 .78rem; transition:all .2s; }
+    .vr-doc-btn:hover { border-color:#93c5fd; background:#eff6ff; color:#0f4b73; }
+    .vr-doc-btn-camera { border-color:#bae6fd; background:#ecfeff; color:#075985; }
+    .vr-doc-btn-camera:hover { border-color:#7dd3fc; background:#dff7ff; color:#0c4a6e; }
+    .vr-doc-btn-phone { border-color:#c7d2fe; background:#eef2ff; color:#3730a3; }
+    .vr-doc-btn-phone:hover { border-color:#a5b4fc; background:#e0e7ff; color:#312e81; }
+    .vr-doc-btn-preview { border-color:#ddd6fe; background:#f5f3ff; color:#5b21b6; }
+    .vr-doc-btn-preview:hover { border-color:#c4b5fd; background:#ede9fe; color:#4c1d95; }
+    .vr-doc-meta { min-height:22px; border:1px dashed #cbd5e1; border-radius:8px; background:#f8fafc; padding:4px 8px; display:flex; align-items:center; }
+    .vr-doc-meta span { color:#475569; font-size:.77rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .vr-camera-wrap { display:grid; gap:10px; }
+    .vr-camera-top { display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
+    .vr-camera-field { display:grid; gap:6px; min-width:min(320px,100%); }
+    .vr-camera-field label { font-size:.83rem; font-weight:700; color:#334155; }
+    .vr-camera-video-wrap { position:relative; border:1px solid #cbd5e1; border-radius:10px; overflow:hidden; background:#0f172a; min-height:320px; }
+    .vr-camera-video { width:100%; height:100%; min-height:320px; object-fit:cover; display:block; }
+    .vr-camera-empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#cbd5e1; font-size:.9rem; padding:12px; text-align:center; }
+    .vr-camera-note { margin:0; color:#64748b; font-size:.8rem; }
+    .vr-camera-status { margin:0; font-size:.82rem; font-weight:600; color:#0f4b73; min-height:20px; }
+    .vr-phone-wrap { display:grid; gap:12px; }
+    .vr-phone-grid { display:grid; grid-template-columns:240px minmax(0,1fr); gap:14px; align-items:start; }
+    .vr-qr-box { width:240px; height:240px; border:1px solid #dbe7f3; border-radius:10px; background:#fff; display:grid; place-items:center; padding:10px; }
+    .vr-qr-placeholder { color:#64748b; font-size:.82rem; text-align:center; padding:8px; }
+    .vr-phone-meta { display:grid; gap:10px; }
+    .vr-phone-label { margin:0; padding:10px 12px; border:1px solid #dbe7f3; border-radius:10px; background:#f8fafc; font-size:.86rem; color:#103250; font-weight:700; }
+    .vr-phone-link-wrap { display:grid; gap:6px; }
+    .vr-phone-link-wrap label { font-size:.79rem; color:#475569; font-weight:700; }
+    .vr-phone-link-row { display:flex; gap:8px; }
+    .vr-phone-link-input { flex:1; min-height:38px; border:1px solid #cbd5e1; border-radius:8px; padding:0 .68rem; font-size:.8rem; color:#0f172a; background:#fff; }
+    .vr-phone-host-help { margin:0; color:#64748b; font-size:.75rem; line-height:1.35; }
+    .vr-phone-status { margin:0; min-height:20px; font-size:.82rem; font-weight:600; color:#0f4b73; }
+    .vr-phone-note { margin:0; color:#64748b; font-size:.8rem; line-height:1.45; }
+    @media (max-width:760px){
+        .vr-phone-grid { grid-template-columns:1fr; }
+        .vr-qr-box { width:100%; max-width:240px; margin:0 auto; }
+    }
+    .vr-file-preview-wrap { min-height:420px; border:1px solid #dbe7f3; border-radius:10px; background:#f8fafc; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .vr-file-preview-image { width:100%; max-height:70vh; object-fit:contain; display:block; }
+    .vr-file-preview-pdf { width:100%; height:70vh; border:none; background:#fff; }
+    .vr-file-preview-empty { color:#64748b; font-size:.9rem; text-align:center; padding:12px; }
+    .vr-file-preview-note { margin:0; color:#64748b; font-size:.82rem; }
     body.vr-lock-scroll { overflow:hidden; }
     .vr-status-toast { position:fixed; top:18px; right:18px; z-index:1700; min-width:min(460px,calc(100vw - 36px)); border-radius:12px; border:1px solid transparent; padding:12px 14px; box-shadow:0 14px 24px rgba(15,23,42,.18); display:flex; align-items:center; gap:10px; font-size:.92rem; transform:translateY(0); opacity:1; transition:opacity .22s ease, transform .22s ease; }
     .vr-status-toast i { font-size:1rem; }
@@ -158,7 +205,7 @@
                                     <form action="{{ route('fishport.vessel_registry.destroy', $vessel) }}" method="POST" class="js-delete-vessel-form" data-vessel-name="{{ $vessel->name }}" data-owner-name="{{ $owner?->full_name }}">
                                         @csrf
                                         @method('DELETE')
-                                        <button class="vr-icon-btn vr-icon-btn-danger" type="submit" title="Delete vessel"><i class="fas fa-trash"></i></button>
+                                        <button class="vr-icon-btn vr-icon-btn-danger" type="submit" title="Delete vessel permanently"><i class="fas fa-trash"></i></button>
                                     </form>
                                 </div>
                             </td>
@@ -201,14 +248,103 @@
     </div>
 </div>
 
+<div id="vrCameraModal" class="vr-modal" aria-hidden="true">
+    <div class="vr-modal-card vr-modal-card--compact" style="width:min(760px,96vw);">
+        <div class="vr-modal-head">
+            <h4>Capture Document From Camera</h4>
+            <button type="button" class="vr-modal-close" data-close-modal="vrCameraModal"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="vr-modal-body">
+            <div class="vr-camera-wrap">
+                <div class="vr-camera-top">
+                    <div class="vr-camera-field">
+                        <label for="vrCameraDeviceSelect">Camera Source</label>
+                        <select id="vrCameraDeviceSelect" class="vr-form-control"></select>
+                    </div>
+                    <button type="button" class="vr-doc-btn" id="vrRefreshCameraSourcesBtn"><i class="fa-solid fa-rotate"></i>Refresh Cameras</button>
+                </div>
+                <div class="vr-camera-video-wrap">
+                    <video id="vrCameraVideo" class="vr-camera-video" autoplay playsinline muted></video>
+                    <div class="vr-camera-empty" id="vrCameraEmptyState">Enable camera access to capture this document.</div>
+                </div>
+                <p class="vr-camera-note">Tip: To use phone camera on PC, your phone must be exposed as a webcam device (e.g., Android USB Webcam mode, DroidCam/Iriun/Link to Windows). After connecting, click Refresh Cameras and select it above.</p>
+                <p class="vr-camera-status" id="vrCameraStatus"></p>
+            </div>
+        </div>
+        <div class="vr-foot">
+            <button type="button" class="btn btn-secondary" id="vrCancelCameraBtn">Cancel</button>
+            <button type="button" class="btn btn-primary" id="vrCaptureCameraBtn"><i class="fa-solid fa-camera"></i>Capture & Attach</button>
+        </div>
+    </div>
+</div>
+
+<div id="vrFilePreviewModal" class="vr-modal" aria-hidden="true">
+    <div class="vr-modal-card" style="width:min(980px,97vw);">
+        <div class="vr-modal-head">
+            <h4 id="vrFilePreviewTitle">File Preview</h4>
+            <button type="button" class="vr-modal-close" data-close-modal="vrFilePreviewModal"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="vr-modal-body">
+            <div class="vr-file-preview-wrap" id="vrFilePreviewContainer">
+                <p class="vr-file-preview-empty">No file selected yet.</p>
+            </div>
+            <p class="vr-file-preview-note" id="vrFilePreviewNote">Tip: Select or capture a document first, then click View File.</p>
+        </div>
+        <div class="vr-foot">
+            <button type="button" class="btn btn-secondary" id="vrCloseFilePreviewBtn">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="vrPhoneUploadModal" class="vr-modal" aria-hidden="true">
+    <div class="vr-modal-card" style="width:min(860px,97vw);">
+        <div class="vr-modal-head">
+            <h4>Phone Upload via QR</h4>
+            <button type="button" class="vr-modal-close" data-close-modal="vrPhoneUploadModal"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="vr-modal-body">
+            <div class="vr-phone-wrap">
+                <div class="vr-phone-grid">
+                    <div class="vr-qr-box" id="vrPhoneQrBox">
+                        <p class="vr-qr-placeholder">Generate QR to start phone upload.</p>
+                    </div>
+                    <div class="vr-phone-meta">
+                        <p class="vr-phone-label" id="vrPhoneUploadDocLabel">Document: -</p>
+                        <div class="vr-phone-link-wrap">
+                            <label for="vrPhoneReachableHostInput">Phone Reachable Host (Optional)</label>
+                            <div class="vr-phone-link-row">
+                                <input id="vrPhoneReachableHostInput" class="vr-phone-link-input" type="text" placeholder="http://192.168.1.10:8000" value="">
+                            </div>
+                            <p class="vr-phone-host-help" id="vrPhoneHostHelp">Use your computer LAN address if this page is running on localhost.</p>
+                        </div>
+                        <div class="vr-phone-link-wrap">
+                            <label for="vrPhoneUploadLinkInput">Upload Link</label>
+                            <div class="vr-phone-link-row">
+                                <input id="vrPhoneUploadLinkInput" class="vr-phone-link-input" type="text" readonly value="">
+                                <button type="button" class="vr-doc-btn" id="vrCopyPhoneUploadLinkBtn"><i class="fa-regular fa-copy"></i>Copy</button>
+                            </div>
+                        </div>
+                        <p class="vr-phone-status" id="vrPhoneUploadStatus">Preparing secure upload session...</p>
+                        <p class="vr-phone-note">Scan with your phone, upload/capture document, then keep this window open. The file auto-attaches once upload is complete.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="vr-foot">
+            <button type="button" class="btn btn-secondary" id="vrClosePhoneUploadBtn">Close</button>
+        </div>
+    </div>
+</div>
+
 <div id="deleteVesselModal" class="vr-modal" aria-hidden="true">
     <div class="vr-modal-card vr-modal-card--compact">
         <div class="vr-modal-head"><h4>Delete Vessel</h4><button type="button" class="vr-modal-close" data-close-modal="deleteVesselModal"><i class="fas fa-xmark"></i></button></div>
-        <div class="vr-modal-body"><p style="margin:0;">Are you sure you want to delete this vessel?</p><div class="vr-preview"><div><strong id="deleteVesselName">-</strong></div><div>Owner: <span id="deleteVesselOwner">-</span></div></div></div>
+        <div class="vr-modal-body"><p style="margin:0;">Are you sure you want to permanently delete this vessel and its linked records?</p><div class="vr-preview"><div><strong id="deleteVesselName">-</strong></div><div>Owner: <span id="deleteVesselOwner">-</span></div></div></div>
         <div class="vr-foot"><button type="button" class="btn btn-secondary" id="cancelDeleteVesselBtn">Cancel</button><button type="button" class="btn btn-danger" id="confirmDeleteVesselBtn">Yes, Delete</button></div>
     </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 (() => {
     const breadcrumb = document.querySelector('.breadcrumb');
@@ -219,8 +355,11 @@
     const statusToast = document.getElementById('vrStatusToast');
     const registerModal = document.getElementById('registerVesselModal');
     const editModal = document.getElementById('editVesselModal');
+    const cameraModal = document.getElementById('vrCameraModal');
+    const filePreviewModal = document.getElementById('vrFilePreviewModal');
+    const phoneUploadModal = document.getElementById('vrPhoneUploadModal');
     const deleteModal = document.getElementById('deleteVesselModal');
-    const allModals = [registerModal, editModal, deleteModal].filter(Boolean);
+    const allModals = [registerModal, editModal, cameraModal, filePreviewModal, phoneUploadModal, deleteModal].filter(Boolean);
     const openRegisterButton = document.getElementById('openRegisterVesselBtn');
     const closeRegisterButton = document.getElementById('closeRegisterVesselBtn');
     const closeEditButton = document.getElementById('closeEditVesselBtn');
@@ -231,21 +370,473 @@
     const deleteVesselOwner = document.getElementById('deleteVesselOwner');
     const cancelDeleteButton = document.getElementById('cancelDeleteVesselBtn');
     const confirmDeleteButton = document.getElementById('confirmDeleteVesselBtn');
+    const cameraDeviceSelect = document.getElementById('vrCameraDeviceSelect');
+    const cameraVideo = document.getElementById('vrCameraVideo');
+    const cameraEmptyState = document.getElementById('vrCameraEmptyState');
+    const cameraStatus = document.getElementById('vrCameraStatus');
+    const refreshCameraSourcesButton = document.getElementById('vrRefreshCameraSourcesBtn');
+    const cancelCameraButton = document.getElementById('vrCancelCameraBtn');
+    const captureCameraButton = document.getElementById('vrCaptureCameraBtn');
+    const filePreviewTitle = document.getElementById('vrFilePreviewTitle');
+    const filePreviewContainer = document.getElementById('vrFilePreviewContainer');
+    const filePreviewNote = document.getElementById('vrFilePreviewNote');
+    const closeFilePreviewButton = document.getElementById('vrCloseFilePreviewBtn');
+    const phoneQrBox = document.getElementById('vrPhoneQrBox');
+    const phoneUploadDocLabel = document.getElementById('vrPhoneUploadDocLabel');
+    const phoneReachableHostInput = document.getElementById('vrPhoneReachableHostInput');
+    const phoneHostHelp = document.getElementById('vrPhoneHostHelp');
+    const phoneUploadLinkInput = document.getElementById('vrPhoneUploadLinkInput');
+    const phoneUploadStatus = document.getElementById('vrPhoneUploadStatus');
+    const copyPhoneUploadLinkButton = document.getElementById('vrCopyPhoneUploadLinkBtn');
+    const closePhoneUploadButton = document.getElementById('vrClosePhoneUploadBtn');
     const registrySearchAction = @json(route('fishport.vessel_registry'));
+    const phoneUploadStartUrl = @json(route('fishport.phone_upload.start'));
+    const phoneUploadStatusTemplate = @json(route('fishport.phone_upload.status', ['token' => '__TOKEN__']));
     let searchTimer = null;
     let activeSearchRequestId = 0;
     let pendingDeleteForm = null;
+    let activeCameraStream = null;
+    let currentCameraInputId = '';
+    let activePreviewObjectUrl = '';
+    let activePhoneUploadTargetInputId = '';
+    let activePhoneUploadToken = '';
+    let activePhoneUploadServerUrl = '';
+    let phoneUploadPollTimer = null;
+    let activeQrInstance = null;
+    const PHONE_HOST_STORAGE_KEY = 'vr_phone_upload_host_override';
 
     const lockBody = () => document.body.classList.toggle('vr-lock-scroll', allModals.some((m) => m.classList.contains('is-open')));
     const openModal = (m) => { if (!m) return; m.classList.add('is-open'); m.setAttribute('aria-hidden', 'false'); const b = m.querySelector('.vr-modal-body'); if (b) b.scrollTop = 0; lockBody(); };
     const closeModal = (m) => { if (!m) return; m.classList.remove('is-open'); m.setAttribute('aria-hidden', 'true'); lockBody(); };
     if (openRegisterButton) openRegisterButton.addEventListener('click', () => openModal(registerModal));
-    if (closeRegisterButton) closeRegisterButton.addEventListener('click', () => { const f = registerModal ? registerModal.querySelector('form') : null; if (f) f.reset(); closeModal(registerModal); });
-    if (closeEditButton) closeEditButton.addEventListener('click', () => closeModal(editModal));
-    modalCloseButtons.forEach((btn) => btn.addEventListener('click', () => { const id = btn.getAttribute('data-close-modal'); if (!id) return; const m = document.getElementById(id); if (m === registerModal) { const f = registerModal ? registerModal.querySelector('form') : null; if (f) f.reset(); } if (m === deleteModal) pendingDeleteForm = null; closeModal(m); }));
+    if (closeRegisterButton) closeRegisterButton.addEventListener('click', () => { const f = registerModal ? registerModal.querySelector('form') : null; if (f) f.reset(); syncAllDocFileNames(); closeModal(registerModal); });
+    if (closeEditButton) closeEditButton.addEventListener('click', () => { syncAllDocFileNames(); closeModal(editModal); });
+    if (cancelCameraButton) cancelCameraButton.addEventListener('click', () => { stopCameraStream(); closeModal(cameraModal); });
+    if (closeFilePreviewButton) closeFilePreviewButton.addEventListener('click', () => { clearFilePreview(); closeModal(filePreviewModal); });
+    if (closePhoneUploadButton) closePhoneUploadButton.addEventListener('click', () => { clearPhoneUploadUi(); closeModal(phoneUploadModal); });
+    if (copyPhoneUploadLinkButton) {
+        copyPhoneUploadLinkButton.addEventListener('click', async () => {
+            const uploadLink = phoneUploadLinkInput ? String(phoneUploadLinkInput.value || '') : '';
+            if (!uploadLink) return;
+            try {
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(uploadLink);
+                } else if (phoneUploadLinkInput) {
+                    phoneUploadLinkInput.select();
+                    document.execCommand('copy');
+                }
+                setPhoneUploadStatus('Upload link copied. Paste it on your phone browser if needed.');
+            } catch (error) {
+                setPhoneUploadStatus('Copy failed. You can manually copy the link text.', true);
+            }
+        });
+    }
+    modalCloseButtons.forEach((btn) => btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-close-modal');
+        if (!id) return;
+        const m = document.getElementById(id);
+        if (m === registerModal) { const f = registerModal ? registerModal.querySelector('form') : null; if (f) f.reset(); syncAllDocFileNames(); }
+        if (m === editModal) syncAllDocFileNames();
+        if (m === cameraModal) stopCameraStream();
+        if (m === filePreviewModal) clearFilePreview();
+        if (m === phoneUploadModal) clearPhoneUploadUi();
+        if (m === deleteModal) pendingDeleteForm = null;
+        closeModal(m);
+    }));
 
     const assign = (id, v) => { const i = document.getElementById(id); if (i) i.value = v || ''; };
-    const setDocReq = (id, uploaded) => { const i = document.getElementById(id); if (!i) return; i.value = ''; i.required = uploaded !== '1'; };
+    const syncDocFileName = (input) => {
+        if (!input) return;
+        const labelNode = document.querySelector(`.js-vr-doc-name[data-target-input="${input.id}"]`);
+        if (!labelNode) return;
+        const selectedFile = input.files && input.files[0] ? input.files[0] : null;
+        labelNode.textContent = selectedFile ? selectedFile.name : 'No file selected';
+    };
+    const syncAllDocFileNames = () => {
+        document.querySelectorAll('.js-vr-doc-input').forEach((input) => syncDocFileName(input));
+    };
+    const setDocReq = (id, uploaded) => {
+        const i = document.getElementById(id);
+        if (!i) return;
+        i.value = '';
+        i.required = uploaded !== '1';
+        const labelNode = document.querySelector(`.js-vr-doc-name[data-target-input="${id}"]`);
+        if (labelNode && uploaded === '1') {
+            labelNode.textContent = 'Existing file on record. Upload or capture to replace.';
+            return;
+        }
+        syncDocFileName(i);
+    };
+
+    const setCameraStatus = (message, isError = false) => {
+        if (!cameraStatus) return;
+        cameraStatus.textContent = message || '';
+        cameraStatus.style.color = isError ? '#9f1239' : '#0f4b73';
+    };
+
+    const isCameraContextReady = () => {
+        if (window.isSecureContext) return true;
+        const host = window.location.hostname;
+        return host === 'localhost' || host === '127.0.0.1';
+    };
+
+    const stopCameraStream = () => {
+        if (activeCameraStream) {
+            activeCameraStream.getTracks().forEach((track) => track.stop());
+            activeCameraStream = null;
+        }
+        if (cameraVideo) cameraVideo.srcObject = null;
+    };
+
+    const clearFilePreview = () => {
+        if (activePreviewObjectUrl) {
+            URL.revokeObjectURL(activePreviewObjectUrl);
+            activePreviewObjectUrl = '';
+        }
+        if (filePreviewContainer) {
+            filePreviewContainer.innerHTML = '<p class="vr-file-preview-empty">No file selected yet.</p>';
+        }
+        if (filePreviewTitle) filePreviewTitle.textContent = 'File Preview';
+        if (filePreviewNote) filePreviewNote.textContent = 'Tip: Select or capture a document first, then click View File.';
+    };
+
+    const stopPhoneUploadPolling = () => {
+        if (phoneUploadPollTimer) {
+            window.clearInterval(phoneUploadPollTimer);
+            phoneUploadPollTimer = null;
+        }
+    };
+
+    const clearPhoneUploadUi = () => {
+        stopPhoneUploadPolling();
+        activePhoneUploadToken = '';
+        activePhoneUploadTargetInputId = '';
+        activePhoneUploadServerUrl = '';
+        if (phoneUploadDocLabel) phoneUploadDocLabel.textContent = 'Document: -';
+        if (phoneUploadLinkInput) phoneUploadLinkInput.value = '';
+        if (phoneUploadStatus) phoneUploadStatus.textContent = 'Preparing secure upload session...';
+        if (phoneQrBox) {
+            phoneQrBox.innerHTML = '<p class="vr-qr-placeholder">Generate QR to start phone upload.</p>';
+            activeQrInstance = null;
+        }
+    };
+
+    const isLocalLikeHost = (hostname) => {
+        const value = String(hostname || '').toLowerCase();
+        return value === 'localhost' || value === '127.0.0.1' || value === '::1' || value.endsWith('.local');
+    };
+
+    const normalizeHostOrigin = (rawValue) => {
+        const text = String(rawValue || '').trim();
+        if (!text) return '';
+        const withProtocol = /^https?:\/\//i.test(text) ? text : `http://${text}`;
+        try {
+            const parsed = new URL(withProtocol);
+            return `${parsed.protocol}//${parsed.host}`;
+        } catch (error) {
+            return '';
+        }
+    };
+
+    const updatePhoneHostHelpText = (reachableUrl = '') => {
+        if (!phoneHostHelp) return;
+        if (reachableUrl) {
+            phoneHostHelp.textContent = `Phone link host: ${reachableUrl}`;
+            return;
+        }
+        if (isLocalLikeHost(window.location.hostname)) {
+            phoneHostHelp.textContent = 'This page is on localhost. Enter LAN IP like http://192.168.1.10:8000 so phone can open it.';
+            return;
+        }
+        phoneHostHelp.textContent = 'Using current site host for QR link.';
+    };
+
+    const buildPhoneReachableUploadUrl = (serverUrl) => {
+        const parsedServerUrl = new URL(String(serverUrl || ''), window.location.href);
+        const pathAndQuery = `${parsedServerUrl.pathname}${parsedServerUrl.search}${parsedServerUrl.hash}`;
+        const storedOrigin = normalizeHostOrigin(window.localStorage.getItem(PHONE_HOST_STORAGE_KEY) || '');
+        const typedOrigin = normalizeHostOrigin(phoneReachableHostInput ? phoneReachableHostInput.value : '');
+        const currentOrigin = `${window.location.protocol}//${window.location.host}`;
+        const currentIsReachable = !isLocalLikeHost(window.location.hostname);
+        const selectedOrigin = typedOrigin || storedOrigin || (currentIsReachable ? currentOrigin : `${parsedServerUrl.protocol}//${parsedServerUrl.host}`);
+        const selectedHostName = (() => {
+            try { return new URL(selectedOrigin).hostname; } catch (error) { return ''; }
+        })();
+        const needsPhoneHost = isLocalLikeHost(selectedHostName);
+        return {
+            finalUrl: `${selectedOrigin}${pathAndQuery}`,
+            selectedOrigin,
+            needsPhoneHost,
+        };
+    };
+
+    const refreshPhoneUploadLinkAndQr = () => {
+        if (!activePhoneUploadServerUrl) return;
+        const built = buildPhoneReachableUploadUrl(activePhoneUploadServerUrl);
+        if (phoneUploadLinkInput) phoneUploadLinkInput.value = built.finalUrl;
+        renderPhoneUploadQr(built.finalUrl);
+        if (built.needsPhoneHost) {
+            setPhoneUploadStatus('Phone cannot open localhost. Enter your PC LAN IP in Phone Reachable Host.', true);
+        } else {
+            setPhoneUploadStatus('Scan QR with phone, upload file, then wait for auto-attach.');
+        }
+        updatePhoneHostHelpText(built.selectedOrigin);
+    };
+
+    if (phoneReachableHostInput) {
+        const rememberedHost = normalizeHostOrigin(window.localStorage.getItem(PHONE_HOST_STORAGE_KEY) || '');
+        if (rememberedHost) phoneReachableHostInput.value = rememberedHost;
+        phoneReachableHostInput.addEventListener('input', () => {
+            const normalized = normalizeHostOrigin(phoneReachableHostInput.value);
+            if (normalized) {
+                window.localStorage.setItem(PHONE_HOST_STORAGE_KEY, normalized);
+            } else {
+                window.localStorage.removeItem(PHONE_HOST_STORAGE_KEY);
+            }
+            refreshPhoneUploadLinkAndQr();
+        });
+    }
+
+    const setPhoneUploadStatus = (message, isError = false) => {
+        if (!phoneUploadStatus) return;
+        phoneUploadStatus.textContent = message || '';
+        phoneUploadStatus.style.color = isError ? '#9f1239' : '#0f4b73';
+    };
+
+    const renderPhoneUploadQr = (url) => {
+        if (!phoneQrBox) return;
+        phoneQrBox.innerHTML = '';
+        if (window.QRCode) {
+            activeQrInstance = new window.QRCode(phoneQrBox, {
+                text: url,
+                width: 220,
+                height: 220,
+                colorDark: '#0f172a',
+                colorLight: '#ffffff',
+                correctLevel: window.QRCode.CorrectLevel.M,
+            });
+            return;
+        }
+        phoneQrBox.innerHTML = '<p class="vr-qr-placeholder">QR library unavailable. Use the copy link button instead.</p>';
+    };
+
+    const attachFetchedPhoneUploadToInput = async (statusPayload) => {
+        if (!statusPayload || statusPayload.status !== 'uploaded') return false;
+        const inputId = activePhoneUploadTargetInputId;
+        const targetInput = document.getElementById(inputId);
+        const fileUrl = String(statusPayload.file_url || '');
+        if (!targetInput || !fileUrl) return false;
+
+        const response = await fetch(fileUrl, { credentials: 'same-origin' });
+        if (!response.ok) return false;
+        const blob = await response.blob();
+        const fileName = String(statusPayload.uploaded_name || `${targetInput.dataset.docLabel || 'phone-upload'}.jpg`);
+        const file = new File([blob], fileName, { type: blob.type || String(statusPayload.uploaded_mime || 'application/octet-stream') });
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        targetInput.files = transfer.files;
+        targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+    };
+
+    const pollPhoneUploadStatus = (token) => {
+        stopPhoneUploadPolling();
+        if (!token) return;
+        const statusUrl = phoneUploadStatusTemplate.replace('__TOKEN__', encodeURIComponent(token));
+        phoneUploadPollTimer = window.setInterval(async () => {
+            try {
+                const response = await fetch(statusUrl, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        setPhoneUploadStatus('QR session expired. Generate a new one.', true);
+                        stopPhoneUploadPolling();
+                    }
+                    return;
+                }
+
+                const statusPayload = await response.json();
+                if (statusPayload.status !== 'uploaded') return;
+
+                setPhoneUploadStatus('Upload received from phone. Attaching file...');
+                const attached = await attachFetchedPhoneUploadToInput(statusPayload);
+                if (!attached) {
+                    setPhoneUploadStatus('Upload found but attach failed. Please retry.', true);
+                    stopPhoneUploadPolling();
+                    return;
+                }
+
+                setPhoneUploadStatus('File attached successfully.');
+                stopPhoneUploadPolling();
+                window.setTimeout(() => {
+                    closeModal(phoneUploadModal);
+                    clearPhoneUploadUi();
+                }, 900);
+            } catch (error) {
+                setPhoneUploadStatus('Waiting for phone upload...');
+            }
+        }, 2200);
+    };
+
+    const openPhoneUploadBridge = async (inputId) => {
+        const targetInput = document.getElementById(inputId);
+        if (!targetInput || !phoneUploadModal) return;
+        clearPhoneUploadUi();
+        openModal(phoneUploadModal);
+
+        const docLabel = String(targetInput.dataset.docLabel || 'Document');
+        if (phoneUploadDocLabel) phoneUploadDocLabel.textContent = `Document: ${docLabel}`;
+        setPhoneUploadStatus('Creating secure QR session...');
+
+        try {
+            const response = await fetch(phoneUploadStartUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    target_input_id: inputId,
+                    doc_label: docLabel,
+                }),
+            });
+
+            if (!response.ok) {
+                setPhoneUploadStatus('Unable to start phone upload session.', true);
+                return;
+            }
+
+            const payload = await response.json();
+            if (!payload.ok || !payload.upload_url || !payload.token) {
+                setPhoneUploadStatus('Invalid QR session response.', true);
+                return;
+            }
+
+            activePhoneUploadTargetInputId = inputId;
+            activePhoneUploadToken = String(payload.token);
+            activePhoneUploadServerUrl = String(payload.upload_url);
+            refreshPhoneUploadLinkAndQr();
+            pollPhoneUploadStatus(activePhoneUploadToken);
+        } catch (error) {
+            setPhoneUploadStatus('Failed to create phone upload session.', true);
+        }
+    };
+
+    const populateCameraSources = async () => {
+        if (!cameraDeviceSelect || !navigator.mediaDevices?.enumerateDevices) return [];
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter((device) => device.kind === 'videoinput');
+        if (cameras.length === 0) {
+            cameraDeviceSelect.innerHTML = '<option value="">No camera detected</option>';
+            cameraDeviceSelect.disabled = true;
+            return cameras;
+        }
+        cameraDeviceSelect.disabled = false;
+        cameraDeviceSelect.innerHTML = cameras
+            .map((camera, index) => `<option value="${camera.deviceId}">${camera.label || `Camera ${index + 1}`}</option>`)
+            .join('');
+        return cameras;
+    };
+
+    const startCameraStream = async (preferredDeviceId = '') => {
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera API not supported in this browser.');
+        stopCameraStream();
+        let stream = null;
+        if (preferredDeviceId) {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { deviceId: { exact: preferredDeviceId } },
+                    audio: false,
+                });
+            } catch (error) {
+                // Fallback to generic request if specific device id fails.
+            }
+        }
+        if (!stream) {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: 'environment' } },
+                audio: false,
+            });
+        }
+        activeCameraStream = stream;
+        if (cameraVideo) {
+            cameraVideo.srcObject = activeCameraStream;
+            await cameraVideo.play().catch(() => {});
+        }
+        if (cameraEmptyState) cameraEmptyState.style.display = 'none';
+    };
+
+    const openCameraCaptureModal = async (inputId) => {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        currentCameraInputId = inputId;
+        if (!cameraModal) {
+            input.click();
+            return;
+        }
+        if (!isCameraContextReady()) {
+            setCameraStatus('Camera needs HTTPS or localhost. Open this app on secure context first.', true);
+            openModal(cameraModal);
+            if (cameraEmptyState) cameraEmptyState.style.display = 'flex';
+            return;
+        }
+        openModal(cameraModal);
+        setCameraStatus('Requesting camera access...');
+        try {
+            await startCameraStream();
+            const cameras = await populateCameraSources();
+            if (cameras.length === 0) {
+                setCameraStatus('No camera device detected. Connect phone as webcam, then click Refresh Cameras.', true);
+            } else {
+                if (cameraDeviceSelect && cameraDeviceSelect.value !== cameras[0].deviceId) {
+                    cameraDeviceSelect.value = cameras[0].deviceId;
+                }
+                setCameraStatus('Camera ready. Capture when document is visible.');
+            }
+        } catch (error) {
+            setCameraStatus('Unable to access camera. You can still upload a file manually.', true);
+            if (cameraEmptyState) cameraEmptyState.style.display = 'flex';
+        }
+    };
+
+    const openFilePreviewForInput = (inputId) => {
+        const input = document.getElementById(inputId);
+        if (!input || !filePreviewModal || !filePreviewContainer) return;
+        const selectedFile = input.files && input.files[0] ? input.files[0] : null;
+        clearFilePreview();
+        if (!selectedFile) {
+            if (filePreviewNote) filePreviewNote.textContent = 'No file to preview yet for this document field.';
+            openModal(filePreviewModal);
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(selectedFile);
+        activePreviewObjectUrl = objectUrl;
+        if (filePreviewTitle) {
+            const docLabel = input.dataset.docLabel || 'Document';
+            filePreviewTitle.textContent = `${docLabel} Preview`;
+        }
+        if (filePreviewNote) filePreviewNote.textContent = selectedFile.name;
+
+        if (selectedFile.type.startsWith('image/')) {
+            filePreviewContainer.innerHTML = `<img src="${objectUrl}" alt="Document preview" class="vr-file-preview-image">`;
+            openModal(filePreviewModal);
+            return;
+        }
+
+        if (selectedFile.type === 'application/pdf' || /\.pdf$/i.test(selectedFile.name)) {
+            filePreviewContainer.innerHTML = `<iframe src="${objectUrl}" class="vr-file-preview-pdf" title="PDF preview"></iframe>`;
+            openModal(filePreviewModal);
+            return;
+        }
+
+        filePreviewContainer.innerHTML = `<div class="vr-file-preview-empty">Preview unavailable for this file type.<br><a href="${objectUrl}" target="_blank" rel="noopener">Open file in new tab</a></div>`;
+        openModal(filePreviewModal);
+    };
 
     const openEditFromButton = (b) => {
         if (!editVesselForm) return;
@@ -264,6 +855,80 @@
         setDocReq('editEngineReceiptProofFile', b.dataset.engineReceiptUploaded || '0'); setDocReq('editValidIdFile', b.dataset.validIdUploaded || '0'); setDocReq('editInspectionCertificateFile', b.dataset.inspectionUploaded || '0');
         openModal(editModal);
     };
+
+    if (cameraDeviceSelect) {
+        cameraDeviceSelect.addEventListener('change', async () => {
+            const selectedId = cameraDeviceSelect.value || '';
+            if (!selectedId) return;
+            try {
+                await startCameraStream(selectedId);
+                setCameraStatus('Switched camera source.');
+            } catch (error) {
+                setCameraStatus('Unable to switch to selected camera source.', true);
+            }
+        });
+    }
+
+    if (refreshCameraSourcesButton) {
+        refreshCameraSourcesButton.addEventListener('click', async () => {
+            try {
+                const cameras = await populateCameraSources();
+                setCameraStatus(cameras.length ? 'Camera list updated.' : 'No camera source found.', !cameras.length);
+            } catch (error) {
+                setCameraStatus('Unable to refresh camera devices.', true);
+            }
+        });
+    }
+
+    if (navigator.mediaDevices?.addEventListener) {
+        navigator.mediaDevices.addEventListener('devicechange', async () => {
+            try {
+                const cameras = await populateCameraSources();
+                if (cameraModal?.classList.contains('is-open')) {
+                    setCameraStatus(cameras.length ? 'Camera devices changed. Select your device if needed.' : 'No camera source detected after device change.', !cameras.length);
+                }
+            } catch (error) {
+                // Ignore silent refresh errors on device-change.
+            }
+        });
+    }
+
+    if (captureCameraButton) {
+        captureCameraButton.addEventListener('click', async () => {
+            const targetInput = document.getElementById(currentCameraInputId);
+            if (!targetInput || !cameraVideo) return;
+            if (!activeCameraStream) {
+                setCameraStatus('Camera is not active. Please allow camera access first.', true);
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = cameraVideo.videoWidth || 1280;
+            canvas.height = cameraVideo.videoHeight || 720;
+            const context = canvas.getContext('2d');
+            if (!context) {
+                setCameraStatus('Capture failed. Please try again.', true);
+                return;
+            }
+            context.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    setCameraStatus('Capture failed. Please try again.', true);
+                    return;
+                }
+                const docName = (targetInput.dataset.docLabel || 'document').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                const file = new File([blob], `${docName}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+                const transfer = new DataTransfer();
+                transfer.items.add(file);
+                targetInput.files = transfer.files;
+                targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+                setCameraStatus('Photo captured and attached.');
+                stopCameraStream();
+                closeModal(cameraModal);
+            }, 'image/jpeg', 0.92);
+        });
+    }
 
     const currentSearchNodes = () => {
         const form = document.getElementById('vesselSearchForm');
@@ -351,6 +1016,39 @@
     };
 
     document.addEventListener('click', (event) => {
+        const openFileBtn = event.target.closest('.js-vr-open-file');
+        if (openFileBtn) {
+            event.preventDefault();
+            const inputId = openFileBtn.getAttribute('data-target-input') || '';
+            const input = document.getElementById(inputId);
+            if (input) input.click();
+            return;
+        }
+
+        const openCameraBtn = event.target.closest('.js-vr-open-camera');
+        if (openCameraBtn) {
+            event.preventDefault();
+            const inputId = openCameraBtn.getAttribute('data-target-input') || '';
+            openCameraCaptureModal(inputId);
+            return;
+        }
+
+        const openPhoneUploadBtn = event.target.closest('.js-vr-open-phone-upload');
+        if (openPhoneUploadBtn) {
+            event.preventDefault();
+            const inputId = openPhoneUploadBtn.getAttribute('data-target-input') || '';
+            openPhoneUploadBridge(inputId);
+            return;
+        }
+
+        const previewFileBtn = event.target.closest('.js-vr-preview-file');
+        if (previewFileBtn) {
+            event.preventDefault();
+            const inputId = previewFileBtn.getAttribute('data-target-input') || '';
+            openFilePreviewForInput(inputId);
+            return;
+        }
+
         const editButton = event.target.closest('.js-open-edit-vessel-btn');
         if (editButton) {
             openEditFromButton(editButton);
@@ -391,6 +1089,13 @@
         requestRegistrySearch(query, 260, state);
     });
 
+    document.addEventListener('change', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.classList.contains('js-vr-doc-input')) return;
+        syncDocFileName(target);
+    });
+
     document.addEventListener('submit', (event) => {
         const targetForm = event.target;
         if (!(targetForm instanceof HTMLFormElement)) return;
@@ -418,9 +1123,35 @@
 
     if (cancelDeleteButton) cancelDeleteButton.addEventListener('click', () => { pendingDeleteForm = null; closeModal(deleteModal); });
     if (confirmDeleteButton) confirmDeleteButton.addEventListener('click', () => { if (!pendingDeleteForm) return; const t = pendingDeleteForm; t.dataset.confirmed = '1'; pendingDeleteForm = null; closeModal(deleteModal); if (typeof t.requestSubmit === 'function') { t.requestSubmit(); return; } t.submit(); });
-    allModals.forEach((m) => m.addEventListener('click', (e) => { if (e.target !== m) return; if (m === registerModal) { const f = registerModal ? registerModal.querySelector('form') : null; if (f) f.reset(); } if (m === deleteModal) pendingDeleteForm = null; closeModal(m); }));
-    document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; const f = registerModal ? registerModal.querySelector('form') : null; if (f) f.reset(); pendingDeleteForm = null; closeModal(registerModal); closeModal(editModal); closeModal(deleteModal); });
+    allModals.forEach((m) => m.addEventListener('click', (e) => {
+        if (e.target !== m) return;
+        if (m === registerModal) { const f = registerModal ? registerModal.querySelector('form') : null; if (f) f.reset(); syncAllDocFileNames(); }
+        if (m === editModal) syncAllDocFileNames();
+        if (m === cameraModal) stopCameraStream();
+        if (m === filePreviewModal) clearFilePreview();
+        if (m === phoneUploadModal) clearPhoneUploadUi();
+        if (m === deleteModal) pendingDeleteForm = null;
+        closeModal(m);
+    }));
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const f = registerModal ? registerModal.querySelector('form') : null;
+        if (f) f.reset();
+        syncAllDocFileNames();
+        pendingDeleteForm = null;
+        stopCameraStream();
+        clearFilePreview();
+        clearPhoneUploadUi();
+        closeModal(registerModal);
+        closeModal(editModal);
+        closeModal(cameraModal);
+        closeModal(filePreviewModal);
+        closeModal(phoneUploadModal);
+        closeModal(deleteModal);
+    });
     lockBody();
+    syncAllDocFileNames();
+    updatePhoneHostHelpText();
 
     if (statusToast) {
         window.setTimeout(() => {

@@ -24,6 +24,7 @@ use App\Http\Controllers\Cemetery\CemeteryServiceLogController;
 use App\Http\Controllers\Cemetery\CemeteryTransactionController;
 use App\Http\Controllers\Fishport\FishportDashboardController;
 use App\Http\Controllers\Fishport\FishportLogController;
+use App\Http\Controllers\Fishport\FishportPhoneUploadController;
 use App\Http\Controllers\Fishport\FishportProfileController;
 use App\Http\Controllers\Fishport\FishportReportController;
 use App\Http\Controllers\Fishport\FishportSendPaymentController;
@@ -44,10 +45,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'landing')->name('home');
 Route::get('/login', [LoginController::class, 'showLogin'])->name('login');
-Route::post('/login', [LoginController::class, 'login'])->name('login.store');
+Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:login')->name('login.store');
 Route::get('/admin-login', [LoginController::class, 'showAdminLogin'])->name('admin.login');
-Route::post('/admin-login', [LoginController::class, 'adminLogin'])->name('admin.login.store');
+Route::post('/admin-login', [LoginController::class, 'adminLogin'])->middleware('throttle:admin-login')->name('admin.login.store');
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
+
+Route::get('/fishport/phone-upload/{token}', [FishportPhoneUploadController::class, 'show'])->name('fishport.phone_upload.show');
+Route::post('/fishport/phone-upload/{token}', [FishportPhoneUploadController::class, 'upload'])->name('fishport.phone_upload.upload');
 
 Route::middleware('auth')->group(function () {
     // Admin
@@ -81,12 +85,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/vessel-registry', [FishportVesselRegistryController::class, 'store'])->name('fishport.vessel_registry.store');
         Route::put('/vessel-registry/{fishportVessel}', [FishportVesselRegistryController::class, 'update'])->name('fishport.vessel_registry.update');
         Route::patch('/vessel-registry/{fishportVessel}/toggle-active', [FishportVesselRegistryController::class, 'toggleActive'])->name('fishport.vessel_registry.toggle_active');
-        Route::delete('/vessel-registry/{fishportVessel}', [FishportVesselRegistryController::class, 'destroy'])->name('fishport.vessel_registry.destroy');
+        Route::delete('/vessel-registry/{fishportVessel}', [FishportVesselRegistryController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('fishport.vessel_registry.destroy');
+        Route::post('/vessel-registry/phone-upload/start', [FishportPhoneUploadController::class, 'start'])->name('fishport.phone_upload.start');
+        Route::get('/vessel-registry/phone-upload/{token}/status', [FishportPhoneUploadController::class, 'status'])->name('fishport.phone_upload.status');
+        Route::get('/vessel-registry/phone-upload/{token}/file', [FishportPhoneUploadController::class, 'file'])->name('fishport.phone_upload.file');
         Route::get('/send-payment', [FishportSendPaymentController::class, 'index'])->name('fishport.send_payment');
-        Route::post('/send-payment', [FishportSendPaymentController::class, 'store'])->name('fishport.send_payment.store');
-        Route::patch('/send-payment/items/{dispatchItem}/cancel', [FishportSendPaymentController::class, 'cancel'])->name('fishport.send_payment.items.cancel');
-        Route::patch('/send-payment/items/{dispatchItem}/approve', [FishportSendPaymentController::class, 'approve'])->name('fishport.send_payment.items.approve');
-        Route::patch('/send-payment/items/{dispatchItem}/reject', [FishportSendPaymentController::class, 'reject'])->name('fishport.send_payment.items.reject');
+        Route::post('/send-payment', [FishportSendPaymentController::class, 'store'])->middleware('throttle:sensitive-actions')->name('fishport.send_payment.store');
+        Route::patch('/send-payment/items/{dispatchItem}/cancel', [FishportSendPaymentController::class, 'cancel'])->middleware('throttle:sensitive-actions')->name('fishport.send_payment.items.cancel');
+        Route::patch('/send-payment/items/{dispatchItem}/approve', [FishportSendPaymentController::class, 'approve'])->middleware('throttle:approval-actions')->name('fishport.send_payment.items.approve');
+        Route::patch('/send-payment/items/{dispatchItem}/reject', [FishportSendPaymentController::class, 'reject'])->middleware('throttle:approval-actions')->name('fishport.send_payment.items.reject');
         Route::get('/profile', [FishportProfileController::class, 'show'])->name('fishport.profile');
         Route::put('/profile', [FishportProfileController::class, 'update'])->name('fishport.profile.update');
         Route::get('/reports', [FishportReportController::class, 'index'])->name('fishport.reports');
@@ -99,9 +106,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/records/{fishportLog}/receipt/pdf', [FishportLogController::class, 'downloadReceiptPdf'])->name('fishport.records.receipt.pdf');
         Route::get('/records/{fishportLog}/edit', [FishportLogController::class, 'edit'])->name('fishport.records.edit');
         Route::put('/records/{fishportLog}', [FishportLogController::class, 'update'])->name('fishport.records.update');
-        Route::patch('/records/{fishportLog}/mark-paid', [FishportLogController::class, 'markPaid'])->name('fishport.records.mark_paid');
-        Route::patch('/records/{fishportLog}/cancel-payment', [FishportLogController::class, 'cancelPayment'])->name('fishport.records.cancel_payment');
-        Route::delete('/records/{fishportLog}', [FishportLogController::class, 'destroy'])->name('fishport.records.destroy');
+        Route::patch('/records/{fishportLog}/mark-paid', [FishportLogController::class, 'markPaid'])->middleware('throttle:approval-actions')->name('fishport.records.mark_paid');
+        Route::patch('/records/{fishportLog}/cancel-payment', [FishportLogController::class, 'cancelPayment'])->middleware('throttle:sensitive-actions')->name('fishport.records.cancel_payment');
+        Route::delete('/records/{fishportLog}', [FishportLogController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('fishport.records.destroy');
     });
 
     // Market
@@ -115,7 +122,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/stalls/csv', [MarketStallController::class, 'csv'])->name('market.stalls.csv');
         Route::post('/stalls', [MarketStallController::class, 'store'])->name('market.stalls.store');
         Route::put('/stalls/{marketStall}', [MarketStallController::class, 'update'])->name('market.stalls.update');
-        Route::delete('/stalls/{marketStall}', [MarketStallController::class, 'destroy'])->name('market.stalls.destroy');
+        Route::delete('/stalls/{marketStall}', [MarketStallController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('market.stalls.destroy');
         Route::post('/stalls/locations', [MarketStallController::class, 'storeLocation'])->name('market.stalls.locations.store');
         Route::post('/stalls/rates', [MarketStallController::class, 'storeLocationRate'])->name('market.stalls.rates.store');
         Route::get('/profile', [MarketProfileController::class, 'show'])->name('market.profile');
@@ -124,8 +131,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/send-payment/due-tracker', [MarketSendPaymentController::class, 'dueTracker'])->name('market.send_payment.due_tracker');
         Route::post('/send-payment', [MarketSendPaymentController::class, 'store'])->name('market.send_payment.store');
         Route::patch('/send-payment/items/{dispatchItem}/cancel', [MarketSendPaymentController::class, 'cancel'])->name('market.send_payment.items.cancel');
-        Route::patch('/send-payment/items/{dispatchItem}/approve', [MarketSendPaymentController::class, 'approve'])->name('market.send_payment.items.approve');
-        Route::patch('/send-payment/items/{dispatchItem}/reject', [MarketSendPaymentController::class, 'reject'])->name('market.send_payment.items.reject');
+        Route::patch('/send-payment/items/{dispatchItem}/approve', [MarketSendPaymentController::class, 'approve'])->middleware('throttle:approval-actions')->name('market.send_payment.items.approve');
+        Route::patch('/send-payment/items/{dispatchItem}/reject', [MarketSendPaymentController::class, 'reject'])->middleware('throttle:approval-actions')->name('market.send_payment.items.reject');
         Route::get('/records', [MarketTransactionController::class, 'index'])->name('market.records');
         Route::get('/reports', [MarketReportController::class, 'index'])->name('market.reports');
         Route::get('/reports/preview', [MarketReportController::class, 'preview'])->name('market.reports.preview');
@@ -140,24 +147,24 @@ Route::middleware('auth')->group(function () {
         Route::get('/records/csv', [CemeteryOccupantRecordController::class, 'csv'])->name('cemetery.records.csv');
         Route::post('/records', [CemeteryOccupantRecordController::class, 'store'])->name('cemetery.records.store');
         Route::put('/records/{occupantRecord}', [CemeteryOccupantRecordController::class, 'update'])->name('cemetery.records.update');
-        Route::delete('/records/{occupantRecord}', [CemeteryOccupantRecordController::class, 'destroy'])->name('cemetery.records.destroy');
+        Route::delete('/records/{occupantRecord}', [CemeteryOccupantRecordController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('cemetery.records.destroy');
         Route::get('/services', [CemeteryServiceLogController::class, 'index'])->name('cemetery.services');
         Route::get('/services/csv', [CemeteryServiceLogController::class, 'csv'])->name('cemetery.services.csv');
         Route::post('/services', [CemeteryServiceLogController::class, 'store'])->name('cemetery.services.store');
         Route::put('/services/{serviceLog}', [CemeteryServiceLogController::class, 'update'])->name('cemetery.services.update');
-        Route::delete('/services/{serviceLog}', [CemeteryServiceLogController::class, 'destroy'])->name('cemetery.services.destroy');
+        Route::delete('/services/{serviceLog}', [CemeteryServiceLogController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('cemetery.services.destroy');
         Route::get('/transactions', [CemeteryTransactionController::class, 'index'])->name('cemetery.transactions');
         Route::get('/transactions/csv', [CemeteryTransactionController::class, 'csv'])->name('cemetery.transactions.csv');
         Route::post('/transactions', [CemeteryTransactionController::class, 'store'])->name('cemetery.transactions.store');
         Route::put('/transactions/{transaction}', [CemeteryTransactionController::class, 'update'])->name('cemetery.transactions.update');
-        Route::delete('/transactions/{transaction}', [CemeteryTransactionController::class, 'destroy'])->name('cemetery.transactions.destroy');
+        Route::delete('/transactions/{transaction}', [CemeteryTransactionController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('cemetery.transactions.destroy');
         Route::get('/payments', [CemeteryPaymentCollectionController::class, 'index'])->name('cemetery.payments');
         Route::get('/payments/csv', [CemeteryPaymentCollectionController::class, 'csv'])->name('cemetery.payments.csv');
         Route::post('/payments', [CemeteryPaymentCollectionController::class, 'store'])->name('cemetery.payments.store');
         Route::post('/transactions/{transaction}/quick-pay', [CemeteryPaymentCollectionController::class, 'quickPay'])->name('cemetery.payments.quick_pay');
         Route::get('/payments/{paymentCollection}/receipt', [CemeteryPaymentCollectionController::class, 'receipt'])->name('cemetery.payments.receipt');
         Route::put('/payments/{paymentCollection}', [CemeteryPaymentCollectionController::class, 'update'])->name('cemetery.payments.update');
-        Route::delete('/payments/{paymentCollection}', [CemeteryPaymentCollectionController::class, 'destroy'])->name('cemetery.payments.destroy');
+        Route::delete('/payments/{paymentCollection}', [CemeteryPaymentCollectionController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('cemetery.payments.destroy');
         Route::get('/reports', [CemeteryReportController::class, 'index'])->name('cemetery.reports');
         Route::get('/reports/csv', [CemeteryReportController::class, 'csv'])->name('cemetery.reports.csv');
         Route::get('/reports/preview', [CemeteryReportController::class, 'preview'])->name('cemetery.reports.preview');
@@ -178,8 +185,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/send-payment', [TerminalParkingController::class, 'sendPayment'])->name('terminal.send_payment');
         Route::post('/payments/simple', [TerminalParkingController::class, 'storeSimplePayment'])->name('terminal.simple_payments.store');
         Route::put('/payments/simple/{quickPayment}', [TerminalParkingController::class, 'updateSimplePayment'])->name('terminal.simple_payments.update');
-        Route::delete('/payments/simple/{quickPayment}', [TerminalParkingController::class, 'destroySimplePayment'])->name('terminal.simple_payments.destroy');
-        Route::patch('/payments/simple/{quickPayment}/mark-paid', [TerminalParkingController::class, 'markSimplePaymentPaid'])->name('terminal.simple_payments.mark_paid');
+        Route::delete('/payments/simple/{quickPayment}', [TerminalParkingController::class, 'destroySimplePayment'])->middleware('throttle:destructive-actions')->name('terminal.simple_payments.destroy');
+        Route::patch('/payments/simple/{quickPayment}/mark-paid', [TerminalParkingController::class, 'markSimplePaymentPaid'])->middleware('throttle:approval-actions')->name('terminal.simple_payments.mark_paid');
     });
 
     // Atrium
@@ -196,7 +203,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/bookings/{event}', [AtriumBookingController::class, 'show'])->name('atrium.bookings.show');
         Route::get('/bookings/{event}/edit', [AtriumBookingController::class, 'edit'])->name('atrium.bookings.edit');
         Route::put('/bookings/{event}', [AtriumBookingController::class, 'update'])->name('atrium.bookings.update');
-        Route::delete('/bookings/{event}', [AtriumBookingController::class, 'destroy'])->name('atrium.bookings.destroy');
+        Route::delete('/bookings/{event}', [AtriumBookingController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('atrium.bookings.destroy');
         Route::patch('/bookings/{event}/cancel', [AtriumBookingController::class, 'cancel'])->name('atrium.bookings.cancel');
         Route::patch('/bookings/{event}/complete', [AtriumBookingController::class, 'complete'])->name('atrium.bookings.complete');
 
@@ -206,7 +213,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/payments/{payment}', [AtriumPaymentController::class, 'show'])->name('atrium.payments.show');
         Route::get('/payments/{payment}/edit', [AtriumPaymentController::class, 'edit'])->name('atrium.payments.edit');
         Route::put('/payments/{payment}', [AtriumPaymentController::class, 'update'])->name('atrium.payments.update');
-        Route::delete('/payments/{payment}', [AtriumPaymentController::class, 'destroy'])->name('atrium.payments.destroy');
+        Route::delete('/payments/{payment}', [AtriumPaymentController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('atrium.payments.destroy');
 
         Route::get('/reports', [AtriumReportController::class, 'index'])->name('atrium.reports');
         Route::get('/reports/preview', [AtriumReportController::class, 'preview'])->name('atrium.reports.preview');
@@ -220,8 +227,8 @@ Route::middleware('auth')->group(function () {
     Route::prefix('collector')->middleware('area:collector')->group(function () {
         Route::get('/dashboard', [CollectorCollectionController::class, 'dashboard'])->name('collector.dashboard');
         Route::get('/pending-collections', [CollectorCollectionController::class, 'pendingCollections'])->name('collector.pending_collections');
-        Route::post('/pending-collections/{dispatchItem}/collect', [CollectorCollectionController::class, 'collect'])->name('collector.pending_collections.collect');
-        Route::post('/payments/{dispatchItem}/cancel', [CollectorCollectionController::class, 'cancelAwaiting'])->name('collector.payments.cancel');
+        Route::post('/pending-collections/{dispatchItem}/collect', [CollectorCollectionController::class, 'collect'])->middleware('throttle:sensitive-actions')->name('collector.pending_collections.collect');
+        Route::post('/payments/{dispatchItem}/cancel', [CollectorCollectionController::class, 'cancelAwaiting'])->middleware('throttle:sensitive-actions')->name('collector.payments.cancel');
         Route::get('/payments', [CollectorCollectionController::class, 'payments'])->name('collector.payments');
         Route::get('/reports', [CollectorReportController::class, 'index'])->name('collector.reports');
         Route::get('/reports/csv', [CollectorReportController::class, 'csv'])->name('collector.reports.csv');

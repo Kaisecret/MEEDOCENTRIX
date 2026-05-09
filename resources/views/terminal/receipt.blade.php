@@ -12,9 +12,7 @@
 @endphp
 
 <div class="tm" data-server-rendered-page="send_payment" data-page-title="Terminal Receipt">
-    @if (session('status'))
-        <div class="tm-flash">{{ session('status') }}</div>
-    @endif
+    @include('terminal.partials.toast_stack')
 
     <section class="tm-card" style="max-width:840px;margin:0 auto;">
         <div class="tm-card-head">
@@ -64,4 +62,3 @@
     </section>
 </div>
 @endsection
-

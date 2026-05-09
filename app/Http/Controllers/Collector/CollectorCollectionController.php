@@ -74,6 +74,7 @@ class CollectorCollectionController extends Controller
                     $query->where('department_code', $departmentCode);
                 }
             });
+        $this->applyDepartmentVisibilityFilter($baseQuery, $departmentCode);
 
         $this->applyQueueDateFilter($baseQuery, $fromDate, $toDate);
 
@@ -130,6 +131,7 @@ class CollectorCollectionController extends Controller
                     $query->where('department_code', $departmentCode);
                 }
             });
+        $this->applyDepartmentVisibilityFilter($recentItemsQuery, $departmentCode);
 
         $this->applyQueueDateFilter($recentItemsQuery, $fromDate, $toDate);
 
@@ -310,6 +312,7 @@ class CollectorCollectionController extends Controller
                     $query->where('department_code', $departmentCode);
                 }
             });
+        $this->applyDepartmentVisibilityFilter($itemsQuery, $departmentCode);
 
         if ($search !== '') {
             $likeSearch = '%' . $search . '%';
@@ -353,6 +356,9 @@ class CollectorCollectionController extends Controller
 
         if (! in_array((string) $dispatchItem->status, ['sent', 'rejected'], true)) {
             return redirect()->back()->with('error', 'This transaction is not open for collection.');
+        }
+        if ($departmentCode === 'fishport' && (bool) ($dispatchItem->fishportLog?->is_paid ?? false)) {
+            return redirect()->back()->with('error', 'This transaction is already paid in Fishport and was removed from collector queue.');
         }
 
         $validated = $request->validate([
@@ -608,6 +614,7 @@ class CollectorCollectionController extends Controller
                     $query->where('department_code', $departmentCode);
                 }
             });
+        $this->applyDepartmentVisibilityFilter($itemsQuery, $departmentCode);
 
         if ($statusFilter === 'awaiting') {
             $itemsQuery->where('status', 'collected_pending_confirmation');
@@ -630,6 +637,7 @@ class CollectorCollectionController extends Controller
                     $query->where('department_code', $departmentCode);
                 }
             });
+        $this->applyDepartmentVisibilityFilter($baseCountQuery, $departmentCode);
 
         $counts = [
             'all' => (clone $baseCountQuery)->count(),
@@ -699,6 +707,17 @@ class CollectorCollectionController extends Controller
         $query
             ->where('created_at', '>=', $fromDate->copy()->startOfDay()->toDateTimeString())
             ->where('created_at', '<=', $toDate->copy()->endOfDay()->toDateTimeString());
+    }
+
+    private function applyDepartmentVisibilityFilter($query, ?string $departmentCode): void
+    {
+        if ($departmentCode !== 'fishport') {
+            return;
+        }
+
+        $query->whereHas('fishportLog', static function ($logQuery): void {
+            $logQuery->where('is_paid', false);
+        });
     }
 
     /**

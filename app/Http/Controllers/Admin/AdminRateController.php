@@ -12,6 +12,7 @@ use App\Models\FishportUnit;
 use App\Models\MarketStallLocation;
 use App\Models\MarketStallRate;
 use App\Models\MarketStallType;
+use App\Models\TerminalRouteFare;
 use App\Models\TerminalVehicleType;
 use App\Support\AppNotificationService;
 use App\Support\CemeteryFeeCalculator;
@@ -75,9 +76,12 @@ class AdminRateController extends Controller
             ->orderBy('location_code')
             ->get(['id', 'location_code', 'location_name', 'zone', 'floor_level', 'is_active']);
 
-        $terminalVehicleTypes = TerminalVehicleType::query()
-            ->orderBy('name')
-            ->get(['id', 'code', 'name', 'parking_fee_per_hour', 'description', 'is_active']);
+        $terminalRouteFares = TerminalRouteFare::query()
+            ->orderBy('vehicle_kind')
+            ->orderBy('fare_amount')
+            ->orderBy('sort_order')
+            ->orderBy('route_name')
+            ->get(['id', 'code', 'vehicle_kind', 'route_name', 'fare_amount', 'sort_order', 'is_active']);
 
         $atriumFunctionHalls = AtriumFunctionHall::query()
             ->orderBy('name')
@@ -111,9 +115,9 @@ class AdminRateController extends Controller
                 ])
             ),
             'terminal' => $this->stats(
-                $terminalVehicleTypes->map(fn (TerminalVehicleType $type): array => [
-                    'amount' => (float) $type->parking_fee_per_hour,
-                    'active' => (bool) $type->is_active,
+                $terminalRouteFares->map(fn (TerminalRouteFare $route): array => [
+                    'amount' => (float) $route->fare_amount,
+                    'active' => (bool) $route->is_active,
                 ])
             ),
             'atrium' => $this->stats(
@@ -133,14 +137,14 @@ class AdminRateController extends Controller
             'fishportCommodityClassifications' => $fishportCommodityClassifications,
             'marketStallTypes' => $marketStallTypes,
             'marketLocations' => $marketLocations,
-            'terminalVehicleTypes' => $terminalVehicleTypes,
+            'terminalRouteFares' => $terminalRouteFares,
             'atriumFunctionHalls' => $atriumFunctionHalls,
             'cemeteryFeeRules' => $cemeteryFeeRules,
             'lastUpdatedAt' => collect([
                 FishportPaymentType::query()->max('updated_at'),
                 MarketStallType::query()->max('updated_at'),
                 CemeteryFeeRule::query()->max('updated_at'),
-                TerminalVehicleType::query()->max('updated_at'),
+                TerminalRouteFare::query()->max('updated_at'),
                 AtriumFunctionHall::query()->max('updated_at'),
             ])->filter()->max(),
         ]);
@@ -178,11 +182,19 @@ class AdminRateController extends Controller
             'market_location_rates.*.is_active' => ['nullable', 'boolean'],
             'delete_terminal_vehicle_type_ids' => ['nullable', 'array'],
             'delete_terminal_vehicle_type_ids.*' => ['integer', Rule::exists('terminal_vehicle_types', 'id')],
-            'terminal_vehicle_types' => ['required', 'array', 'min:1'],
+            'terminal_vehicle_types' => ['nullable', 'array'],
             'terminal_vehicle_types.*.id' => ['required', 'integer', Rule::exists('terminal_vehicle_types', 'id')],
             'terminal_vehicle_types.*.parking_fee_per_hour' => ['required', 'numeric', 'min:0'],
             'terminal_vehicle_types.*.description' => ['nullable', 'string', 'max:1000'],
             'terminal_vehicle_types.*.is_active' => ['nullable', 'boolean'],
+            'delete_terminal_route_fare_ids' => ['nullable', 'array'],
+            'delete_terminal_route_fare_ids.*' => ['integer', Rule::exists('terminal_route_fares', 'id')],
+            'terminal_route_fares' => ['nullable', 'array'],
+            'terminal_route_fares.*.id' => ['required', 'integer', Rule::exists('terminal_route_fares', 'id')],
+            'terminal_route_fares.*.vehicle_kind' => ['required', 'string', 'max:80'],
+            'terminal_route_fares.*.route_name' => ['required', 'string', 'max:150'],
+            'terminal_route_fares.*.fare_amount' => ['required', 'numeric', 'min:0'],
+            'terminal_route_fares.*.is_active' => ['nullable', 'boolean'],
             'delete_atrium_function_hall_ids' => ['nullable', 'array'],
             'delete_atrium_function_hall_ids.*' => ['integer', Rule::exists('atrium_function_halls', 'id')],
             'atrium_function_halls' => ['required', 'array', 'min:1'],
@@ -204,6 +216,7 @@ class AdminRateController extends Controller
         $newMarketStallTypes = $this->validatedNewMarketStallTypes($request);
         $newMarketLocations = $this->validatedNewMarketLocations($request);
         $newTerminalVehicleTypes = $this->validatedNewTerminalVehicleTypes($request);
+        $newTerminalRouteFares = $this->validatedNewTerminalRouteFares($request);
         $newAtriumFunctionHalls = $this->validatedNewAtriumFunctionHalls($request);
         $newCemeteryFeeRules = $this->validatedNewCemeteryFeeRules($request);
         $deleteFishportPaymentTypeIds = $this->normalizedDeleteIds((array) ($validated['delete_fishport_payment_type_ids'] ?? []));
@@ -211,6 +224,7 @@ class AdminRateController extends Controller
         $deleteMarketStallTypeIds = $this->normalizedDeleteIds((array) ($validated['delete_market_stall_type_ids'] ?? []));
         $deleteMarketLocationRateIds = $this->normalizedDeleteIds((array) ($validated['delete_market_location_rate_ids'] ?? []));
         $deleteTerminalVehicleTypeIds = $this->normalizedDeleteIds((array) ($validated['delete_terminal_vehicle_type_ids'] ?? []));
+        $deleteTerminalRouteFareIds = $this->normalizedDeleteIds((array) ($validated['delete_terminal_route_fare_ids'] ?? []));
         $deleteAtriumFunctionHallIds = $this->normalizedDeleteIds((array) ($validated['delete_atrium_function_hall_ids'] ?? []));
         $deleteCemeteryFeeRuleIds = $this->normalizedDeleteIds((array) ($validated['delete_cemetery_fee_rule_ids'] ?? []));
 
@@ -220,6 +234,7 @@ class AdminRateController extends Controller
             'market_stall_types' => 0,
             'market_location_rates' => 0,
             'terminal_vehicle_types' => 0,
+            'terminal_route_fares' => 0,
             'atrium_function_halls' => 0,
             'cemetery_fee_rules' => 0,
         ];
@@ -229,6 +244,7 @@ class AdminRateController extends Controller
             'market_stall_types' => 0,
             'market_location_rates' => 0,
             'terminal_vehicle_types' => 0,
+            'terminal_route_fares' => 0,
             'atrium_function_halls' => 0,
             'cemetery_fee_rules' => 0,
         ];
@@ -240,6 +256,7 @@ class AdminRateController extends Controller
             $newMarketStallTypes,
             $newMarketLocations,
             $newTerminalVehicleTypes,
+            $newTerminalRouteFares,
             $newAtriumFunctionHalls,
             $newCemeteryFeeRules,
             $deleteFishportPaymentTypeIds,
@@ -247,6 +264,7 @@ class AdminRateController extends Controller
             $deleteMarketStallTypeIds,
             $deleteMarketLocationRateIds,
             $deleteTerminalVehicleTypeIds,
+            $deleteTerminalRouteFareIds,
             $deleteAtriumFunctionHallIds,
             $deleteCemeteryFeeRuleIds,
             &$deletedCounts,
@@ -257,6 +275,7 @@ class AdminRateController extends Controller
             $skipMarketStallTypeIds = $deleteMarketStallTypeIds;
             $skipMarketLocationRateIds = $deleteMarketLocationRateIds;
             $skipTerminalVehicleTypeIds = $deleteTerminalVehicleTypeIds;
+            $skipTerminalRouteFareIds = $deleteTerminalRouteFareIds;
             $skipAtriumFunctionHallIds = $deleteAtriumFunctionHallIds;
             $skipCemeteryFeeRuleIds = $deleteCemeteryFeeRuleIds;
 
@@ -353,6 +372,12 @@ class AdminRateController extends Controller
                 }
             }
 
+            if ($deleteTerminalRouteFareIds !== []) {
+                $deletedCounts['terminal_route_fares'] = TerminalRouteFare::query()
+                    ->whereIn('id', $deleteTerminalRouteFareIds)
+                    ->delete();
+            }
+
             if ($deleteAtriumFunctionHallIds !== []) {
                 $blockedDeleteIds = AtriumFunctionHall::query()
                     ->whereIn('id', $deleteAtriumFunctionHallIds)
@@ -429,7 +454,7 @@ class AdminRateController extends Controller
                 );
             }
 
-            foreach ($validated['terminal_vehicle_types'] as $row) {
+            foreach (($validated['terminal_vehicle_types'] ?? []) as $row) {
                 if (in_array((int) $row['id'], $skipTerminalVehicleTypeIds, true)) {
                     continue;
                 }
@@ -437,6 +462,19 @@ class AdminRateController extends Controller
                 TerminalVehicleType::query()->whereKey((int) $row['id'])->update([
                     'parking_fee_per_hour' => round((float) $row['parking_fee_per_hour'], 2),
                     'description' => trim((string) ($row['description'] ?? '')) ?: null,
+                    'is_active' => (bool) ($row['is_active'] ?? false),
+                ]);
+            }
+
+            foreach (($validated['terminal_route_fares'] ?? []) as $row) {
+                if (in_array((int) $row['id'], $skipTerminalRouteFareIds, true)) {
+                    continue;
+                }
+
+                TerminalRouteFare::query()->whereKey((int) $row['id'])->update([
+                    'vehicle_kind' => trim((string) $row['vehicle_kind']),
+                    'route_name' => trim((string) $row['route_name']),
+                    'fare_amount' => round((float) $row['fare_amount'], 2),
                     'is_active' => (bool) ($row['is_active'] ?? false),
                 ]);
             }
@@ -518,6 +556,20 @@ class AdminRateController extends Controller
                     'name' => trim((string) $row['name']),
                     'parking_fee_per_hour' => round((float) $row['parking_fee_per_hour'], 2),
                     'description' => trim((string) ($row['description'] ?? '')) ?: null,
+                    'is_active' => (bool) ($row['is_active'] ?? true),
+                ]);
+            }
+
+            $maxRouteSortOrder = (int) TerminalRouteFare::query()->max('sort_order');
+            foreach ($newTerminalRouteFares as $row) {
+                $maxRouteSortOrder += 10;
+
+                TerminalRouteFare::query()->create([
+                    'code' => strtolower(trim((string) $row['code'])),
+                    'vehicle_kind' => trim((string) $row['vehicle_kind']),
+                    'route_name' => trim((string) $row['route_name']),
+                    'fare_amount' => round((float) $row['fare_amount'], 2),
+                    'sort_order' => $maxRouteSortOrder,
                     'is_active' => (bool) ($row['is_active'] ?? true),
                 ]);
             }
@@ -756,6 +808,32 @@ class AdminRateController extends Controller
     /**
      * @return array<int, array<string, mixed>>
      */
+    private function validatedNewTerminalRouteFares(Request $request): array
+    {
+        $rows = $this->normalizeNewRows((array) $request->input('new_terminal_route_fares', []), [
+            'code', 'vehicle_kind', 'route_name', 'fare_amount', 'is_active',
+        ]);
+
+        if ($rows === []) {
+            return [];
+        }
+
+        return Validator::make(
+            ['rows' => $rows],
+            [
+                'rows' => ['array'],
+                'rows.*.code' => ['required', 'string', 'max:80', 'unique:terminal_route_fares,code'],
+                'rows.*.vehicle_kind' => ['required', 'string', 'max:80'],
+                'rows.*.route_name' => ['required', 'string', 'max:150'],
+                'rows.*.fare_amount' => ['required', 'numeric', 'min:0'],
+                'rows.*.is_active' => ['nullable', 'boolean'],
+            ]
+        )->validated()['rows'] ?? [];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     private function validatedNewAtriumFunctionHalls(Request $request): array
     {
         $rows = $this->normalizeNewRows((array) $request->input('new_atrium_function_halls', []), [
@@ -869,6 +947,7 @@ class AdminRateController extends Controller
             'market_stall_types' => 'Market stall type(s)',
             'market_location_rates' => 'Market location rate row(s)',
             'terminal_vehicle_types' => 'Terminal vehicle type(s)',
+            'terminal_route_fares' => 'Terminal route/operator fare row(s)',
             'atrium_function_halls' => 'Atrium hall(s)',
             'cemetery_fee_rules' => 'Cemetery fee rule(s)',
         ];

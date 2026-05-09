@@ -25,9 +25,7 @@
         </div>
     </section>
 
-    @if (session('status'))
-        <div class="tm-flash">{{ session('status') }}</div>
-    @endif
+    @include('terminal.partials.toast_stack')
 
     <section class="tm-rev-kpi-grid">
         <article class="tm-kpi">

@@ -22,6 +22,32 @@
             overflow-x: hidden;
         }
 
+        .page-back-btn {
+            position: fixed;
+            top: 18px;
+            left: 18px;
+            z-index: 40;
+            border: 1px solid #bfdbfe;
+            background: #eff6ff;
+            color: var(--accent-primary);
+            border-radius: 999px;
+            padding: 0.5rem 0.95rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            line-height: 1;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .page-back-btn:hover {
+            background: #dbeafe;
+            transform: translateY(-1px);
+            color: var(--accent-primary);
+        }
+
         .login-wrapper {
             max-width: 1100px; 
             min-height: 650px; 
@@ -352,6 +378,10 @@
     </style>
 </head>
 <body class="d-flex align-items-start align-items-md-center justify-content-center min-vh-100 p-3">
+    <a href="{{ route('home') }}" class="page-back-btn" aria-label="Back to landing page">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Back</span>
+    </a>
 
     <div class="container login-wrapper p-0" id="mainWrapper">
         
@@ -380,7 +410,7 @@
                 <div class="right-panel d-flex flex-column justify-content-center">
 
                     <div class="d-block d-lg-none text-center mb-4">
-                        <img src="{{ asset('images/meedologo.png') }}" alt="Meedocentrix Logo" style="width: 220px; max-width: 72vw; height: auto; margin-bottom: 0.8rem; object-fit: contain; object-position: center; position: relative; z-index: 0; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18));">
+                        <img src="{{ asset('images/mobilelogo.png') }}" alt="Meedocentrix Logo" style="width: 220px; max-width: 72vw; height: auto; margin-bottom: 0.8rem; object-fit: contain; object-position: center; position: relative; z-index: 0; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18));">
                     </div>
 
                     <div class="text-center mb-4">
@@ -440,6 +470,8 @@
             </div>
         </div>
     </div>
+
+    @include('shared.rate_limit_popup')
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     

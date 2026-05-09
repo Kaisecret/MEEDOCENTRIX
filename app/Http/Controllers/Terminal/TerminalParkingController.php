@@ -4,37 +4,18 @@ namespace App\Http\Controllers\Terminal;
 
 use App\Http\Controllers\Controller;
 use App\Models\TerminalQuickPayment;
+use App\Models\TerminalRouteFare;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class TerminalParkingController extends Controller
 {
-    /**
-     * @return array<string, array{label: string, vehicle_kind: string, fare: float}>
-     */
-    private static function routeFareConfig(): array
-    {
-        return [
-            'jeep_bugasong' => ['label' => 'Bugasong', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
-            'jeep_lindero' => ['label' => 'Lindero', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
-            'jeep_guinsangan' => ['label' => 'Guinsang-an', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
-            'jeep_patnongon' => ['label' => 'Patnongon', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
-            'jeep_sibalom' => ['label' => 'Sibalom', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
-            'jeep_bugo' => ['label' => 'Bugo', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
-            'jeep_san_remegio' => ['label' => 'San Remegio', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
-            'jeep_dao' => ['label' => 'Dao', 'vehicle_kind' => 'Jeep', 'fare' => 35.00],
-            'jeep_aniniy' => ['label' => 'Anini-y', 'vehicle_kind' => 'Jeep', 'fare' => 35.00],
-            'jeep_valderrama' => ['label' => 'Valderrama', 'vehicle_kind' => 'Jeep', 'fare' => 35.00],
-            'bus_ceres_iloilo' => ['label' => 'Ceres - Iloilo', 'vehicle_kind' => 'Bus', 'fare' => 60.00],
-            'bus_roro_alps' => ['label' => 'Roro - ALPS', 'vehicle_kind' => 'Bus', 'fare' => 100.00],
-            'bus_roro_ceres' => ['label' => 'Roro - Ceres', 'vehicle_kind' => 'Bus', 'fare' => 100.00],
-        ];
-    }
-
     public function index(Request $request): View
     {
         return $this->renderSimplePaymentsPage(
@@ -59,12 +40,12 @@ class TerminalParkingController extends Controller
 
     public function storeSimplePayment(Request $request): RedirectResponse
     {
-        $routeConfig = self::routeFareConfig();
+        $routeConfig = $this->routeFareConfig();
         $routeCodes = array_keys($routeConfig);
 
         $validated = $request->validate([
             'payer_name' => ['nullable', 'string', 'max:160'],
-            'ticket_number' => ['required', 'string', 'max:80', 'unique:terminal_quick_payments,ticket_number'],
+            'ticket_number' => ['required', 'digits:6', 'unique:terminal_quick_payments,ticket_number'],
             'route_code' => ['required', 'string', Rule::in($routeCodes)],
             'payment_date' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
@@ -100,15 +81,14 @@ class TerminalParkingController extends Controller
             return redirect()->back()->with('error', 'Paid records are read-only and can only be viewed in Payment History.');
         }
 
-        $routeConfig = self::routeFareConfig();
+        $routeConfig = $this->routeFareConfig();
         $routeCodes = array_keys($routeConfig);
 
         $validated = $request->validate([
             'payer_name' => ['nullable', 'string', 'max:160'],
             'ticket_number' => [
                 'required',
-                'string',
-                'max:80',
+                'digits:6',
                 Rule::unique('terminal_quick_payments', 'ticket_number')->ignore($quickPayment->id),
             ],
             'route_code' => ['required', 'string', Rule::in($routeCodes)],
@@ -210,6 +190,8 @@ class TerminalParkingController extends Controller
             ->onEachSide(1)
             ->withQueryString();
 
+        $routeFareConfig = $this->routeFareConfig();
+
         return view($view, [
             'payments' => $payments,
             'search' => $search,
@@ -219,8 +201,103 @@ class TerminalParkingController extends Controller
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
             'isHistoryMode' => $historyMode,
-            'routeFareConfig' => self::routeFareConfig(),
+            'routeFareConfig' => $routeFareConfig,
+            'routeGroups' => $this->routeFareGroups($routeFareConfig),
         ]);
+    }
+
+    /**
+     * @return array<string, array{label: string, vehicle_kind: string, fare: float}>
+     */
+    private function routeFareConfig(): array
+    {
+        if (! Schema::hasTable('terminal_route_fares')) {
+            return $this->fallbackRouteFareConfig();
+        }
+
+        try {
+            $routes = TerminalRouteFare::query()
+                ->where('is_active', true)
+                ->orderBy('vehicle_kind')
+                ->orderBy('fare_amount')
+                ->orderBy('sort_order')
+                ->orderBy('route_name')
+                ->get(['code', 'vehicle_kind', 'route_name', 'fare_amount']);
+        } catch (QueryException $exception) {
+            if ($this->isMissingTableException($exception, 'terminal_route_fares')) {
+                return $this->fallbackRouteFareConfig();
+            }
+
+            throw $exception;
+        }
+
+        if ($routes->isEmpty()) {
+            return $this->fallbackRouteFareConfig();
+        }
+
+        return $routes->mapWithKeys(static function (TerminalRouteFare $route): array {
+            return [
+                (string) $route->code => [
+                    'label' => (string) $route->route_name,
+                    'vehicle_kind' => (string) $route->vehicle_kind,
+                    'fare' => round((float) $route->fare_amount, 2),
+                ],
+            ];
+        })->all();
+    }
+
+    /**
+     * @return array<string, array{label: string, vehicle_kind: string, fare: float}>
+     */
+    private function fallbackRouteFareConfig(): array
+    {
+        return [
+            'jeep_bugasong' => ['label' => 'Bugasong', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_lindero' => ['label' => 'Lindero', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_guinsangan' => ['label' => 'Guinsang-an', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_patnongon' => ['label' => 'Patnongon', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_sibalom' => ['label' => 'Sibalom', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_bugo' => ['label' => 'Bugo', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_san_remegio' => ['label' => 'San Remegio', 'vehicle_kind' => 'Jeep', 'fare' => 20.00],
+            'jeep_dao' => ['label' => 'Dao', 'vehicle_kind' => 'Jeep', 'fare' => 35.00],
+            'jeep_aniniy' => ['label' => 'Anini-y', 'vehicle_kind' => 'Jeep', 'fare' => 35.00],
+            'jeep_valderrama' => ['label' => 'Valderrama', 'vehicle_kind' => 'Jeep', 'fare' => 35.00],
+            'bus_ceres_iloilo' => ['label' => 'Ceres - Iloilo', 'vehicle_kind' => 'Bus', 'fare' => 60.00],
+            'bus_roro_alps' => ['label' => 'Roro - ALPS', 'vehicle_kind' => 'Bus', 'fare' => 100.00],
+            'bus_roro_ceres' => ['label' => 'Roro - Ceres', 'vehicle_kind' => 'Bus', 'fare' => 100.00],
+        ];
+    }
+
+    private function isMissingTableException(QueryException $exception, string $tableName): bool
+    {
+        $sqlState = (string) ($exception->errorInfo[0] ?? '');
+        $driverCode = (string) ($exception->errorInfo[1] ?? '');
+        $message = strtolower($exception->getMessage());
+
+        return $sqlState === '42S02'
+            || $driverCode === '1146'
+            || str_contains($message, strtolower($tableName) . "' doesn't exist")
+            || str_contains($message, strtolower($tableName) . '` doesn\'t exist')
+            || str_contains($message, 'base table or view not found');
+    }
+
+    /**
+     * @param array<string, array{label: string, vehicle_kind: string, fare: float}> $routeConfig
+     * @return array<string, array<int, string>>
+     */
+    private function routeFareGroups(array $routeConfig): array
+    {
+        $groups = [];
+
+        foreach ($routeConfig as $routeCode => $route) {
+            $groupLabel = trim((string) $route['vehicle_kind']) . ' - PHP ' . number_format((float) $route['fare'], 2);
+            if (! array_key_exists($groupLabel, $groups)) {
+                $groups[$groupLabel] = [];
+            }
+            $groups[$groupLabel][] = (string) $routeCode;
+        }
+
+        return $groups;
     }
 
     /**

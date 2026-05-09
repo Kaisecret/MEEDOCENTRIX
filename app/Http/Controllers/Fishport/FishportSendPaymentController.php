@@ -102,15 +102,55 @@ class FishportSendPaymentController extends Controller
             })
             ->values();
 
-        $awaitingConfirmationItems = CollectionDispatchItem::query()
+        $awaitingConfirmationCount = (int) CollectionDispatchItem::query()
+            ->where('status', 'collected_pending_confirmation')
+            ->whereHas('dispatch', static fn ($dispatchQuery) => $dispatchQuery->where('department_code', 'fishport'))
+            ->count();
+
+        $awaitingConfirmationItemsQuery = CollectionDispatchItem::query()
             ->with([
                 'dispatch.collector:id,name',
                 'fishportLog:id,log_number,log_date,log_time,arr_dep,fishport_vessel_id,fishport_origin_id',
                 'fishportLog.vessel:id,name',
                 'fishportLog.origin:id,name',
+                'fishportLog.paymentRecord:id,fishport_log_id,payment_number',
             ])
-            ->where('status', 'collected_pending_confirmation')
-            ->whereHas('dispatch', static fn ($dispatchQuery) => $dispatchQuery->where('department_code', 'fishport'))
+            ->whereIn('status', ['collected_pending_confirmation', 'accepted', 'rejected'])
+            ->whereHas('dispatch', static fn ($dispatchQuery) => $dispatchQuery->where('department_code', 'fishport'));
+
+        if ($search !== '') {
+            $searchLike = '%' . $search . '%';
+            $awaitingConfirmationItemsQuery->where(function ($innerQuery) use ($searchLike): void {
+                $innerQuery->where('payer_name', 'like', $searchLike)
+                    ->orWhereHas('dispatch.collector', static fn ($collectorQuery) => $collectorQuery->where('name', 'like', $searchLike))
+                    ->orWhereHas('fishportLog', static function ($logQuery) use ($searchLike): void {
+                        $logQuery->where('log_number', 'like', $searchLike)
+                            ->orWhereHas('vessel', static fn ($vesselQuery) => $vesselQuery->where('name', 'like', $searchLike))
+                            ->orWhereHas('origin', static fn ($originQuery) => $originQuery->where('name', 'like', $searchLike))
+                            ->orWhereHas('paymentRecord', static fn ($paymentQuery) => $paymentQuery->where('payment_number', 'like', $searchLike));
+                    });
+            });
+        }
+
+        if ($period === 'today') {
+            $today = Carbon::today()->toDateString();
+            $awaitingConfirmationItemsQuery->whereDate('collected_at', $today);
+        } elseif ($period === 'week') {
+            $awaitingConfirmationItemsQuery->whereBetween('collected_at', [
+                Carbon::now()->startOfWeek()->startOfDay(),
+                Carbon::now()->endOfWeek()->endOfDay(),
+            ]);
+        } elseif ($period === 'custom') {
+            if ($from !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) === 1) {
+                $awaitingConfirmationItemsQuery->whereDate('collected_at', '>=', $from);
+            }
+
+            if ($to !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to) === 1) {
+                $awaitingConfirmationItemsQuery->whereDate('collected_at', '<=', $to);
+            }
+        }
+
+        $awaitingConfirmationItems = $awaitingConfirmationItemsQuery
             ->orderByDesc('collected_at')
             ->limit(50)
             ->get();
@@ -119,6 +159,7 @@ class FishportSendPaymentController extends Controller
             'logs' => $logs,
             'collectors' => $collectors,
             'openDispatchByLogId' => $openDispatchByLogId,
+            'awaitingConfirmationCount' => $awaitingConfirmationCount,
             'awaitingConfirmationItems' => $awaitingConfirmationItems,
             'period' => $period,
             'search' => $search,

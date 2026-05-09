@@ -124,7 +124,12 @@
                             <td>@if($item->review_note)<span class="cpm-review-note">{{ $item->review_note }}</span>@else<span class="cpm-sub">-</span>@endif</td>
                             <td>
                                 @if($item->proof_image_path)
-                                    <a href="{{ route('collection.proof', $item) }}" target="_blank" class="cpm-view-btn"><i class="fa-solid fa-image"></i> View</a>
+                                    <button
+                                        type="button"
+                                        class="cpm-view-btn js-cpm-proof-view-btn"
+                                        data-proof-url="{{ route('collection.proof', $item) }}"
+                                        data-proof-label="{{ $stall?->stall_no ?? '-' }} | {{ $paymentNo }}"
+                                    ><i class="fa-solid fa-image"></i> View</button>
                                 @else
                                     <span class="cpm-sub">No image</span>
                                 @endif
@@ -170,6 +175,26 @@
     </section>
 
     <div>{{ $items->links() }}</div>
+</div>
+
+<div class="cpm-modal-backdrop" id="cpmProofPreviewModal" aria-hidden="true">
+    <div class="cpm-modal" role="dialog" aria-modal="true" aria-labelledby="cpmProofPreviewTitle">
+        <div class="cpm-modal-head">
+            <h3 id="cpmProofPreviewTitle"><i class="fa-solid fa-image"></i> Proof Preview</h3>
+            <button type="button" class="cpm-modal-close" id="cpmProofPreviewCloseBtn" aria-label="Close">&times;</button>
+        </div>
+        <div class="cpm-modal-body">
+            <div style="display:grid;gap:8px;width:100%;">
+                <div id="cpmProofPreviewMeta" class="cpm-sub">-</div>
+                <div style="border:1px solid var(--cpm-border);border-radius:10px;background:#f8fafc;overflow:hidden;">
+                    <img id="cpmProofPreviewImage" src="" alt="Proof preview" style="display:block;width:100%;max-height:70vh;object-fit:contain;">
+                </div>
+            </div>
+        </div>
+        <div class="cpm-modal-foot">
+            <button type="button" class="cpm-cancel-btn" id="cpmProofPreviewCloseFootBtn">Close</button>
+        </div>
+    </div>
 </div>
 
 <div class="cpm-modal-backdrop" id="cpmResendModal" aria-hidden="true">
@@ -240,9 +265,14 @@ function cpmSetFile(input, labelId, subId) {
 
 (() => {
     const modal = document.getElementById('cpmResendModal');
+    const proofPreviewModal = document.getElementById('cpmProofPreviewModal');
     const resendForm = document.getElementById('cpmResendForm');
     const closeBtn = document.getElementById('cpmResendCloseBtn');
     const cancelBtn = document.getElementById('cpmResendCancelBtn');
+    const proofPreviewCloseBtn = document.getElementById('cpmProofPreviewCloseBtn');
+    const proofPreviewCloseFootBtn = document.getElementById('cpmProofPreviewCloseFootBtn');
+    const proofPreviewImage = document.getElementById('cpmProofPreviewImage');
+    const proofPreviewMeta = document.getElementById('cpmProofPreviewMeta');
     const stallTag = document.getElementById('cpmResendStall');
     const tenantTag = document.getElementById('cpmResendTenant');
     const contractTag = document.getElementById('cpmResendContract');
@@ -250,6 +280,7 @@ function cpmSetFile(input, labelId, subId) {
     const collectorNote = document.getElementById('cpmResendCollectorNote');
     const proofUpload = document.getElementById('cpmResendProofUpload');
     const proofCamera = document.getElementById('cpmResendProofCamera');
+    const cameraLabel = document.getElementById('cpmCameraLabel');
     const proofHint = document.getElementById('cpmResendProofHint');
     if (!modal || !resendForm) return;
 
@@ -269,6 +300,27 @@ function cpmSetFile(input, labelId, subId) {
         if (cameraSub) cameraSub.textContent = 'Capture photo';
     };
 
+    const openProofPreview = (url, label) => {
+        if (!proofPreviewModal || !proofPreviewImage) return;
+        proofPreviewImage.src = url || '';
+        if (proofPreviewMeta) {
+            proofPreviewMeta.textContent = label || '-';
+        }
+        proofPreviewModal.classList.add('is-open');
+        proofPreviewModal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    };
+
+    const closeProofPreview = () => {
+        if (!proofPreviewModal) return;
+        proofPreviewModal.classList.remove('is-open');
+        proofPreviewModal.setAttribute('aria-hidden', 'true');
+        if (proofPreviewImage) proofPreviewImage.src = '';
+        if (!modal.classList.contains('is-open')) {
+            document.body.style.overflow = '';
+        }
+    };
+
     document.querySelectorAll('.js-cpm-resend-btn').forEach((button) => {
         button.addEventListener('click', () => {
             resendForm.action = button.dataset.action || '';
@@ -280,6 +332,12 @@ function cpmSetFile(input, labelId, subId) {
             collectorNote.value = button.dataset.collectorNote || '';
             proofHint.innerHTML = '<i class="fa-solid fa-circle-info"></i> Upload or capture a new proof photo (required).';
             openModal();
+        });
+    });
+
+    document.querySelectorAll('.js-cpm-proof-view-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+            openProofPreview(button.dataset.proofUrl || '', button.dataset.proofLabel || 'Proof image');
         });
     });
 
@@ -296,10 +354,30 @@ function cpmSetFile(input, labelId, subId) {
         }
     });
 
+    const openCameraPicker = () => {
+        if (!proofCamera) return;
+        proofCamera.setAttribute('accept', 'image/*');
+        proofCamera.setAttribute('capture', 'environment');
+        proofCamera.click();
+    };
+
+    cameraLabel?.addEventListener('click', (event) => {
+        if (!proofCamera) return;
+        if (event.target === proofCamera) return;
+        event.preventDefault();
+        openCameraPicker();
+    });
+
     closeBtn?.addEventListener('click', closeModal);
     cancelBtn?.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal(); });
+    proofPreviewCloseBtn?.addEventListener('click', closeProofPreview);
+    proofPreviewCloseFootBtn?.addEventListener('click', closeProofPreview);
+    proofPreviewModal?.addEventListener('click', (e) => { if (e.target === proofPreviewModal) closeProofPreview(); });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+        if (e.key === 'Escape' && proofPreviewModal?.classList.contains('is-open')) closeProofPreview();
+    });
 })();
 </script>
 

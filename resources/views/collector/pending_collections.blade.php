@@ -50,6 +50,11 @@
 .cp-footer{display:flex;justify-content:flex-end;gap:8px;padding:.9rem 1.2rem;border-top:1px solid var(--cp-border);background:var(--cp-soft)}
 .cp-foot-btn{border-radius:9px;min-height:38px;padding:.52rem .95rem;border:1px solid var(--cp-border);background:#fff;font-size:.86rem;font-weight:700;cursor:pointer}
 .cp-foot-btn-primary{border-color:transparent;background:var(--cp-primary);color:#fff}
+.cp-camera-modal{width:min(700px,100%)}
+.cp-camera-wrap{display:grid;gap:10px}
+.cp-camera-frame{border:1px solid var(--cp-border);border-radius:10px;overflow:hidden;background:#0f172a;min-height:260px;display:grid;place-items:center}
+.cp-camera-video{width:100%;max-height:62vh;display:block}
+.cp-camera-note{margin:0;color:#64748b;font-size:.82rem}
 body.cp-lock-scroll{overflow:hidden}
 @media (max-width:768px){.cp-grid,.cp-proof{grid-template-columns:1fr}.cp-search{width:100%}}
 @media (max-width:640px){
@@ -277,6 +282,25 @@ body.cp-lock-scroll{overflow:hidden}
     </div>
 </div>
 
+<div class="cp-modal" id="cameraLiveModal" aria-hidden="true">
+    <div class="cp-modal-card cp-camera-modal" role="dialog" aria-modal="true" aria-labelledby="cameraLiveTitle">
+        <div class="cp-modal-head"><h3 id="cameraLiveTitle"><i class="fa-solid fa-camera" style="color:var(--cp-primary)"></i>Live Camera</h3><button type="button" class="cp-modal-close" data-close="cameraLiveModal">&times;</button></div>
+        <div class="cp-modal-body">
+            <div class="cp-camera-wrap">
+                <div class="cp-camera-frame">
+                    <video id="cameraLiveVideo" class="cp-camera-video" autoplay playsinline muted></video>
+                    <canvas id="cameraLiveCanvas" hidden></canvas>
+                </div>
+                <p class="cp-camera-note">Position your camera, then tap capture.</p>
+            </div>
+        </div>
+        <div class="cp-footer">
+            <button type="button" class="cp-foot-btn" data-close="cameraLiveModal">Cancel</button>
+            <button type="button" class="cp-foot-btn cp-foot-btn-primary" id="cameraCaptureBtn"><i class="fa-solid fa-camera-retro"></i>Capture Photo</button>
+        </div>
+    </div>
+</div>
+
 <div class="cp-modal" id="confirmModal" aria-hidden="true">
     <div class="cp-modal-card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" style="width:min(520px,100%)">
         <div class="cp-modal-head"><h3 id="confirmTitle"><i class="fa-solid fa-shield-check" style="color:var(--cp-primary)"></i>Confirm Submission</h3><button type="button" class="cp-modal-close" data-close="confirmModal">&times;</button></div>
@@ -302,6 +326,12 @@ body.cp-lock-scroll{overflow:hidden}
     const collectForm = document.getElementById('collectForm');
     const uploadInput = document.getElementById('uploadInput');
     const cameraInput = document.getElementById('cameraInput');
+    const cameraBox = document.getElementById('cameraBox');
+    const cameraLiveModal = document.getElementById('cameraLiveModal');
+    const cameraLiveVideo = document.getElementById('cameraLiveVideo');
+    const cameraLiveCanvas = document.getElementById('cameraLiveCanvas');
+    const cameraCaptureBtn = document.getElementById('cameraCaptureBtn');
+    let cameraStream = null;
 
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     const money = (v) => Number.isFinite(Number(v)) ? Number(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
@@ -325,7 +355,15 @@ body.cp-lock-scroll{overflow:hidden}
         }
     };
     const open = (m) => { if (!m) return; m.classList.add('is-open'); m.setAttribute('aria-hidden', 'false'); body.classList.add('cp-lock-scroll'); };
-    const close = (m) => { if (!m) return; m.classList.remove('is-open'); m.setAttribute('aria-hidden', 'true'); if (!document.querySelector('.cp-modal.is-open')) body.classList.remove('cp-lock-scroll'); };
+    const close = (m) => {
+        if (!m) return;
+        if (m === cameraLiveModal) {
+            stopLiveCamera();
+        }
+        m.classList.remove('is-open');
+        m.setAttribute('aria-hidden', 'true');
+        if (!document.querySelector('.cp-modal.is-open')) body.classList.remove('cp-lock-scroll');
+    };
 
     const renderItems = (listId, countId, items) => {
         const list = document.getElementById(listId);
@@ -348,8 +386,8 @@ body.cp-lock-scroll{overflow:hidden}
     };
 
     document.querySelectorAll('[data-close]').forEach((btn) => btn.addEventListener('click', () => close(document.getElementById(btn.dataset.close))));
-    [viewModal, collectModal, confirmModal].forEach((m) => m?.addEventListener('click', (e) => { if (e.target === m) close(m); }));
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') [confirmModal, collectModal, viewModal].forEach((m) => m?.classList.contains('is-open') && close(m)); });
+    [viewModal, collectModal, confirmModal, cameraLiveModal].forEach((m) => m?.addEventListener('click', (e) => { if (e.target === m) close(m); }));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') [cameraLiveModal, confirmModal, collectModal, viewModal].forEach((m) => m?.classList.contains('is-open') && close(m)); });
 
     document.querySelectorAll('.js-open-view').forEach((btn) => btn.addEventListener('click', () => {
         const items = parseItems(btn.dataset.items);
@@ -399,6 +437,77 @@ body.cp-lock-scroll{overflow:hidden}
     };
     uploadInput?.addEventListener('change', () => updateFileChip(uploadInput, 'uploadBox', 'uploadName', 'Browse gallery'));
     cameraInput?.addEventListener('change', () => updateFileChip(cameraInput, 'cameraBox', 'cameraName', 'Capture live photo'));
+
+    const stopLiveCamera = () => {
+        if (!cameraStream) return;
+        cameraStream.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
+        if (cameraLiveVideo) {
+            cameraLiveVideo.srcObject = null;
+        }
+    };
+
+    const closeCameraLiveModal = () => {
+        stopLiveCamera();
+        close(cameraLiveModal);
+    };
+
+    const openCameraPicker = () => {
+        if (!cameraInput) return;
+        cameraInput.setAttribute('accept', 'image/*');
+        cameraInput.setAttribute('capture', 'environment');
+        cameraInput.click();
+    };
+
+    const openLiveCamera = async () => {
+        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+            openCameraPicker();
+            return;
+        }
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: 'environment' } },
+                audio: false,
+            });
+            if (cameraLiveVideo) {
+                cameraLiveVideo.srcObject = cameraStream;
+            }
+            open(cameraLiveModal);
+        } catch (_error) {
+            openCameraPicker();
+        }
+    };
+
+    cameraBox?.addEventListener('click', (event) => {
+        if (!cameraInput) return;
+        if (event.target === cameraInput) return;
+        event.preventDefault();
+        openLiveCamera();
+    });
+
+    cameraCaptureBtn?.addEventListener('click', () => {
+        if (!cameraLiveVideo || !cameraLiveCanvas || !cameraInput) return;
+        const width = cameraLiveVideo.videoWidth || 1280;
+        const height = cameraLiveVideo.videoHeight || 720;
+        cameraLiveCanvas.width = width;
+        cameraLiveCanvas.height = height;
+        const ctx = cameraLiveCanvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(cameraLiveVideo, 0, 0, width, height);
+        cameraLiveCanvas.toBlob((blob) => {
+            if (!blob) return;
+            const file = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            cameraInput.files = dt.files;
+            updateFileChip(cameraInput, 'cameraBox', 'cameraName', 'Capture live photo');
+            closeCameraLiveModal();
+        }, 'image/jpeg', 0.92);
+    });
+
+    document.querySelectorAll('[data-close="cameraLiveModal"]').forEach((btn) => {
+        btn.addEventListener('click', closeCameraLiveModal);
+    });
 
     collectForm?.addEventListener('submit', (e) => {
         if (collectForm.dataset.confirmed === '1') { collectForm.dataset.confirmed = '0'; return; }

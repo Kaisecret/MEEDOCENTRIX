@@ -45,6 +45,7 @@
             'editingItems' => $editingItems,
             'editingPayments' => $editingPayments,
             'isEditing' => $isEditing,
+            'editingIsPaid' => $isEditing ? (bool) $editingLog->is_paid : false,
             'hasStatus' => session()->has('status'),
             'statusMessage' => session('status'),
             'printReceipt' => session('print_receipt_data'),
@@ -179,6 +180,90 @@
             color: var(--fp-muted);
         }
 
+        .fishport-step-guide {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+            padding: 14px;
+            margin-bottom: 14px;
+            background: linear-gradient(135deg, #eef5fb 0%, #f8fbfd 100%);
+            border: 1px solid #cfe0ee;
+            border-radius: 14px;
+        }
+
+        .fishport-step-guide-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: .88rem;
+            color: #1b3f5f;
+        }
+
+        .fishport-step-guide-num {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--fp-primary);
+            color: #fff;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .85rem;
+        }
+
+        .fishport-step-guide-text strong {
+            display: block;
+            color: #0f3454;
+            font-size: .94rem;
+            margin-bottom: 2px;
+        }
+
+        .fishport-step-guide-text span {
+            color: #4a6c8a;
+            line-height: 1.35;
+        }
+
+        .fishport-auto-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: .7rem;
+            font-weight: 700;
+            color: #1b6b3f;
+            background: #e0f5e8;
+            border: 1px solid #b6e0c5;
+            padding: 2px 7px;
+            border-radius: 999px;
+            margin-left: 6px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .fishport-required-badge {
+            display: inline-flex;
+            align-items: center;
+            font-size: .7rem;
+            font-weight: 700;
+            color: #b91c1c;
+            margin-left: 4px;
+        }
+
+        .fishport-empty-row td {
+            text-align: center;
+            color: var(--fp-muted);
+            padding: 22px 10px;
+            font-size: .9rem;
+        }
+
+        .fishport-empty-row .fishport-empty-icon {
+            display: block;
+            font-size: 1.6rem;
+            color: #94a8be;
+            margin-bottom: 6px;
+        }
+
         .fishport-panel-body {
             padding: 10px;
         }
@@ -187,6 +272,10 @@
             display: grid;
             gap: 10px;
             grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        }
+
+        .fishport-fields-log-header {
+            grid-template-columns: repeat(2, minmax(240px, 1fr));
         }
 
         .fishport-field label {
@@ -1215,9 +1304,9 @@
                         </div>
                     </div>
                     <div class="fishport-panel-body">
-                        <div class="fishport-fields">
+                        <div class="fishport-fields fishport-fields-log-header">
                             <div class="fishport-field full-width">
-                                <label for="sourceLogSelect">Logged Vessel Entry (From Vessel Logs)</label>
+                                <label for="sourceLogSelect">Logged Vessel Entry (From Vessel Logs) <span class="fishport-required-badge" title="Required">*</span></label>
                                 <div class="fishport-icon-wrap">
                                     <i class="fa-solid fa-list-check"></i>
                                     <select id="sourceLogSelect" class="fishport-select" @if($isEditing) disabled @endif>
@@ -1249,15 +1338,7 @@
                                 </div>
                             @endif
                             <div class="fishport-field">
-                                <label for="paymentNumberPreview">Payment Number</label>
-                                <div class="fishport-icon-wrap">
-                                    <i class="fa-solid fa-hashtag"></i>
-                                    <input id="paymentNumberPreview" class="fishport-input fishport-preview-input"
-                                        value="{{ $paymentNumberPreview }}" readonly>
-                                </div>
-                            </div>
-                            <div class="fishport-field">
-                                <label for="logNumberPreview">Linked Log Number</label>
+                                <label for="logNumberPreview">Linked Log Number <span class="fishport-auto-badge" title="Filled from selected vessel log"><i class="fa-solid fa-link"></i> Linked</span></label>
                                 <div class="fishport-icon-wrap">
                                     <i class="fa-solid fa-link"></i>
                                     <input id="logNumberPreview" class="fishport-input fishport-preview-input"
@@ -1265,55 +1346,21 @@
                                 </div>
                             </div>
                             <div class="fishport-field">
-                                <label for="logDate">Log Date</label>
-                                <div class="fishport-icon-wrap">
-                                    <i class="fa-regular fa-calendar"></i>
-                                    <input id="logDate" name="log_date" type="date" class="fishport-input"
-                                        value="{{ old('log_date', $isEditing ? optional($editingLog->log_date)->format('Y-m-d') : now()->format('Y-m-d')) }}"
-                                        required>
-                                </div>
-                            </div>
-                            <div class="fishport-field">
-                                <label for="logTime">Log Time</label>
-                                <div class="fishport-icon-wrap">
-                                    <i class="fa-regular fa-clock"></i>
-                                    <input id="logTime" name="log_time" type="time" class="fishport-input"
-                                        value="{{ old('log_time', $isEditing ? substr((string) $editingLog->log_time, 0, 5) : now()->format('H:i')) }}"
-                                        required>
-                                </div>
-                            </div>
-                            <div class="fishport-field">
-                                <label for="arrDep">ARR/DEP</label>
+                                <label for="arrDep">Movement</label>
                                 <div class="fishport-icon-wrap">
                                     <i class="fa-solid fa-arrows-left-right"></i>
                                     <select id="arrDep" name="arr_dep" class="fishport-select" required>
-                                        <option value="ARR" {{ old('arr_dep', $isEditing ? $editingLog->arr_dep : 'ARR') === 'ARR' ? 'selected' : '' }}>ARR</option>
-                                        <option value="DEP" {{ old('arr_dep', $isEditing ? $editingLog->arr_dep : 'ARR') === 'DEP' ? 'selected' : '' }}>DEP</option>
+                                        <option value="ARR" {{ old('arr_dep', $isEditing ? $editingLog->arr_dep : 'ARR') === 'ARR' ? 'selected' : '' }}>Arrival</option>
+                                        <option value="DEP" {{ old('arr_dep', $isEditing ? $editingLog->arr_dep : 'ARR') === 'DEP' ? 'selected' : '' }}>Departure</option>
                                     </select>
                                 </div>
                             </div>
-                            <div class="fishport-field">
-                                <label for="vesselNamePreview">Vessel (from selected log)</label>
-                                <div class="fishport-icon-wrap">
-                                    <i class="fa-solid fa-ship"></i>
-                                    <input id="vesselNamePreview" class="fishport-input fishport-preview-input" value="{{ $linkedVesselNamePreview }}" readonly>
-                                </div>
-                                <input id="vesselId" name="vessel_id" type="hidden" value="{{ old('vessel_id', $isEditing ? $editingLog->fishport_vessel_id : '') }}">
-                            </div>
-                            <div class="fishport-field">
-                                <label for="originId">Origin</label>
-                                <div class="fishport-icon-wrap">
-                                    <i class="fa-solid fa-location-dot"></i>
-                                    <select id="originId" name="origin_id" class="fishport-select" required>
-                                        <option value="">Select origin</option>
-                                        @foreach ($origins as $origin)
-                                            <option value="{{ $origin->id }}" {{ (string) old('origin_id', $isEditing ? $editingLog->fishport_origin_id : '') === (string) $origin->id ? 'selected' : '' }}>
-                                                {{ $origin->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
+                            <input id="logDate" name="log_date" type="hidden" value="{{ old('log_date', $isEditing ? optional($editingLog->log_date)->format('Y-m-d') : now()->format('Y-m-d')) }}">
+                            <input id="logTime" name="log_time" type="hidden" value="{{ old('log_time', $isEditing ? substr((string) $editingLog->log_time, 0, 5) : now()->format('H:i')) }}">
+                            <input id="vesselId" name="vessel_id" type="hidden" value="{{ old('vessel_id', $isEditing ? $editingLog->fishport_vessel_id : '') }}">
+                            <input id="originId" name="origin_id" type="hidden" value="{{ old('origin_id', $isEditing ? $editingLog->fishport_origin_id : '') }}">
+                            <input id="paymentNumberPreview" type="hidden" value="{{ $paymentNumberPreview }}">
+                            <input id="vesselNamePreview" type="hidden" value="{{ $linkedVesselNamePreview }}">
                             <input id="remarks" name="remarks" type="hidden"
                                 value="{{ old('remarks', $isEditing ? $editingLog->remarks : '') }}">
                         </div>
@@ -1326,7 +1373,7 @@
                             <h3><i class="fa-solid fa-boxes-stacked"></i> 2. Commodity Entries</h3>
                         </div>
                         <button type="button" id="addCommodityRowBtn"
-                            class="fishport-btn fishport-btn-sm fishport-btn-primary">Add Commodity</button>
+                            class="fishport-btn fishport-btn-sm fishport-btn-primary"><i class="fa-solid fa-plus"></i> Add Commodity</button>
                     </div>
                     <div class="fishport-table-wrap">
                         <table class="fishport-table">
@@ -1377,11 +1424,11 @@
                 </section>
 
                 <div class="fishport-actions">
-                    <button type="button" id="clearFormBtn" class="fishport-btn fishport-btn-muted">Reset Form</button>
+                    <button type="button" id="clearFormBtn" class="fishport-btn fishport-btn-muted"><i class="fa-solid fa-rotate-left"></i> Reset Form</button>
                     <button type="button" id="openSaveActionBtn"
                         class="fishport-btn fishport-btn-primary"
                         @if (!$isEditing && ! $hasPendingLogs) disabled @endif>
-                        {{ $isEditing ? 'Update Fishport Log' : 'Save Fishport Log' }}
+                        <i class="fa-solid fa-floppy-disk"></i> {{ $isEditing ? 'Update Fishport Log' : 'Save Fishport Log' }}
                     </button>
                 </div>
             </form>
@@ -1392,8 +1439,6 @@
                 <div class="fishport-panel-head">
                     <div>
                         <h3>Saved Fishport Logs</h3>
-                        <p class="fishport-panel-sub">Fast cursor pagination with server-side filtering for large datasets.
-                        </p>
                     </div>
                     <form method="GET" action="{{ route('fishport.records') }}" id="savedFiltersForm"
                         class="saved-search-shell">
@@ -1583,7 +1628,6 @@
                         <label for="markPaidPayerName">Name of Payer <span aria-hidden="true">*</span></label>
                         <input id="markPaidPayerName" type="text" class="fishport-input" maxlength="150"
                             placeholder="Enter the name of the person who paid this bill" autocomplete="name" required>
-                        <div class="fishport-field-hint">Required before marking this transaction as paid.</div>
                     </div>
                 </div>
                 <div class="save-action-foot">
@@ -1803,6 +1847,8 @@
                     const editingItems = Array.isArray(bootstrap.editingItems) ? bootstrap.editingItems : [];
                     const editingPayments = Array.isArray(bootstrap.editingPayments) ? bootstrap.editingPayments : [];
                     const isEditing = Boolean(bootstrap.isEditing);
+                    const editingIsPaid = Boolean(bootstrap.editingIsPaid);
+                    const allowEmptyPaidUpdate = isEditing && editingIsPaid;
                     const hasStatus = Boolean(bootstrap.hasStatus);
                     const statusMessage = typeof bootstrap.statusMessage === 'string' ? bootstrap.statusMessage : '';
                     const savedHasFilters = Boolean(bootstrap.savedHasFilters);
@@ -2157,6 +2203,19 @@
                         if (!saveActionModal) return;
                         saveActionModal.classList.add('is-open');
                         saveActionModal.setAttribute('aria-hidden', 'false');
+                        syncBackgroundScrollLock();
+                    }
+
+                    function setBackgroundScrollLock(locked) {
+                        const overflowValue = locked ? 'hidden' : '';
+                        document.body.style.overflow = overflowValue;
+                        document.documentElement.style.overflow = overflowValue;
+                    }
+
+                    function syncBackgroundScrollLock() {
+                        const hasOpenModal = [saveActionModal, markPaidModal, cancelPaymentModal, deleteLogModal, savedLogViewModal]
+                            .some((modal) => modal && modal.classList.contains('is-open'));
+                        setBackgroundScrollLock(hasOpenModal);
                     }
 
                     function autoHideStatusToast() {
@@ -2173,6 +2232,7 @@
                         if (!saveActionModal) return;
                         saveActionModal.classList.remove('is-open');
                         saveActionModal.setAttribute('aria-hidden', 'true');
+                        syncBackgroundScrollLock();
                     }
 
                     function closeMarkPaidModal() {
@@ -2183,6 +2243,7 @@
                             markPaidPayerName.value = '';
                         }
                         pendingMarkPaidForm = null;
+                        syncBackgroundScrollLock();
                     }
 
                     function openMarkPaidModal(formElement) {
@@ -2204,6 +2265,7 @@
 
                         markPaidModal.classList.add('is-open');
                         markPaidModal.setAttribute('aria-hidden', 'false');
+                        syncBackgroundScrollLock();
                         if (markPaidPayerName) {
                             window.setTimeout(() => markPaidPayerName.focus(), 30);
                         }
@@ -2214,6 +2276,7 @@
                         cancelPaymentModal.classList.remove('is-open');
                         cancelPaymentModal.setAttribute('aria-hidden', 'true');
                         pendingCancelPaymentForm = null;
+                        syncBackgroundScrollLock();
                     }
 
                     function openCancelPaymentModal(formElement) {
@@ -2232,6 +2295,7 @@
 
                         cancelPaymentModal.classList.add('is-open');
                         cancelPaymentModal.setAttribute('aria-hidden', 'false');
+                        syncBackgroundScrollLock();
                     }
 
                     function closeDeleteLogModal() {
@@ -2239,6 +2303,7 @@
                         deleteLogModal.classList.remove('is-open');
                         deleteLogModal.setAttribute('aria-hidden', 'true');
                         pendingDeleteLogForm = null;
+                        syncBackgroundScrollLock();
                     }
 
                     function openDeleteLogModal(formElement) {
@@ -2257,12 +2322,14 @@
 
                         deleteLogModal.classList.add('is-open');
                         deleteLogModal.setAttribute('aria-hidden', 'false');
+                        syncBackgroundScrollLock();
                     }
 
                     function closeSavedLogViewModal() {
                         if (!savedLogViewModal) return;
                         savedLogViewModal.classList.remove('is-open');
                         savedLogViewModal.setAttribute('aria-hidden', 'true');
+                        syncBackgroundScrollLock();
                     }
 
                     function renderSavedLogRows(log, mode) {
@@ -2345,6 +2412,7 @@
 
                         savedLogViewModal.classList.add('is-open');
                         savedLogViewModal.setAttribute('aria-hidden', 'false');
+                        syncBackgroundScrollLock();
                     }
 
                     function submitWithAction(shouldPrint) {
@@ -2470,14 +2538,14 @@
                             return false;
                         }
 
-                        if (state.items.length === 0) {
+                        if (state.items.length === 0 && !allowEmptyPaidUpdate) {
                             alert('Please enter at least one commodity with quantity.');
                             return false;
                         }
 
                         const paymentState = collectPaymentStateOnly();
                         const generatedPayments = buildPayments(paymentState);
-                        if (!Array.isArray(generatedPayments) || generatedPayments.length === 0) {
+                        if ((!Array.isArray(generatedPayments) || generatedPayments.length === 0) && !allowEmptyPaidUpdate) {
                             alert('No payment items generated. Please check ARR/DEP and commodity entries.');
                             return false;
                         }
@@ -3041,10 +3109,6 @@
                             }
                             targetForm.dataset.confirmed = '1';
                             closeMarkPaidModal();
-                            if (typeof targetForm.requestSubmit === 'function') {
-                                targetForm.requestSubmit();
-                                return;
-                            }
                             targetForm.submit();
                         });
                     }
@@ -3057,10 +3121,6 @@
                             const targetForm = pendingCancelPaymentForm;
                             targetForm.dataset.confirmed = '1';
                             closeCancelPaymentModal();
-                            if (typeof targetForm.requestSubmit === 'function') {
-                                targetForm.requestSubmit();
-                                return;
-                            }
                             targetForm.submit();
                         });
                     }
@@ -3073,10 +3133,6 @@
                             const targetForm = pendingDeleteLogForm;
                             targetForm.dataset.confirmed = '1';
                             closeDeleteLogModal();
-                            if (typeof targetForm.requestSubmit === 'function') {
-                                targetForm.requestSubmit();
-                                return;
-                            }
                             targetForm.submit();
                         });
                     }
@@ -3132,6 +3188,7 @@
                         closeDeleteLogModal();
                         closeSavedLogViewModal();
                     });
+                    window.addEventListener('beforeunload', () => setBackgroundScrollLock(false));
                     paymentRows.addEventListener('click', (e) => {
                         if (!e.target.matches('.remove-payment')) return;
                         const row = e.target.closest('tr');
@@ -3187,7 +3244,7 @@
                             alert(`Please enter a commodity name for row(s): ${state.invalidCommodityRows.join(', ')}`);
                             return;
                         }
-                        if (state.items.length === 0) { e.preventDefault(); alert('Please enter at least one commodity with quantity.'); return; }
+                        if (state.items.length === 0 && !allowEmptyPaidUpdate) { e.preventDefault(); alert('Please enter at least one commodity with quantity.'); return; }
                         const payments = [];
                         paymentRows.querySelectorAll('tr').forEach((row) => {
                             const typeId = Number(row.dataset.typeId);
@@ -3195,7 +3252,7 @@
                             const qty = toNum(row.querySelector('.qty').value);
                             if (typeId) payments.push({ payment_type_id: typeId, fee: Number(fee.toFixed(2)), quantity: Number(qty.toFixed(2)) });
                         });
-                        if (payments.length === 0) { e.preventDefault(); alert('No payment items generated.'); return; }
+                        if (payments.length === 0 && !allowEmptyPaidUpdate) { e.preventDefault(); alert('No payment items generated.'); return; }
                         itemsPayload.value = JSON.stringify(state.items);
                         paymentsPayload.value = JSON.stringify(payments);
                     });
@@ -3241,6 +3298,7 @@
                         if (Array.isArray(initialPayments) && initialPayments.length > 0) applyInitialPaymentOverrides(initialPayments);
                         recalc();
                     }
+                    syncBackgroundScrollLock();
                 })();
             </script>
 @endsection

@@ -701,25 +701,6 @@
             <a class="navbar-brand" href="{{ route('home') }}">
                 <img src="{{ asset('images/logoforsidebar-cropped.png') }}" class="brand-logo blue-tint-logo" alt="Meedocentrix Logo">
             </a>
-
-            <button class="navbar-toggler py-2 px-3" type="button" data-bs-toggle="collapse"
-                data-bs-target="#navbarNav">
-                <i class="fa-solid fa-bars" style="color: var(--primary); font-size: 1.4rem;"></i>
-            </button>
-
-            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                <ul class="navbar-nav align-items-center">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ route('home') }}">HOME</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">TEAM</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ route('login') }}">LOGIN</a>
-                    </li>
-                </ul>
-            </div>
         </nav>
 
         <!-- Hero Content Area -->
@@ -759,7 +740,7 @@
                                     <h3>Collector App</h3>
                                     <p>Active Session</p>
                                 </div>
-                                <div class="col-ui-body">
+                                <div class="col-ui-body" id="phoneScrollLeft">
                                     <div class="c-card">
                                         <div>
                                             <h4>Today's Total</h4>
@@ -843,7 +824,7 @@
                                     <h3>Collector App</h3>
                                     <p>Performance View</p>
                                 </div>
-                                <div class="col-ui-body">
+                                <div class="col-ui-body" id="phoneScrollRight">
                                     <div class="c-card">
                                         <div>
                                             <h4>Weekly Total</h4>
@@ -909,6 +890,84 @@
 
     </div>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+            const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            const easeInOutQuad = (t) => (t < 0.5)
+                ? 2 * t * t
+                : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+            const animateScroll = (element, target, duration) => new Promise((resolve) => {
+                const startTop = element.scrollTop;
+                const delta = target - startTop;
+
+                if (Math.abs(delta) < 1 || duration <= 0) {
+                    element.scrollTop = target;
+                    resolve();
+                    return;
+                }
+
+                const startTime = performance.now();
+
+                const step = (now) => {
+                    const progress = Math.min((now - startTime) / duration, 1);
+                    const eased = easeInOutQuad(progress);
+                    element.scrollTop = startTop + (delta * eased);
+
+                    if (progress < 1) {
+                        requestAnimationFrame(step);
+                    } else {
+                        resolve();
+                    }
+                };
+
+                requestAnimationFrame(step);
+            });
+
+            const runPhoneScrollLoop = async (element, config) => {
+                while (true) {
+                    const maxScroll = element.scrollHeight - element.clientHeight;
+                    if (maxScroll < 12) {
+                        await wait(2000);
+                        continue;
+                    }
+
+                    await wait(config.pauseTopMs);
+                    await animateScroll(element, maxScroll * config.downTargetRatio, config.downDurationMs);
+                    await wait(config.pauseBottomMs);
+                    await animateScroll(element, 0, config.upDurationMs);
+                }
+            };
+
+            const leftPhone = document.getElementById('phoneScrollLeft');
+            const rightPhone = document.getElementById('phoneScrollRight');
+
+            if (leftPhone) {
+                leftPhone.scrollTop = 0;
+                runPhoneScrollLoop(leftPhone, {
+                    downDurationMs: 3200,
+                    upDurationMs: 2200,
+                    pauseTopMs: 1200,
+                    pauseBottomMs: 1400,
+                    downTargetRatio: 0.95,
+                });
+            }
+
+            if (rightPhone) {
+                rightPhone.scrollTop = 0;
+                wait(450).then(() => runPhoneScrollLoop(rightPhone, {
+                    downDurationMs: 3600,
+                    upDurationMs: 2400,
+                    pauseTopMs: 1400,
+                    pauseBottomMs: 1600,
+                    downTargetRatio: 0.92,
+                }));
+            }
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 

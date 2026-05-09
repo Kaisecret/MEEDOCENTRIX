@@ -239,6 +239,9 @@ const notifFeedUrl = appContainer?.dataset.notifFeedUrl || null;
 const notifReadAllUrl = appContainer?.dataset.notifReadAllUrl || null;
 const notifViewAllUrl = appContainer?.dataset.notifViewAllUrl || '/notifications';
 const csrfToken = document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content') || '';
+const scopedSessionScope = serverRenderedRoleKey === 'administrator'
+    ? 'admin'
+    : (serverRenderedRoleKey || '');
 
 // ======================= AUTH & NAVIGATION =======================
 
@@ -497,7 +500,7 @@ function navigateTo(pageId) {
 
             const normalizedTargetPath = normalizePath(targetPath);
             if (normalizePath(window.location.pathname) !== normalizedTargetPath) {
-                window.location.href = normalizedTargetPath;
+                window.location.href = withSessionScope(normalizedTargetPath);
             }
             return;
         }
@@ -6035,6 +6038,64 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+function collectCollectorTabToken() {
+    if (scopedSessionScope !== 'collector') return '';
+    const clean = (value) => String(value || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+    const fromQuery = clean(new URLSearchParams(window.location.search).get('s'));
+    let fromStorage = '';
+    try {
+        fromStorage = clean(window.sessionStorage.getItem('collector_tab_token') || '');
+    } catch (error) {
+        fromStorage = '';
+    }
+    const token = fromQuery || fromStorage;
+    if (token) {
+        try {
+            window.sessionStorage.setItem('collector_tab_token', token);
+        } catch (error) {
+            // ignore sessionStorage errors
+        }
+    }
+    return token;
+}
+
+function withSessionScope(rawUrl) {
+    const url = String(rawUrl || '').trim();
+    if (!url || !scopedSessionScope) return url;
+
+    if (/^(mailto:|tel:|javascript:|#)/i.test(url)) {
+        return url;
+    }
+
+    let parsed;
+    try {
+        parsed = new URL(url, window.location.origin);
+    } catch (error) {
+        return url;
+    }
+
+    if (parsed.origin !== window.location.origin) {
+        return url;
+    }
+
+    if (!parsed.searchParams.get('session_scope')) {
+        parsed.searchParams.set('session_scope', scopedSessionScope);
+    }
+
+    if (scopedSessionScope === 'collector' && !parsed.searchParams.get('s')) {
+        const token = collectCollectorTabToken();
+        if (token) {
+            parsed.searchParams.set('s', token);
+        }
+    }
+
+    if (/^(https?:)?\/\//i.test(url)) {
+        return parsed.toString();
+    }
+
+    return parsed.pathname + (parsed.search || '') + (parsed.hash || '');
+}
+
 function updateNotificationBadge(unreadCount) {
     if (!notifBadge) return;
     const count = Number(unreadCount || 0);
@@ -6055,8 +6116,8 @@ function renderNotificationList(items) {
         const title = escapeHtml(item.title || 'Notification');
         const message = escapeHtml(item.message || '');
         const createdAt = escapeHtml(item.created_at_human || 'just now');
-        const markReadUrl = escapeHtml(item.mark_read_url || '');
-        const actionUrl = escapeHtml(item.action_url || notifViewAllUrl);
+        const markReadUrl = escapeHtml(withSessionScope(item.mark_read_url || ''));
+        const actionUrl = escapeHtml(withSessionScope(item.action_url || notifViewAllUrl));
 
         return `
             <a href=\"${actionUrl}\" class=\"${itemClass}\" data-notif-id=\"${item.id}\" data-mark-url=\"${markReadUrl}\">
@@ -6073,7 +6134,7 @@ function renderNotificationList(items) {
 async function refreshNotifications() {
     if (!notifFeedUrl) return;
     try {
-        const response = await fetch(notifFeedUrl, {
+        const response = await fetch(withSessionScope(notifFeedUrl), {
             headers: {
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
@@ -6092,8 +6153,9 @@ async function refreshNotifications() {
 
 async function markNotificationRead(markUrl) {
     if (!markUrl || !csrfToken) return;
+    const scopedMarkUrl = withSessionScope(markUrl);
     try {
-        const response = await fetch(markUrl, {
+        const response = await fetch(scopedMarkUrl, {
             method: 'PATCH',
             headers: {
                 'Accept': 'application/json',
@@ -6105,7 +6167,7 @@ async function markNotificationRead(markUrl) {
 
         if (response.ok) return;
 
-        await fetch(markUrl, {
+        await fetch(scopedMarkUrl, {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
@@ -6117,7 +6179,7 @@ async function markNotificationRead(markUrl) {
         });
     } catch (error) {
         try {
-            await fetch(markUrl, {
+            await fetch(scopedMarkUrl, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
@@ -6163,8 +6225,9 @@ document.addEventListener('click', (e) => {
 if (notifMarkAllBtn) {
     notifMarkAllBtn.addEventListener('click', async () => {
         if (!notifReadAllUrl || !csrfToken) return;
+        const scopedReadAllUrl = withSessionScope(notifReadAllUrl);
         try {
-            const response = await fetch(notifReadAllUrl, {
+            const response = await fetch(scopedReadAllUrl, {
                 method: 'PATCH',
                 headers: {
                     'Accept': 'application/json',
@@ -6175,7 +6238,7 @@ if (notifMarkAllBtn) {
             });
 
             if (!response.ok) {
-                await fetch(notifReadAllUrl, {
+                await fetch(scopedReadAllUrl, {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json',
@@ -6189,7 +6252,7 @@ if (notifMarkAllBtn) {
             refreshNotifications();
         } catch (error) {
             try {
-                await fetch(notifReadAllUrl, {
+                await fetch(scopedReadAllUrl, {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json',
@@ -6214,7 +6277,7 @@ if (notifList) {
         event.preventDefault();
         const markUrl = link.dataset.markUrl;
         await markNotificationRead(markUrl);
-        const href = link.getAttribute('href') || notifViewAllUrl;
+        const href = withSessionScope(link.getAttribute('href') || notifViewAllUrl);
         window.location.href = href;
     });
 }

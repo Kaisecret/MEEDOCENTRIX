@@ -60,6 +60,19 @@
     .mtr-empty { text-align:center; color:#64748b; padding:10px !important; }
     .mtr-proof-btn { display:inline-flex; align-items:center; gap:5px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; color:#334155; padding:.26rem .58rem; font-size:.76rem; text-decoration:none; }
     .mtr-proof-btn:hover { border-color:#0f5fa8; color:#0f5fa8; background:#f0f7ff; }
+    .mtr-proof-modal-wrap { position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:1800; padding:1rem; display:none; align-items:center; justify-content:center; }
+    .mtr-proof-modal-wrap.is-open { display:flex; }
+    .mtr-proof-modal { width:min(920px,96vw); max-height:calc(100vh - 2rem); display:flex; flex-direction:column; border-radius:14px; background:#fff; border:1px solid #e2e8f0; overflow:hidden; }
+    .mtr-proof-head { border-bottom:1px solid #e2e8f0; padding:.9rem 1.1rem; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .mtr-proof-head h4 { margin:0; color:#0f172a; font-size:.95rem; font-weight:800; }
+    .mtr-proof-close { width:34px; height:34px; border-radius:8px; border:1px solid #cbd5e1; background:#fff; color:#334155; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+    .mtr-proof-close:hover { border-color:#0f5fa8; color:#0f5fa8; background:#f0f7ff; }
+    .mtr-proof-body { padding:1rem 1.1rem; display:grid; gap:10px; }
+    .mtr-proof-meta { color:#64748b; font-size:.82rem; font-weight:700; }
+    .mtr-proof-image { width:100%; max-height:72vh; object-fit:contain; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; }
+    .mtr-proof-foot { border-top:1px solid #e2e8f0; padding:.75rem 1.1rem; display:flex; justify-content:flex-end; background:#f8fafc; }
+    .mtr-proof-foot-btn { border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#334155; font-size:.83rem; font-weight:700; padding:.45rem .85rem; cursor:pointer; }
+    .mtr-proof-foot-btn:hover { border-color:#0f5fa8; color:#0f5fa8; background:#f0f7ff; }
     .mtr-pager {
         border: 1px solid #e2e8f0;
         border-radius: 12px;
@@ -244,7 +257,12 @@
                             <td><span class="mtr-pill-status {{ $statusClass }}">{{ $statusLabel }}</span></td>
                             <td>
                                 @if ($item->proof_image_path)
-                                    <a href="{{ route('collection.proof', $item) }}" target="_blank" class="mtr-proof-btn"><i class="fa-solid fa-image"></i> View</a>
+                                    <button
+                                        type="button"
+                                        class="mtr-proof-btn js-mtr-proof-btn"
+                                        data-proof-url="{{ route('collection.proof', $item) }}"
+                                        data-proof-label="{{ $payment?->payment_number ?? '-' }} | {{ $stall?->stall_no ?? '-' }}"
+                                    ><i class="fa-solid fa-image"></i> View</button>
                                 @else
                                     <span class="mtr-sub">No image</span>
                                 @endif
@@ -284,4 +302,61 @@
         </div>
     @endif
 </div>
+
+<div class="mtr-proof-modal-wrap" id="mtrProofModal" aria-hidden="true">
+    <div class="mtr-proof-modal" role="dialog" aria-modal="true" aria-labelledby="mtrProofTitle">
+        <div class="mtr-proof-head">
+            <h4 id="mtrProofTitle"><i class="fa-solid fa-image"></i> Proof Preview</h4>
+            <button type="button" class="mtr-proof-close" id="mtrProofCloseBtn" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="mtr-proof-body">
+            <div class="mtr-proof-meta" id="mtrProofMeta">Record: -</div>
+            <img id="mtrProofImage" class="mtr-proof-image" src="" alt="Proof image preview">
+        </div>
+        <div class="mtr-proof-foot">
+            <button type="button" class="mtr-proof-foot-btn" id="mtrProofCloseFootBtn">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const proofModal = document.getElementById('mtrProofModal');
+        const proofImage = document.getElementById('mtrProofImage');
+        const proofMeta = document.getElementById('mtrProofMeta');
+        const closeBtn = document.getElementById('mtrProofCloseBtn');
+        const closeFootBtn = document.getElementById('mtrProofCloseFootBtn');
+
+        if (!proofModal || !proofImage) return;
+
+        const openProofModal = (url, label) => {
+            if (!url) return;
+            proofImage.src = url;
+            if (proofMeta) proofMeta.textContent = 'Record: ' + (label || '-');
+            proofModal.classList.add('is-open');
+            proofModal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        };
+
+        const closeProofModal = () => {
+            proofModal.classList.remove('is-open');
+            proofModal.setAttribute('aria-hidden', 'true');
+            proofImage.src = '';
+            document.body.style.overflow = '';
+        };
+
+        document.querySelectorAll('.js-mtr-proof-btn').forEach((button) => {
+            button.addEventListener('click', () => {
+                openProofModal(button.getAttribute('data-proof-url') || '', button.getAttribute('data-proof-label') || '-');
+            });
+        });
+
+        closeBtn?.addEventListener('click', closeProofModal);
+        closeFootBtn?.addEventListener('click', closeProofModal);
+        proofModal.addEventListener('click', (event) => { if (event.target === proofModal) closeProofModal(); });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && proofModal.classList.contains('is-open')) closeProofModal();
+        });
+    })();
+</script>
 @endsection

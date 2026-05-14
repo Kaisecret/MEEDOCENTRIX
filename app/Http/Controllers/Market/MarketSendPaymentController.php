@@ -14,6 +14,7 @@ use App\Support\MarketQueueLifecycle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -22,16 +23,9 @@ class MarketSendPaymentController extends Controller
 {
     public function index(Request $request): View
     {
-        $period = (string) $request->query('period', 'today');
-        if (! in_array($period, ['today', 'week', 'month', 'all', 'custom'], true)) {
-            $period = 'today';
-        }
-
         $search = trim((string) $request->query('q', ''));
-        $from = trim((string) $request->query('from', ''));
-        $to = trim((string) $request->query('to', ''));
         $now = Carbon::now();
-        MarketQueueLifecycle::autoCancelStaleSentItems($now);
+        $today = $now->copy()->startOfDay();
         MarketDueLogService::sync($now);
 
         $query = MarketStallLease::query()
@@ -67,14 +61,6 @@ class MarketSendPaymentController extends Controller
             });
         }
 
-        if ($period === 'today') {
-            $query->where('billing_period', 'daily');
-        } elseif ($period === 'week') {
-            $query->where('billing_period', 'weekly');
-        } elseif ($period === 'month') {
-            $query->where('billing_period', 'monthly');
-        }
-
         $openLeaseIds = CollectionDispatchItem::query()
             ->whereIn('status', ['sent', 'rejected', 'collected_pending_confirmation'])
             ->whereNotNull('market_stall_lease_id')
@@ -94,36 +80,23 @@ class MarketSendPaymentController extends Controller
         $leases = $query
             ->orderBy('start_date')
             ->orderBy('id')
-            ->get();
-
-        if ($period !== 'all') {
-            $customFromAt = $this->parseDateInput($from)?->setTime(7, 0, 0);
-            $customToAt = $this->parseDateInput($to)?->addDay()->setTime(7, 0, 0);
-
-            $leases = $leases
-                ->filter(function (MarketStallLease $lease) use ($period, $now, $customFromAt, $customToAt): bool {
-                    $nextDueAt = $this->resolveNextDueAt($lease);
-                    if ($nextDueAt === null) {
-                        return false;
-                    }
-
-                    if ($period === 'custom') {
-                        if (! $customFromAt || ! $customToAt || $customFromAt->gt($customToAt)) {
-                            return false;
-                        }
-
-                        return $nextDueAt->gte($customFromAt) && $nextDueAt->lt($customToAt);
-                    }
-
-                    return $nextDueAt->lte($now);
-                })
-                ->values();
-        }
+            ->get()
+            ->filter(fn (MarketStallLease $lease): bool => $this->isLeaseDueToday($lease, $today))
+            ->values();
 
         $collectors = CollectorDepartmentAssignment::query()
-            ->with(['collector:id,name,is_active', 'department:id,code,name'])
+            ->with(['collector:id,name,is_active,is_absent', 'department:id,code,name'])
             ->whereHas('department', static fn ($departmentQuery) => $departmentQuery->where('code', 'market'))
-            ->whereHas('collector', static fn ($collectorQuery) => $collectorQuery->where('is_active', true))
+            ->whereHas('collector', static function ($collectorQuery): void {
+                $collectorQuery->where('is_active', true);
+
+                if (Schema::hasColumn('users', 'is_absent')) {
+                    $collectorQuery->where(function ($availabilityQuery): void {
+                        $availabilityQuery->whereNull('is_absent')
+                            ->orWhere('is_absent', false);
+                    });
+                }
+            })
             ->orderByDesc('updated_at')
             ->get()
             ->map(static function (CollectorDepartmentAssignment $assignment): array {
@@ -151,17 +124,13 @@ class MarketSendPaymentController extends Controller
             'leases' => $leases,
             'collectors' => $collectors,
             'awaitingConfirmationItems' => $awaitingConfirmationItems,
-            'period' => $period,
             'search' => $search,
-            'from' => $from,
-            'to' => $to,
         ]);
     }
 
     public function dueTracker(Request $request): View
     {
         $now = Carbon::now();
-        MarketQueueLifecycle::autoCancelStaleSentItems($now);
         MarketDueLogService::sync($now);
         $dailyDueSummary = MarketDueLogService::dailySummary(30);
 
@@ -186,12 +155,22 @@ class MarketSendPaymentController extends Controller
         $assignment = CollectorDepartmentAssignment::query()
             ->where('collector_user_id', (int) $validated['collector_user_id'])
             ->whereHas('department', static fn ($departmentQuery) => $departmentQuery->where('code', 'market'))
+            ->whereHas('collector', static function ($collectorQuery): void {
+                $collectorQuery->where('is_active', true);
+
+                if (Schema::hasColumn('users', 'is_absent')) {
+                    $collectorQuery->where(function ($availabilityQuery): void {
+                        $availabilityQuery->whereNull('is_absent')
+                            ->orWhere('is_absent', false);
+                    });
+                }
+            })
             ->first();
 
         if (! $assignment) {
             return redirect()
                 ->back()
-                ->with('error', 'Selected collector is not assigned to Public Market.');
+                ->with('error', 'Selected collector is not available for Public Market assignment.');
         }
 
         $selectedLeaseIds = collect($validated['lease_ids'])
@@ -217,6 +196,9 @@ class MarketSendPaymentController extends Controller
         $openLeaseIds = CollectionDispatchItem::query()
             ->whereIn('market_stall_lease_id', $leases->pluck('id'))
             ->whereIn('status', ['sent', 'rejected', 'collected_pending_confirmation'])
+            ->whereHas('dispatch', static function ($dispatchQuery): void {
+                $dispatchQuery->where('department_code', 'market');
+            })
             ->pluck('market_stall_lease_id')
             ->map(static fn ($id): int => (int) $id)
             ->all();
@@ -474,6 +456,38 @@ class MarketSendPaymentController extends Controller
         $base = $this->monthlyCycleStartFromRegistration($registrationAt, $lastPaymentAt);
 
         return $base->addMonthsNoOverflow($cycles);
+    }
+
+    private function isLeaseDueToday(MarketStallLease $lease, Carbon $today): bool
+    {
+        $period = strtolower((string) ($lease->billing_period ?? 'monthly'));
+        if (! in_array($period, ['daily', 'weekly', 'monthly'], true)) {
+            $period = 'monthly';
+        }
+
+        $cycles = max(1, (int) ($lease->billing_cycles ?? 1));
+        $start = $lease->start_date instanceof Carbon
+            ? $lease->start_date->copy()->startOfDay()
+            : ($lease->created_at?->copy()->startOfDay());
+
+        if (! $start) {
+            return false;
+        }
+
+        $intervalDays = match ($period) {
+            'daily' => 1 * $cycles,
+            'weekly' => 7 * $cycles,
+            default => 30 * $cycles,
+        };
+
+        $firstDue = $start->copy()->addDays($intervalDays);
+        if ($today->lt($firstDue)) {
+            return false;
+        }
+
+        $elapsedDays = $firstDue->diffInDays($today);
+
+        return $elapsedDays % $intervalDays === 0;
     }
 
     private function marketDayStart(Carbon $moment): Carbon

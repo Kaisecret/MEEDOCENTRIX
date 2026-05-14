@@ -3,11 +3,14 @@
 namespace App\Support;
 
 use App\Models\CollectionDispatchItem;
+use App\Models\CollectionDispatch;
 use App\Models\MarketDueLog;
 use App\Models\MarketStallLease;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class MarketDueLogService
 {
@@ -89,6 +92,165 @@ class MarketDueLogService
                 'missed' => (int) $todayRow['missed'],
             ],
         ];
+    }
+
+    public static function enqueueAssignedDueItems(?Carbon $today = null, ?int $actorUserId = null, ?string $actorName = null): int
+    {
+        if (! Schema::hasColumn('market_stall_leases', 'collector_user_id')) {
+            return 0;
+        }
+
+        $today ??= now();
+        $dayStart = $today->copy()->startOfDay();
+        $todayDate = $dayStart->toDateString();
+
+        $dueLogs = MarketDueLog::query()
+            ->with([
+                'lease:id,collector_user_id,computed_rate_amount,lease_status,market_stall_id,market_tenant_id,billing_period,billing_cycles',
+                'lease.stall:id,stall_status,is_billable',
+            ])
+            ->whereDate('due_date', $todayDate)
+            ->where('status', 'due')
+            ->whereNull('collection_dispatch_item_id')
+            ->whereHas('lease', static function ($leaseQuery): void {
+                $leaseQuery
+                    ->whereNotNull('collector_user_id')
+                    ->where('lease_status', 'active')
+                    ->whereHas('stall', static function ($stallQuery): void {
+                        $stallQuery->where('stall_status', 'occupied')
+                            ->where('is_billable', true);
+                    });
+            })
+            ->orderBy('id')
+            ->get();
+
+        if ($dueLogs->isEmpty()) {
+            return 0;
+        }
+
+        $openLeaseIds = CollectionDispatchItem::query()
+            ->whereIn('status', ['sent', 'rejected', 'collected_pending_confirmation'])
+            ->whereNotNull('market_stall_lease_id')
+            ->whereHas('dispatch', static fn ($dispatchQuery) => $dispatchQuery->where('department_code', 'market'))
+            ->pluck('market_stall_lease_id')
+            ->filter(static fn ($id): bool => $id !== null)
+            ->map(static fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        $candidateLogs = $dueLogs
+            ->filter(static function (MarketDueLog $log) use ($openLeaseIds): bool {
+                $leaseId = (int) $log->market_stall_lease_id;
+                if ($leaseId <= 0) {
+                    return false;
+                }
+
+                return ! $openLeaseIds->contains($leaseId);
+            })
+            ->values();
+
+        if ($candidateLogs->isEmpty()) {
+            return 0;
+        }
+
+        $createdItems = 0;
+        $createdDispatchMeta = [];
+        $now = now();
+
+        DB::transaction(function () use (
+            $candidateLogs,
+            $actorUserId,
+            $todayDate,
+            $now,
+            &$createdItems,
+            &$createdDispatchMeta
+        ): void {
+            $dispatchByCollector = [];
+
+            foreach ($candidateLogs as $log) {
+                $lease = $log->lease;
+                $collectorUserId = (int) ($lease?->collector_user_id ?? 0);
+                if (! $lease || $collectorUserId <= 0) {
+                    continue;
+                }
+
+                $existingOpen = CollectionDispatchItem::query()
+                    ->where('market_stall_lease_id', (int) $lease->id)
+                    ->whereIn('status', ['sent', 'rejected', 'collected_pending_confirmation'])
+                    ->whereHas('dispatch', static fn ($dispatchQuery) => $dispatchQuery->where('department_code', 'market'))
+                    ->exists();
+
+                if ($existingOpen) {
+                    continue;
+                }
+
+                if (! isset($dispatchByCollector[$collectorUserId])) {
+                    $dispatch = CollectionDispatch::query()->create([
+                        'department_code' => 'market',
+                        'collector_user_id' => $collectorUserId,
+                        'sent_by_user_id' => $actorUserId,
+                        'period_type' => 'auto',
+                        'from_date' => $todayDate,
+                        'to_date' => $todayDate,
+                        'notes' => 'Auto-generated recurring market due queue.',
+                        'status' => 'sent',
+                        'sent_at' => $now,
+                    ]);
+
+                    $dispatchByCollector[$collectorUserId] = $dispatch;
+                    $createdDispatchMeta[$collectorUserId] = [
+                        'dispatch_id' => (int) $dispatch->id,
+                        'item_count' => 0,
+                    ];
+                }
+
+                /** @var CollectionDispatch $dispatch */
+                $dispatch = $dispatchByCollector[$collectorUserId];
+                $amount = round((float) ($log->expected_amount ?? $lease->computed_rate_amount ?? 0), 2);
+
+                $item = CollectionDispatchItem::query()->create([
+                    'collection_dispatch_id' => (int) $dispatch->id,
+                    'fishport_log_id' => null,
+                    'market_stall_lease_id' => (int) $lease->id,
+                    'payment_record_id' => null,
+                    'market_payment_collection_id' => null,
+                    'amount_snapshot' => $amount,
+                    'status' => 'sent',
+                ]);
+
+                $log->update([
+                    'status' => 'sent',
+                    'collection_dispatch_item_id' => (int) $item->id,
+                    'sent_at' => $now,
+                    'notes' => null,
+                ]);
+
+                $createdItems++;
+                $createdDispatchMeta[$collectorUserId]['item_count']++;
+            }
+        });
+
+        if ($createdItems > 0) {
+            $senderName = trim((string) $actorName) !== '' ? trim((string) $actorName) : 'Market recurring assignment';
+            foreach ($createdDispatchMeta as $collectorUserId => $meta) {
+                $itemCount = (int) ($meta['item_count'] ?? 0);
+                $dispatchId = (int) ($meta['dispatch_id'] ?? 0);
+                if ($itemCount <= 0 || $dispatchId <= 0) {
+                    continue;
+                }
+
+                AppNotificationService::notifyDispatchSent(
+                    departmentCode: 'market',
+                    dispatchId: $dispatchId,
+                    collectorUserId: (int) $collectorUserId,
+                    itemCount: $itemCount,
+                    actorName: $senderName,
+                    createdByUserId: $actorUserId
+                );
+            }
+        }
+
+        return $createdItems;
     }
 
     /**
@@ -259,8 +421,8 @@ class MarketDueLogService
 
         return match ($period) {
             'daily' => $next->addDays($cycles),
-            'weekly' => $next->addWeeks($cycles),
-            default => $next->addMonthsNoOverflow($cycles),
+            'weekly' => $next->addDays(7 * $cycles),
+            default => $next->addDays(30 * $cycles),
         };
     }
 }

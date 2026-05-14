@@ -8,7 +8,6 @@ use App\Models\MarketStall;
 use App\Models\MarketStallLease;
 use App\Models\MarketTenant;
 use App\Support\MarketDueLogService;
-use App\Support\MarketQueueLifecycle;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -18,7 +17,6 @@ class MarketDashboardController extends Controller
 {
     public function index(Request $request): View
     {
-        MarketQueueLifecycle::autoCancelStaleSentItems();
         MarketDueLogService::sync();
 
         $today = Carbon::today();
@@ -149,6 +147,7 @@ class MarketDashboardController extends Controller
                 'accepted' => (int) ($item->accepted_count ?? 0),
                 'pending' => (int) ($item->pending_count ?? 0),
                 'awaiting' => (int) ($item->awaiting_count ?? 0),
+                'total' => (int) ($item->accepted_count ?? 0) + (int) ($item->pending_count ?? 0) + (int) ($item->awaiting_count ?? 0),
             ]);
         }
 

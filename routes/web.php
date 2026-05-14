@@ -61,7 +61,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/dashboard/departments/{department}', [AdminDashboardController::class, 'department'])->name('admin.dashboard.department');
         Route::get('/users', [UserManagementController::class, 'index'])->name('admin.users');
         Route::post('/users', [UserManagementController::class, 'store'])->name('admin.users.store');
+        Route::put('/users/{user}', [UserManagementController::class, 'update'])->middleware('throttle:sensitive-actions')->name('admin.users.update');
+        Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('admin.users.destroy');
         Route::post('/users/collector-assignments', [UserManagementController::class, 'assignCollector'])->name('admin.users.collector_assignments.store');
+        Route::post('/users/collector-assignments/{collector}/generate-missed-notice', [UserManagementController::class, 'generateMissedPaymentNotice'])
+            ->middleware('throttle:sensitive-actions')
+            ->name('admin.users.collector_assignments.generate_missed_notice');
         Route::get('/roles', [RoleManagementController::class, 'index'])->name('admin.roles');
         Route::post('/roles', [RoleManagementController::class, 'storeRole'])->name('admin.roles.store');
         Route::put('/roles/{role}', [RoleManagementController::class, 'updateRole'])->name('admin.roles.update');
@@ -117,6 +122,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/vendors', [MarketTenantController::class, 'index'])->name('market.vendors');
         Route::get('/vendors/csv', [MarketTenantController::class, 'csv'])->name('market.vendors.csv');
         Route::get('/vendors/{marketTenant}', [MarketTenantController::class, 'edit'])->name('market.vendors.edit');
+        Route::get('/vendors/{marketTenant}/final-notice/pdf', [MarketTenantController::class, 'finalNoticePdf'])->name('market.vendors.final_notice.pdf');
         Route::put('/vendors/{marketTenant}', [MarketTenantController::class, 'update'])->name('market.vendors.update');
         Route::get('/stalls', [MarketStallController::class, 'index'])->name('market.stalls');
         Route::get('/stalls/csv', [MarketStallController::class, 'csv'])->name('market.stalls.csv');

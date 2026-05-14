@@ -37,15 +37,6 @@
 
     <section class="sp-card">
         <form method="GET" action="{{ route('market.send_payment') }}" class="sp-filter-row" id="spFilterForm">
-            <select name="period" class="sp-input">
-                <option value="today" {{ $period === 'today' ? 'selected' : '' }}>Today</option>
-                <option value="week" {{ $period === 'week' ? 'selected' : '' }}>This Week</option>
-                <option value="month" {{ $period === 'month' ? 'selected' : '' }}>This Month</option>
-                <option value="all" {{ $period === 'all' ? 'selected' : '' }}>All Dates</option>
-                <option value="custom" {{ $period === 'custom' ? 'selected' : '' }}>Custom Range</option>
-            </select>
-            <input type="date" name="from" value="{{ $from }}" class="sp-input">
-            <input type="date" name="to" value="{{ $to }}" class="sp-input">
             <input type="text" name="q" value="{{ $search }}" placeholder="Search stall no, tenant, contract..." class="sp-input sp-input-search">
         </form>
     </section>
@@ -53,12 +44,9 @@
     <section class="sp-card">
         <form method="POST" action="{{ route('market.send_payment.store') }}" id="sendBatchForm">
             @csrf
-            <input type="hidden" name="period_type" value="{{ $period }}">
-            <input type="hidden" name="from_date" value="{{ $from }}">
-            <input type="hidden" name="to_date" value="{{ $to }}">
 
             <div class="sp-batch-head">
-                <h3><i class="fa-solid fa-list-check"></i>Market Lease Charges Ready for Collector</h3>
+                <h3><i class="fa-solid fa-list-check"></i>Manual Market Collector Assignment</h3>
                 <div class="sp-batch-controls">
                     <label>
                         Collector
@@ -70,7 +58,7 @@
                         </select>
                     </label>
                     <button type="submit" class="sp-send-btn" {{ $collectors->isEmpty() ? 'disabled' : '' }}>
-                        <i class="fa-solid fa-paper-plane"></i> Send Selected
+                        <i class="fa-solid fa-user-check"></i> Assign Selected
                     </button>
                 </div>
             </div>
@@ -90,7 +78,7 @@
                             <th>Contract</th>
                             <th>Billing</th>
                             <th>Amount</th>
-                            <th>Queue Status</th>
+                            <th>Assignment</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -121,12 +109,12 @@
                                 <td>{{ ucfirst((string) ($lease->billing_period ?? 'monthly')) }} x {{ (int) ($lease->billing_cycles ?? 1) }}</td>
                                 <td>PHP {{ number_format($amount, 2) }}</td>
                                 <td>
-                                    <span class="sp-pill sp-pill-green">Ready</span>
+                                    <span class="sp-pill sp-pill-green">Unassigned</span>
                                 </td>
                                 <td><span class="sp-sub">-</span></td>
                             </tr>
                         @empty
-                            <tr><td colspan="9" class="sp-empty"><span class="sp-empty-icon"><i class="fa-solid fa-magnifying-glass"></i></span>No billable lease transactions for this filter.</td></tr>
+                            <tr><td colspan="9" class="sp-empty"><span class="sp-empty-icon"><i class="fa-solid fa-magnifying-glass"></i></span>No due-today lease transactions found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -172,9 +160,14 @@
                             <td>PHP {{ number_format((float) $item->amount_snapshot, 2) }}</td>
                             <td>
                                 @if ($item->proof_image_path)
-                                    <a href="{{ route('collection.proof', $item) }}" target="_blank" class="sp-btn-outline">
+                                    <button
+                                        type="button"
+                                        class="sp-btn-outline js-proof-preview-btn"
+                                        data-proof-url="{{ route('collection.proof', $item) }}"
+                                        data-proof-label="{{ $stall?->stall_no ?? '-' }} | {{ $tenant?->fullName() ?: '-' }}"
+                                    >
                                         <i class="fas fa-image"></i> View
-                                    </a>
+                                    </button>
                                 @else
                                     <span class="sp-sub">No image</span>
                                 @endif
@@ -205,10 +198,26 @@
     </section>
 </div>
 
+<div class="sp-modal-backdrop" id="proofPreviewModal">
+    <div class="sp-modal sp-proof-modal" role="dialog" aria-modal="true" aria-labelledby="proofPreviewTitle">
+        <div class="sp-modal-head">
+            <h3 id="proofPreviewTitle">Collection Proof Preview</h3>
+            <button type="button" class="sp-modal-close" data-close-modal="proofPreviewModal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="sp-proof-body">
+            <div class="sp-proof-meta" id="proofPreviewMeta">Record: -</div>
+            <img id="proofPreviewImage" src="" alt="Collection proof image preview">
+        </div>
+        <div class="sp-modal-foot">
+            <button type="button" class="btn btn-secondary" data-close-modal="proofPreviewModal">Close</button>
+        </div>
+    </div>
+</div>
+
 <div class="sp-modal-backdrop" id="confirmSendModal">
     <div class="sp-modal">
         <div class="sp-modal-head">
-            <h3>Confirm Send to Collector</h3>
+            <h3>Confirm Assignment</h3>
             <button type="button" class="sp-modal-close" data-close-modal="confirmSendModal"><i class="fas fa-times"></i></button>
         </div>
         <div class="sp-modal-body">
@@ -244,7 +253,7 @@
 .sp-kpis div{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:.45rem .6rem;text-align:center;min-width:80px}
 .sp-kpis span{font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;opacity:.85;display:block;margin-bottom:3px}.sp-kpis strong{font-size:1.1rem;font-weight:800;line-height:1}
 .sp-card{background:#fff;border:1px solid var(--sp-border);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);overflow:hidden}
-.sp-filter-row{padding:10px;display:grid;gap:10px;grid-template-columns:180px 160px 160px minmax(220px,1fr);align-items:end}
+.sp-filter-row{padding:10px;display:grid;gap:10px;grid-template-columns:minmax(260px,1fr);align-items:end}
 .sp-input{width:100%;border:1.5px solid var(--sp-border);border-radius:9px;min-height:40px;background:var(--sp-soft);color:var(--sp-head);padding:.5rem .75rem;font-family:inherit;font-size:.88rem;outline:none;transition:border-color .2s,box-shadow .2s}
 .sp-input:focus{border-color:var(--sp-primary);box-shadow:0 0 0 3px rgba(15,95,168,.1);background:#fff}.sp-input-search{min-width:200px}
 .sp-batch-head{padding:10px;border-bottom:1px solid var(--sp-border);display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;align-items:flex-end;background:#fafcff}
@@ -278,17 +287,18 @@
 .sp-modal-icon-warn{background:#fef3c7;border-color:#fde68a;color:var(--sp-amber)}.sp-modal-body p{margin:0;color:var(--sp-text);font-size:.9rem;line-height:1.55}
 .sp-modal-meta{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}.sp-modal-meta span{border:1px solid var(--sp-border);background:var(--sp-soft);color:var(--sp-primary);border-radius:999px;font-size:.76rem;font-weight:700;padding:.2rem .6rem}
 .sp-modal-foot{border-top:1px solid var(--sp-border);padding:10px;display:flex;justify-content:flex-end;gap:10px;background:var(--sp-soft)}
+.sp-proof-modal{width:min(900px,96vw)}
+.sp-proof-body{padding:10px;display:grid;gap:10px;background:#fff}
+.sp-proof-meta{color:var(--sp-muted);font-size:.82rem;font-weight:700}
+#proofPreviewImage{width:100%;max-height:72vh;object-fit:contain;border:1px solid var(--sp-border);border-radius:10px;background:#f8fafc}
 @keyframes spToastIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}@keyframes spToastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(14px)}}@keyframes spModalIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
-@media (max-width:980px){.sp-hero{flex-direction:column;align-items:flex-start}.sp-kpis{width:100%;grid-template-columns:repeat(3,1fr)}.sp-filter-row{grid-template-columns:1fr 1fr}}
+@media (max-width:980px){.sp-hero{flex-direction:column;align-items:flex-start}.sp-kpis{width:100%;grid-template-columns:repeat(3,1fr)}.sp-filter-row{grid-template-columns:1fr}}
 @media (max-width:640px){.sp-toast-stack{top:.75rem;right:.75rem;left:.75rem;align-items:stretch}.sp-alert{width:100%}.sp-filter-row{grid-template-columns:1fr}.sp-batch-controls{width:100%}.sp-batch-controls label{min-width:100%}.sp-footer-summary{justify-content:space-between}}
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const filterForm = document.getElementById('spFilterForm');
-    const periodInput = filterForm ? filterForm.querySelector('select[name="period"]') : null;
-    const fromInput = filterForm ? filterForm.querySelector('input[name="from"]') : null;
-    const toInput = filterForm ? filterForm.querySelector('input[name="to"]') : null;
     const searchInput = filterForm ? filterForm.querySelector('input[name="q"]') : null;
     const selectAll = document.getElementById('selectAllLeases');
     const checkboxes = Array.from(document.querySelectorAll('.lease-checkbox'));
@@ -298,19 +308,40 @@ document.addEventListener('DOMContentLoaded', function () {
     const collectorSelect = document.getElementById('collectorSelect');
     const confirmSendModal = document.getElementById('confirmSendModal');
     const confirmSendBtn = document.getElementById('confirmSendBtn');
+    const proofPreviewModal = document.getElementById('proofPreviewModal');
+    const proofPreviewImage = document.getElementById('proofPreviewImage');
+    const proofPreviewMeta = document.getElementById('proofPreviewMeta');
     let allowSendSubmit = false;
 
     function submitFilterForm() { if (filterForm) filterForm.submit(); }
     function debounce(callback, delay) { let timer = null; return function () { if (timer) clearTimeout(timer); timer = setTimeout(callback, delay); }; }
-    if (periodInput) periodInput.addEventListener('change', submitFilterForm);
-    if (fromInput) fromInput.addEventListener('change', submitFilterForm);
-    if (toInput) toInput.addEventListener('change', submitFilterForm);
     if (searchInput) searchInput.addEventListener('input', debounce(submitFilterForm, 450));
 
     function openModal(modal) { if (!modal) return; modal.classList.add('is-open'); document.body.style.overflow = 'hidden'; }
-    function closeModal(modal) { if (!modal) return; modal.classList.remove('is-open'); if (!document.querySelector('.sp-modal-backdrop.is-open')) document.body.style.overflow = ''; }
+    function closeModal(modal) {
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        if (modal === proofPreviewModal && proofPreviewImage) {
+            proofPreviewImage.src = '';
+        }
+        if (!document.querySelector('.sp-modal-backdrop.is-open')) document.body.style.overflow = '';
+    }
     document.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', () => closeModal(document.getElementById(button.getAttribute('data-close-modal')))));
-    [confirmSendModal].forEach((modal) => modal?.addEventListener('click', (event) => { if (event.target === modal) closeModal(modal); }));
+    [confirmSendModal, proofPreviewModal].forEach((modal) => modal?.addEventListener('click', (event) => { if (event.target === modal) closeModal(modal); }));
+
+    document.querySelectorAll('.js-proof-preview-btn').forEach((button) => {
+        button.addEventListener('click', function () {
+            if (!proofPreviewModal || !proofPreviewImage) return;
+            const proofUrl = button.getAttribute('data-proof-url') || '';
+            const proofLabel = button.getAttribute('data-proof-label') || '-';
+            if (!proofUrl) return;
+            proofPreviewImage.src = proofUrl;
+            if (proofPreviewMeta) {
+                proofPreviewMeta.textContent = 'Record: ' + proofLabel;
+            }
+            openModal(proofPreviewModal);
+        });
+    });
 
     function refreshSelectionSummary() {
         const selected = checkboxes.filter((checkbox) => checkbox.checked);
@@ -341,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const sendCollector = document.getElementById('confirmSendCollector');
             const sendCount = document.getElementById('confirmSendCount');
             const sendTotal = document.getElementById('confirmSendTotal');
-            if (sendText) sendText.textContent = 'You are about to send selected lease charges to collector queue. Continue?';
+            if (sendText) sendText.textContent = 'You are sending the selected market transactions to this collector for collection. Continue?';
             if (sendCollector) sendCollector.textContent = collectorText;
             if (sendCount) sendCount.textContent = selected.length + ' transaction(s)';
             if (sendTotal) sendTotal.textContent = 'PHP ' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -359,6 +390,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {
             closeModal(confirmSendModal);
+            closeModal(proofPreviewModal);
         }
     });
 

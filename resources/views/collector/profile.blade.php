@@ -38,6 +38,97 @@
     .fp-info-avatar svg { width:52px; height:52px; }
     .fp-info-text h4 { margin:0 0 2px; font-size:1rem; font-weight:700; color:#0f172a; }
     .fp-info-text span { font-size:.82rem; color:#64748b; }
+    .fp-info-actions { margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+    .fp-availability-badge {
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        border:1px solid transparent;
+        border-radius:999px;
+        padding:.34rem .72rem;
+        font-size:.76rem;
+        font-weight:800;
+        letter-spacing:.02em;
+        text-transform:uppercase;
+    }
+    .fp-availability-badge.is-available { background:#ecfdf5; border-color:#86efac; color:#166534; }
+    .fp-availability-badge.is-absent { background:#fff7ed; border-color:#fdba74; color:#9a3412; }
+    .fp-btn-status {
+        border:1px solid #cbd5e1;
+        border-radius:9px;
+        background:#fff;
+        color:#0f172a;
+        min-height:36px;
+        padding:0 .82rem;
+        font-size:.84rem;
+        font-weight:700;
+        cursor:pointer;
+        display:inline-flex;
+        align-items:center;
+        gap:7px;
+    }
+    .fp-btn-status:hover { background:#f8fafc; }
+    .fp-btn-status.is-absent-action { border-color:#fdba74; color:#9a3412; background:#fff7ed; }
+    .fp-btn-status.is-available-action { border-color:#86efac; color:#166534; background:#ecfdf5; }
+    .fp-modal-backdrop {
+        position:fixed;
+        inset:0;
+        background:rgba(15,23,42,.52);
+        display:grid;
+        place-items:center;
+        z-index:1200;
+        padding:14px;
+    }
+    .fp-modal-backdrop[hidden] { display:none !important; }
+    .fp-modal {
+        width:min(460px, 96vw);
+        border:1px solid #cbd5e1;
+        border-radius:14px;
+        background:#fff;
+        box-shadow:0 20px 52px rgba(2,6,23,.35);
+        overflow:hidden;
+    }
+    .fp-modal-head { padding:12px 14px; border-bottom:1px solid #e2e8f0; background:#f8fafc; }
+    .fp-modal-head h4 { margin:0; font-size:1rem; color:#0f172a; font-weight:800; }
+    .fp-modal-body { padding:14px; color:#334155; font-size:.9rem; }
+    .fp-modal-foot { padding:12px 14px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px; }
+    .fp-btn-muted {
+        border:1px solid #cbd5e1;
+        border-radius:9px;
+        background:#fff;
+        color:#334155;
+        min-height:36px;
+        padding:0 .9rem;
+        font-size:.85rem;
+        font-weight:700;
+        cursor:pointer;
+    }
+    .fp-btn-danger {
+        border:1px solid #f97316;
+        border-radius:9px;
+        background:#ea580c;
+        color:#fff;
+        min-height:36px;
+        padding:0 .95rem;
+        font-size:.85rem;
+        font-weight:700;
+        cursor:pointer;
+    }
+    .fp-btn-success {
+        border:1px solid #059669;
+        border-radius:9px;
+        background:#047857;
+        color:#fff;
+        min-height:36px;
+        padding:0 .95rem;
+        font-size:.85rem;
+        font-weight:700;
+        cursor:pointer;
+    }
+    @media (max-width:700px) {
+        .fp-info-row { align-items:flex-start; }
+        .fp-info-actions { margin-left:0; width:100%; justify-content:flex-start; }
+    }
 </style>
 
 <div data-server-rendered-page="profile" data-page-title="My Profile" class="fp-profile">
@@ -78,6 +169,21 @@
         <div class="fp-info-text">
             <h4>{{ $user->name }}</h4>
             <span>{{ $user->roleLabel() }} &bull; {{ ucfirst((string) $user->department) }}</span>
+        </div>
+        <div class="fp-info-actions">
+            <span class="fp-availability-badge {{ $user->is_absent ? 'is-absent' : 'is-available' }}">
+                <i class="fa-solid {{ $user->is_absent ? 'fa-user-clock' : 'fa-circle-check' }}"></i>
+                {{ $user->is_absent ? 'Absent' : 'Available' }}
+            </span>
+            <button
+                type="button"
+                class="fp-btn-status {{ $user->is_absent ? 'is-available-action' : 'is-absent-action' }}"
+                id="fpToggleAvailabilityBtn"
+                data-next-state="{{ $user->is_absent ? 'available' : 'absent' }}"
+            >
+                <i class="fa-solid {{ $user->is_absent ? 'fa-user-check' : 'fa-user-slash' }}"></i>
+                {{ $user->is_absent ? 'Set Available' : 'Set Absent' }}
+            </button>
         </div>
     </div>
 
@@ -185,5 +291,80 @@
         </div>
     </div>
 </div>
-@endsection
 
+<div class="fp-modal-backdrop" id="fpAvailabilityModal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="fpAvailabilityTitle">
+    <div class="fp-modal">
+        <div class="fp-modal-head">
+            <h4 id="fpAvailabilityTitle">Confirm Collector Status</h4>
+        </div>
+        <div class="fp-modal-body" id="fpAvailabilityText">
+            Confirm status update.
+        </div>
+        <div class="fp-modal-foot">
+            <button type="button" class="fp-btn-muted" id="fpAvailabilityCancel">Cancel</button>
+            <form action="{{ route('collector.profile.update') }}" method="POST" id="fpAvailabilityForm">
+                @csrf
+                @method('PUT')
+                <input type="hidden" name="update_mode" value="availability">
+                <input type="hidden" name="availability_state" id="fpAvailabilityState" value="">
+                <button type="submit" class="{{ $user->is_absent ? 'fp-btn-success' : 'fp-btn-danger' }}" id="fpAvailabilitySubmit">
+                    {{ $user->is_absent ? 'Set Available' : 'Set Absent' }}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const openButton = document.getElementById('fpToggleAvailabilityBtn');
+        const modal = document.getElementById('fpAvailabilityModal');
+        const cancelButton = document.getElementById('fpAvailabilityCancel');
+        const stateInput = document.getElementById('fpAvailabilityState');
+        const textNode = document.getElementById('fpAvailabilityText');
+        const submitButton = document.getElementById('fpAvailabilitySubmit');
+
+        if (!openButton || !modal || !cancelButton || !stateInput || !textNode || !submitButton) {
+            return;
+        }
+
+        const closeModal = function () {
+            modal.hidden = true;
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        };
+
+        openButton.addEventListener('click', function () {
+            const nextState = (openButton.dataset.nextState || '').toLowerCase() === 'available' ? 'available' : 'absent';
+            const isAbsentAction = nextState === 'absent';
+
+            stateInput.value = nextState;
+            textNode.textContent = isAbsentAction
+                ? 'Set status to Absent? You will be hidden from Fishport and Market assignment dropdowns until you set Available again.'
+                : 'Set status to Available? You will be visible again in Fishport and Market assignment dropdowns.';
+
+            submitButton.textContent = isAbsentAction ? 'Set Absent' : 'Set Available';
+            submitButton.classList.toggle('fp-btn-danger', isAbsentAction);
+            submitButton.classList.toggle('fp-btn-success', !isAbsentAction);
+
+            modal.hidden = false;
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        });
+
+        cancelButton.addEventListener('click', closeModal);
+
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.hidden) {
+                closeModal();
+            }
+        });
+    })();
+</script>
+@endsection

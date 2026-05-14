@@ -11,6 +11,7 @@ use App\Support\AppNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -88,9 +89,18 @@ class FishportSendPaymentController extends Controller
             ->all();
 
         $collectors = CollectorDepartmentAssignment::query()
-            ->with(['collector:id,name,is_active', 'department:id,code,name'])
+            ->with(['collector:id,name,is_active,is_absent', 'department:id,code,name'])
             ->whereHas('department', static fn ($departmentQuery) => $departmentQuery->where('code', 'fishport'))
-            ->whereHas('collector', static fn ($collectorQuery) => $collectorQuery->where('is_active', true))
+            ->whereHas('collector', static function ($collectorQuery): void {
+                $collectorQuery->where('is_active', true);
+
+                if (Schema::hasColumn('users', 'is_absent')) {
+                    $collectorQuery->where(function ($availabilityQuery): void {
+                        $availabilityQuery->whereNull('is_absent')
+                            ->orWhere('is_absent', false);
+                    });
+                }
+            })
             ->orderByDesc('updated_at')
             ->get()
             ->map(static function (CollectorDepartmentAssignment $assignment): array {
@@ -183,12 +193,22 @@ class FishportSendPaymentController extends Controller
         $assignment = CollectorDepartmentAssignment::query()
             ->where('collector_user_id', (int) $validated['collector_user_id'])
             ->whereHas('department', static fn ($departmentQuery) => $departmentQuery->where('code', 'fishport'))
+            ->whereHas('collector', static function ($collectorQuery): void {
+                $collectorQuery->where('is_active', true);
+
+                if (Schema::hasColumn('users', 'is_absent')) {
+                    $collectorQuery->where(function ($availabilityQuery): void {
+                        $availabilityQuery->whereNull('is_absent')
+                            ->orWhere('is_absent', false);
+                    });
+                }
+            })
             ->first();
 
         if (! $assignment) {
             return redirect()
                 ->back()
-                ->with('error', 'Selected collector is not assigned to Fishport.');
+                ->with('error', 'Selected collector is not available for Fishport assignment.');
         }
 
         $selectedLogIds = collect($validated['log_ids'])

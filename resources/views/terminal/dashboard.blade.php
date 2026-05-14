@@ -2,6 +2,23 @@
 
 @section('content')
 @include('terminal.partials.terminal_shared_styles')
+@php
+    /** @var \Illuminate\Support\Collection<int, array{label:string,revenue:float,transactions:int}> $dailyRevenueTrend */
+    /** @var \Illuminate\Support\Collection<int, array{label:string,amount:float}> $monthlyRevenue */
+
+    $tmDailyTrend = $dailyRevenueTrend instanceof \Illuminate\Support\Collection
+        ? $dailyRevenueTrend
+        : collect($dailyRevenueTrend ?? []);
+    $tmMonthlyTrend = $monthlyRevenue instanceof \Illuminate\Support\Collection
+        ? $monthlyRevenue
+        : collect($monthlyRevenue ?? []);
+
+    $tmDailyLabels = $tmDailyTrend->pluck('label')->values()->all();
+    $tmDailyRevenue = $tmDailyTrend->pluck('revenue')->values()->all();
+    $tmDailyTransactions = $tmDailyTrend->pluck('transactions')->values()->all();
+    $tmMonthLabels = $tmMonthlyTrend->pluck('label')->values()->all();
+    $tmMonthAmounts = $tmMonthlyTrend->pluck('amount')->values()->all();
+@endphp
 
 <div class="tm" data-server-rendered-page="dashboard" data-page-title="Terminal Dashboard">
     <section class="tm-dash-filter-card">
@@ -357,11 +374,11 @@
 
         syncFilterUI();
 
-        const dailyLabels = @json($dailyRevenueTrend->pluck('label')->values());
-        const dailyRevenue = @json($dailyRevenueTrend->pluck('revenue')->values());
-        const dailyTransactions = @json($dailyRevenueTrend->pluck('transactions')->values());
-        const monthLabels = @json($monthlyRevenue->pluck('label')->values());
-        const monthAmounts = @json($monthlyRevenue->pluck('amount')->values());
+        const dailyLabels = <?php echo json_encode($tmDailyLabels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+        const dailyRevenue = <?php echo json_encode($tmDailyRevenue, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+        const dailyTransactions = <?php echo json_encode($tmDailyTransactions, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+        const monthLabels = <?php echo json_encode($tmMonthLabels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+        const monthAmounts = <?php echo json_encode($tmMonthAmounts, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 
         const trendCanvas = document.getElementById('terminalRevenueTrendChart');
         if (trendCanvas && window.Chart) {

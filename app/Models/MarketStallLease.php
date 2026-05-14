@@ -26,6 +26,9 @@ class MarketStallLease extends Model
         'lease_status',
         'remarks',
         'created_by_user_id',
+        'collector_user_id',
+        'collector_assigned_at',
+        'collector_assigned_by_user_id',
     ];
 
     protected function casts(): array
@@ -37,6 +40,7 @@ class MarketStallLease extends Model
             'billing_cycles' => 'integer',
             'rate_multiplier' => 'decimal:2',
             'computed_rate_amount' => 'decimal:2',
+            'collector_assigned_at' => 'datetime',
         ];
     }
 
@@ -58,6 +62,16 @@ class MarketStallLease extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function collector(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'collector_user_id');
+    }
+
+    public function collectorAssigner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'collector_assigned_by_user_id');
     }
 
     public function paymentCollections(): HasMany

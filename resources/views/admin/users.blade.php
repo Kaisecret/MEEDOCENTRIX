@@ -2,12 +2,14 @@
 
 @section('content')
 @php
-    /** @var \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $users */
+    /** @var \Illuminate\Contracts\Pagination\LengthAwarePaginator<int, \App\Models\User> $users */
     /** @var \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $collectorAccounts */
     /** @var \Illuminate\Database\Eloquent\Collection<int, \App\Models\Department> $collectorDepartments */
     /** @var array<int, string> $departments */
     /** @var int $assignedCollectorCount */
     /** @var bool $hasCollectorSchema */
+    /** @var int $totalUsers */
+    /** @var string $searchTerm */
 
     $departmentLabels = [
         'fishport' => 'Fishport',
@@ -37,7 +39,7 @@
                 <span class="um-kpi-icon"><i class="fas fa-users"></i></span>
                 <div>
                     <span class="um-kpi-label">Total Users</span>
-                    <strong>{{ $users->count() }}</strong>
+                    <strong>{{ $totalUsers }}</strong>
                 </div>
             </div>
             <div class="um-kpi">
@@ -97,13 +99,16 @@
                     <h3>Registered Accounts</h3>
                     <p>Search by name, email, username, role, or department.</p>
                 </div>
-                <div class="um-search-wrap">
-                    <i class="fas fa-search"></i>
-                    <input id="userSearchInput" type="text" placeholder="Search" autocomplete="off">
-                    <button id="userSearchClear" type="button" onclick="clearUserSearch()" aria-label="Clear search">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
+                <form action="{{ route('admin.users') }}" method="GET" class="um-search-form">
+                    <div class="um-search-wrap">
+                        <i class="fas fa-search"></i>
+                        <input id="userSearchInput" name="q" type="text" value="{{ $searchTerm }}" placeholder="Search" autocomplete="off">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm um-search-submit">Search</button>
+                    @if ($searchTerm !== '')
+                        <a href="{{ route('admin.users') }}" class="btn btn-outline btn-sm um-search-clear">Clear</a>
+                    @endif
+                </form>
             </header>
 
             <div class="um-table-wrap">
@@ -116,6 +121,7 @@
                             <th>Department</th>
                             <th>Status</th>
                             <th>Created</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="registered-users-body">
@@ -123,16 +129,9 @@
                             @php
                                 $departmentCode = strtolower((string) $user->department);
                                 $departmentLabel = $departmentLabels[$departmentCode] ?? ucfirst($departmentCode ?: 'Administration');
-                                $searchValue = strtolower(trim(implode(' ', array_filter([
-                                    $user->name,
-                                    $user->email,
-                                    $user->username,
-                                    $user->role,
-                                    $departmentCode,
-                                    $departmentLabel,
-                                ], static fn ($value) => filled($value)))));
+                                $isCurrentUser = (int) auth()->id() === (int) $user->id;
                             @endphp
-                            <tr data-user-row data-search="{{ $searchValue }}">
+                            <tr>
                                 <td>
                                     <div class="um-name-cell">
                                         <span class="um-name-avatar">{{ strtoupper(substr((string) $user->name, 0, 1)) }}</span>
@@ -155,17 +154,70 @@
                                 <td class="um-sub">
                                     {{ $user->created_at?->copy()->timezone($displayTimezone)->format('M d, Y h:i A') }}
                                 </td>
+                                <td>
+                                    <div class="um-row-actions">
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline btn-sm um-user-edit-btn um-action-btn um-action-edit"
+                                            data-user-id="{{ $user->id }}"
+                                            data-user-name="{{ e((string) $user->name) }}"
+                                            data-user-username="{{ e((string) $user->username) }}"
+                                            data-user-email="{{ e((string) $user->email) }}"
+                                            data-user-department="{{ e((string) $departmentCode) }}"
+                                            data-user-active="{{ $user->is_active ? '1' : '0' }}"
+                                        >
+                                            <i class="fas fa-pen-to-square"></i> Edit
+                                        </button>
+                                        @if (! $isCurrentUser)
+                                            <button
+                                                type="button"
+                                                class="btn btn-danger btn-sm um-user-delete-btn um-action-btn um-action-delete"
+                                                data-user-id="{{ $user->id }}"
+                                                data-user-name="{{ e((string) $user->name) }}"
+                                            >
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
+                                        @else
+                                            <span class="um-sub">Current account</span>
+                                        @endif
+                                    </div>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="um-empty">No users found.</td>
+                                <td colspan="7" class="um-empty">No users found.</td>
                             </tr>
                         @endforelse
-                        <tr id="users-search-empty" style="display:none;">
-                            <td colspan="6" class="um-empty">No users match your search.</td>
-                        </tr>
                     </tbody>
                 </table>
+            </div>
+            <div class="um-pagination">
+                <div class="um-pagination-summary">
+                    Showing {{ $users->firstItem() ?? 0 }} to {{ $users->lastItem() ?? 0 }} of {{ $users->total() }} users
+                </div>
+                @if ($users->hasPages())
+                    @php
+                        $startPage = max($users->currentPage() - 2, 1);
+                        $endPage = min($users->currentPage() + 2, $users->lastPage());
+                    @endphp
+                    <div class="um-pagination-links">
+                        @if ($users->onFirstPage())
+                            <span class="um-page-link is-disabled">Previous</span>
+                        @else
+                            <a class="um-page-link" href="{{ $users->previousPageUrl() }}">Previous</a>
+                        @endif
+
+                        @for ($page = $startPage; $page <= $endPage; $page++)
+                            <a class="um-page-link {{ $page === $users->currentPage() ? 'is-active' : '' }}" href="{{ $users->url($page) }}">{{ $page }}</a>
+                        @endfor
+
+                        @if ($users->hasMorePages())
+                            <a class="um-page-link" href="{{ $users->nextPageUrl() }}">Next</a>
+                        @else
+                            <span class="um-page-link is-disabled">Next</span>
+                        @endif
+                    </div>
+                @endif
             </div>
         </section>
     </div>
@@ -175,11 +227,6 @@
             <header class="um-card-head um-card-head-stack">
                 <div>
                     <h3>Create New User</h3>
-                    <p>Set up personnel accounts with clear role mapping and secure credentials.</p>
-                </div>
-                <div class="um-info-note">
-                    <i class="fas fa-lightbulb"></i>
-                    <span>For collector workflow: create account with <strong>Department = Collector</strong>, then assign it in Collector Assignments.</span>
                 </div>
             </header>
 
@@ -277,7 +324,7 @@
             <header class="um-card-head um-card-head-stack">
                 <div>
                     <h3>Collector Department Assignments</h3>
-                    <p>Only Fishport, Public Market, and Atrium allow collector assignment. Cemetery is direct payment only.</p>
+                    <p>Only Fishport and Public Market allow collector assignment. Cemetery is direct payment only.</p>
                 </div>
                 <div class="um-stat-row">
                     <span class="um-pill um-pill-soft-blue">Collectors: {{ $collectorAccounts->count() }}</span>
@@ -342,6 +389,7 @@
                                 <th>Assigned Department</th>
                                 <th>Assigned By</th>
                                 <th>Updated</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -365,10 +413,18 @@
                                     <td class="um-sub">
                                         {{ $assignment?->updated_at?->copy()->timezone($displayTimezone)->format('M d, Y h:i A') ?: '-' }}
                                     </td>
+                                    <td>
+                                        <form action="{{ route('admin.users.collector_assignments.generate_missed_notice', $collector) }}" method="POST" onsubmit="return confirm('Send missed-payments reminder to this collector now?');">
+                                            @csrf
+                                            <button type="submit" class="btn btn-outline btn-sm">
+                                                <i class="fas fa-bell"></i> Generate Missed Notice
+                                            </button>
+                                        </form>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="um-empty">No collector accounts yet. Create one first in Add User.</td>
+                                    <td colspan="6" class="um-empty">No collector accounts yet. Create one first in Add User.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -405,6 +461,130 @@
             <button type="button" id="reassignConfirmBtn" class="btn btn-primary">
                 <i class="fas fa-check"></i> Yes, Reassign Collector
             </button>
+        </div>
+    </div>
+</div>
+
+<div id="editUserBackdrop" class="um-modal-backdrop" aria-hidden="true">
+    <div class="um-modal" role="dialog" aria-modal="true" aria-labelledby="editUserTitle">
+        <div class="um-modal-head">
+            <h3 id="editUserTitle">Edit User Account</h3>
+            <button type="button" id="editUserCloseTop" class="um-modal-close" aria-label="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="editUserForm" method="POST" class="um-form um-form-modern">
+            @csrf
+            @method('PUT')
+            <input type="hidden" name="_form" value="edit_user">
+            <input type="hidden" name="page" value="{{ $users->currentPage() }}">
+            <input type="hidden" name="q" value="{{ $searchTerm }}">
+
+            <div class="um-form-grid um-form-grid-modern">
+                <label class="um-field">
+                    <span class="um-field-label">Full Name</span>
+                    <div class="um-input-wrap">
+                        <i class="fas fa-id-badge"></i>
+                        <input id="edit_user_name" name="name" type="text" class="form-control" required>
+                    </div>
+                </label>
+                <label class="um-field">
+                    <span class="um-field-label">Username</span>
+                    <div class="um-input-wrap">
+                        <i class="fas fa-at"></i>
+                        <input id="edit_user_username" name="username" type="text" class="form-control" required>
+                    </div>
+                </label>
+                <label class="um-field">
+                    <span class="um-field-label">Email Address</span>
+                    <div class="um-input-wrap">
+                        <i class="fas fa-envelope"></i>
+                        <input id="edit_user_email" name="email" type="email" class="form-control" required>
+                    </div>
+                </label>
+                <label class="um-field">
+                    <span class="um-field-label">Department</span>
+                    <div class="um-input-wrap">
+                        <i class="fas fa-building-user"></i>
+                        <select id="edit_user_department" name="department" class="form-control" required>
+                            @foreach ($departments as $department)
+                                @php $departmentCode = strtolower((string) $department); @endphp
+                                <option value="{{ $departmentCode }}">
+                                    {{ $departmentLabels[$departmentCode] ?? ucfirst($departmentCode) }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </label>
+                <label class="um-field">
+                    <span class="um-field-label">New Password (Optional)</span>
+                    <div class="um-input-wrap um-input-wrap-password">
+                        <i class="fas fa-lock"></i>
+                        <input id="edit_user_password" name="password" type="password" class="form-control" autocomplete="new-password" placeholder="Leave blank to keep current password">
+                        <button type="button" class="um-password-toggle" data-toggle-password="edit_user_password" aria-label="Show password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </label>
+                <label class="um-field">
+                    <span class="um-field-label">Confirm New Password</span>
+                    <div class="um-input-wrap um-input-wrap-password">
+                        <i class="fas fa-lock"></i>
+                        <input id="edit_user_password_confirmation" name="password_confirmation" type="password" class="form-control" autocomplete="new-password" placeholder="Re-enter new password">
+                        <button type="button" class="um-password-toggle" data-toggle-password="edit_user_password_confirmation" aria-label="Show password confirmation">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </label>
+            </div>
+
+            <div class="um-form-actions">
+                <label class="um-switch">
+                    <input id="edit_user_is_active" type="checkbox" name="is_active" value="1">
+                    <span class="um-switch-track" aria-hidden="true"></span>
+                    <span class="um-switch-text">Account is active</span>
+                </label>
+                <div class="um-modal-form-actions">
+                    <button type="button" id="editUserCancelBtn" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary um-create-btn">
+                        <i class="fas fa-floppy-disk"></i> Save Changes
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="deleteUserBackdrop" class="um-modal-backdrop" aria-hidden="true">
+    <div class="um-modal" role="dialog" aria-modal="true" aria-labelledby="deleteUserTitle">
+        <div class="um-modal-head">
+            <h3 id="deleteUserTitle">Delete User Account</h3>
+            <button type="button" id="deleteUserCloseTop" class="um-modal-close" aria-label="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="um-modal-body">
+            <div class="um-modal-icon">
+                <i class="fas fa-triangle-exclamation"></i>
+            </div>
+            <div class="um-modal-message">
+                <p>
+                    This will permanently delete <strong id="deleteUserName"></strong>.
+                    This action cannot be undone.
+                </p>
+            </div>
+        </div>
+        <div class="um-modal-foot">
+            <button type="button" id="deleteUserCancelBtn" class="btn btn-secondary">Cancel</button>
+            <form id="deleteUserForm" method="POST">
+                @csrf
+                @method('DELETE')
+                <input type="hidden" name="page" value="{{ $users->currentPage() }}">
+                <input type="hidden" name="q" value="{{ $searchTerm }}">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Delete User
+                </button>
+            </form>
         </div>
     </div>
 </div>
@@ -610,6 +790,13 @@
         max-width: 100%;
     }
 
+    .um-search-form {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
     .um-search-wrap i {
         position: absolute;
         left: 11px;
@@ -730,6 +917,63 @@
         text-align: center;
         color: #647d95;
         padding: 1.7rem;
+    }
+
+    .um-row-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+    }
+
+    .um-pagination {
+        border-top: 1px solid #e2ebf4;
+        padding: 0.85rem 1rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.8rem;
+        flex-wrap: wrap;
+    }
+
+    .um-pagination-summary {
+        color: #536f8b;
+        font-size: 0.88rem;
+        font-weight: 600;
+    }
+
+    .um-pagination-links {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+    }
+
+    .um-page-link {
+        min-width: 36px;
+        height: 34px;
+        padding: 0 0.7rem;
+        border-radius: 9px;
+        border: 1px solid #c6d8ea;
+        background: #f5f9fe;
+        color: #234c73;
+        font-size: 0.84rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+    }
+
+    .um-page-link.is-active {
+        border-color: #2f7fbd;
+        background: #2f7fbd;
+        color: #fff;
+    }
+
+    .um-page-link.is-disabled {
+        opacity: 0.45;
+        pointer-events: none;
     }
 
     .um-pill {
@@ -979,6 +1223,13 @@
         justify-content: flex-end;
         gap: 0.6rem;
         background: #fbfdff;
+    }
+
+    .um-modal-form-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        flex-wrap: wrap;
     }
 
     /* Modern UI overrides */
@@ -1253,6 +1504,19 @@
             padding-left: 0.85rem;
             padding-right: 0.85rem;
         }
+
+        .um-search-form {
+            width: 100%;
+        }
+
+        .um-search-form .um-search-wrap {
+            width: 100%;
+        }
+
+        .um-pagination {
+            padding-left: 0.85rem;
+            padding-right: 0.85rem;
+        }
     }
 
     /* Compact spacing pass: keep key page spacing at 10px */
@@ -1324,6 +1588,215 @@
     .um-table tbody td {
         padding: 10px;
     }
+
+    /* Refined admin UI polish */
+    .um-page {
+        gap: 12px;
+    }
+
+    .um-card {
+        border-color: #cfdeed;
+        box-shadow: 0 14px 30px rgba(11, 48, 82, 0.08);
+    }
+
+    .um-card-head {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        padding: 1rem 1.2rem;
+    }
+
+    .um-card-head h3 {
+        font-size: 1.28rem;
+        letter-spacing: -0.01em;
+    }
+
+    .um-card-head p {
+        margin-top: 0.35rem;
+    }
+
+    .um-search-form {
+        margin-left: auto;
+        gap: 0.55rem;
+    }
+
+    .um-search-wrap {
+        width: 500px;
+    }
+
+    .um-search-wrap input {
+        min-height: 46px;
+        border-color: #b5cde5;
+        background: #f4f9ff;
+        font-size: 0.98rem;
+    }
+
+    .um-search-submit,
+    .um-search-clear {
+        min-height: 44px;
+        border-radius: 11px;
+        padding: 0.58rem 1rem;
+        font-weight: 800;
+        min-width: 90px;
+    }
+
+    .um-search-submit {
+        box-shadow: 0 10px 20px rgba(25, 97, 165, 0.2);
+    }
+
+    .um-search-clear {
+        border-color: #c1d4e7;
+        color: #325272;
+        background: #f2f7fd;
+    }
+
+    .um-table-wrap {
+        margin: 0 0.8rem;
+        border: 1px solid #d8e6f3;
+        border-radius: 14px;
+        overflow: auto;
+        background: #fff;
+    }
+
+    .um-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #edf4fc;
+        color: #436380;
+        font-size: 0.8rem;
+        padding-top: 0.85rem;
+        padding-bottom: 0.85rem;
+    }
+
+    .um-table tbody td {
+        font-size: 1rem;
+        color: #183754;
+        border-bottom: 1px solid #e4edf6;
+        padding-top: 0.95rem;
+        padding-bottom: 0.95rem;
+    }
+
+    .um-table tbody tr:nth-child(even) td {
+        background: #fbfdff;
+    }
+
+    .um-table tbody tr:hover td {
+        background: #eef6ff;
+    }
+
+    .um-email {
+        color: #143452;
+        font-size: 1.02rem;
+    }
+
+    .um-sub {
+        color: #5e7893;
+    }
+
+    .um-table th:last-child,
+    .um-table td:last-child {
+        width: 1%;
+        white-space: nowrap;
+    }
+
+    .um-row-actions {
+        gap: 0.5rem;
+        flex-wrap: nowrap;
+    }
+
+    .um-action-btn {
+        min-height: 38px;
+        min-width: 84px;
+        border-radius: 10px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+    }
+
+    .um-action-edit {
+        border-color: #c2d4e7;
+        color: #2b4f73;
+        background: #f4f9ff;
+    }
+
+    .um-action-edit:hover {
+        background: #eaf3ff;
+        color: #123e65;
+    }
+
+    .um-action-delete {
+        box-shadow: 0 10px 18px rgba(222, 52, 58, 0.22);
+    }
+
+    .um-pagination {
+        padding: 0.9rem 1.2rem 1.05rem;
+        border-top-color: #dbe7f3;
+        background: #fafdff;
+    }
+
+    .um-pagination-summary {
+        font-size: 0.9rem;
+        color: #456381;
+    }
+
+    .um-page-link {
+        min-width: 38px;
+        height: 36px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+    }
+
+    .um-page-link:hover {
+        background: #e9f3ff;
+        border-color: #9ec0e0;
+        color: #1f4f78;
+    }
+
+    @media (max-width: 980px) {
+        .um-search-wrap {
+            width: 100%;
+        }
+
+        .um-search-form {
+            width: 100%;
+        }
+
+        .um-search-submit,
+        .um-search-clear {
+            min-width: 78px;
+        }
+
+        .um-table-wrap {
+            margin: 0 0.55rem;
+        }
+    }
+
+    @media (max-width: 720px) {
+        .um-card-head {
+            padding: 0.9rem;
+        }
+
+        .um-card-head h3 {
+            font-size: 1.6rem;
+        }
+
+        .um-search-form {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            align-items: center;
+            width: 100%;
+        }
+
+        .um-row-actions {
+            flex-wrap: wrap;
+        }
+
+        .um-action-btn {
+            min-width: 76px;
+            padding: 0.45rem 0.6rem;
+        }
+    }
 </style>
 
 <script>
@@ -1366,63 +1839,17 @@
         });
     }
 
-    function clearUserSearch() {
-        const searchInput = document.getElementById('userSearchInput');
-        if (!searchInput) {
-            return;
-        }
-
-        searchInput.value = '';
-        applyUserSearch('');
-        searchInput.focus();
-    }
-
-    function applyUserSearch(rawQuery) {
-        const rows = Array.from(document.querySelectorAll('[data-user-row]'));
-        const emptyState = document.getElementById('users-search-empty');
-        const clearButton = document.getElementById('userSearchClear');
-        const query = rawQuery.trim().toLowerCase();
-        let visibleCount = 0;
-
-        rows.forEach((row) => {
-            const haystack = row.dataset.search || '';
-            const isMatch = query === '' || haystack.includes(query);
-            row.style.display = isMatch ? '' : 'none';
-            if (isMatch) {
-                visibleCount += 1;
-            }
-        });
-
-        if (clearButton) {
-            clearButton.style.display = query === '' ? 'none' : 'inline-flex';
-        }
-
-        if (emptyState) {
-            emptyState.style.display = query !== '' && visibleCount === 0 ? '' : 'none';
-        }
-    }
-
     document.addEventListener('DOMContentLoaded', function () {
-        const searchInput = document.getElementById('userSearchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', function (event) {
-                applyUserSearch(event.target.value);
-            });
-        }
-
-        applyUserSearch('');
-
         const pageRoot = document.querySelector('.um-page');
         const activeTab = (pageRoot?.dataset.activeTab || '').trim();
         const oldForm = (pageRoot?.dataset.oldForm || '').trim();
-        const hasErrors = (pageRoot?.dataset.hasErrors || '') === '1';
         let targetTab = 'users';
 
         if (activeTab === 'users' || activeTab === 'add' || activeTab === 'assignments') {
             targetTab = activeTab;
         } else if (oldForm === 'collector_assignment') {
             targetTab = 'assignments';
-        } else if (oldForm === 'add_user' || hasErrors) {
+        } else if (oldForm === 'add_user') {
             targetTab = 'add';
         }
 
@@ -1453,6 +1880,123 @@
                 toggleButton.setAttribute('aria-label', nextType === 'password' ? 'Show password' : 'Hide password');
             });
         });
+
+        const updateRouteTemplate = @json(route('admin.users.update', ['user' => '__USER_ID__']));
+        const deleteRouteTemplate = @json(route('admin.users.destroy', ['user' => '__USER_ID__']));
+        const editBackdrop = document.getElementById('editUserBackdrop');
+        const deleteBackdrop = document.getElementById('deleteUserBackdrop');
+        const editForm = document.getElementById('editUserForm');
+        const deleteForm = document.getElementById('deleteUserForm');
+        const deleteUserName = document.getElementById('deleteUserName');
+        const editNameInput = document.getElementById('edit_user_name');
+        const editUsernameInput = document.getElementById('edit_user_username');
+        const editEmailInput = document.getElementById('edit_user_email');
+        const editDepartmentSelect = document.getElementById('edit_user_department');
+        const editActiveInput = document.getElementById('edit_user_is_active');
+        const editPasswordInput = document.getElementById('edit_user_password');
+        const editPasswordConfirmInput = document.getElementById('edit_user_password_confirmation');
+
+        const closeBackdrop = function (backdrop) {
+            if (!backdrop) {
+                return;
+            }
+
+            backdrop.classList.remove('is-open');
+            backdrop.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        };
+
+        const openBackdrop = function (backdrop) {
+            if (!backdrop) {
+                return;
+            }
+
+            backdrop.classList.add('is-open');
+            backdrop.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        };
+
+        const editButtons = Array.from(document.querySelectorAll('.um-user-edit-btn'));
+        editButtons.forEach((button) => {
+            button.addEventListener('click', function () {
+                const userId = button.dataset.userId || '';
+                if (!userId || !editForm || !editNameInput || !editUsernameInput || !editEmailInput || !editDepartmentSelect || !editActiveInput) {
+                    return;
+                }
+
+                editForm.setAttribute('action', updateRouteTemplate.replace('__USER_ID__', userId));
+                editNameInput.value = button.dataset.userName || '';
+                editUsernameInput.value = button.dataset.userUsername || '';
+                editEmailInput.value = button.dataset.userEmail || '';
+                editDepartmentSelect.value = button.dataset.userDepartment || '';
+                editActiveInput.checked = (button.dataset.userActive || '0') === '1';
+
+                if (editPasswordInput) {
+                    editPasswordInput.value = '';
+                }
+                if (editPasswordConfirmInput) {
+                    editPasswordConfirmInput.value = '';
+                }
+
+                openBackdrop(editBackdrop);
+            });
+        });
+
+        const deleteButtons = Array.from(document.querySelectorAll('.um-user-delete-btn'));
+        deleteButtons.forEach((button) => {
+            button.addEventListener('click', function () {
+                const userId = button.dataset.userId || '';
+                if (!userId || !deleteForm || !deleteUserName) {
+                    return;
+                }
+
+                deleteForm.setAttribute('action', deleteRouteTemplate.replace('__USER_ID__', userId));
+                deleteUserName.textContent = button.dataset.userName || 'this user';
+                openBackdrop(deleteBackdrop);
+            });
+        });
+
+        const editCloseButtons = [
+            document.getElementById('editUserCloseTop'),
+            document.getElementById('editUserCancelBtn'),
+        ];
+        editCloseButtons.forEach((button) => {
+            if (!button) {
+                return;
+            }
+            button.addEventListener('click', function () {
+                closeBackdrop(editBackdrop);
+            });
+        });
+
+        const deleteCloseButtons = [
+            document.getElementById('deleteUserCloseTop'),
+            document.getElementById('deleteUserCancelBtn'),
+        ];
+        deleteCloseButtons.forEach((button) => {
+            if (!button) {
+                return;
+            }
+            button.addEventListener('click', function () {
+                closeBackdrop(deleteBackdrop);
+            });
+        });
+
+        if (editBackdrop) {
+            editBackdrop.addEventListener('click', function (event) {
+                if (event.target === editBackdrop) {
+                    closeBackdrop(editBackdrop);
+                }
+            });
+        }
+
+        if (deleteBackdrop) {
+            deleteBackdrop.addEventListener('click', function (event) {
+                if (event.target === deleteBackdrop) {
+                    closeBackdrop(deleteBackdrop);
+                }
+            });
+        }
 
         const assignmentForm = document.getElementById('collectorAssignmentForm');
         const collectorSelect = document.getElementById('collector_user_id');
@@ -1543,8 +2087,18 @@
         });
 
         document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && modalBackdrop.classList.contains('is-open')) {
+            if (event.key !== 'Escape') {
+                return;
+            }
+
+            if (modalBackdrop.classList.contains('is-open')) {
                 closeReassignModal();
+            }
+            if (editBackdrop?.classList.contains('is-open')) {
+                closeBackdrop(editBackdrop);
+            }
+            if (deleteBackdrop?.classList.contains('is-open')) {
+                closeBackdrop(deleteBackdrop);
             }
         });
     });

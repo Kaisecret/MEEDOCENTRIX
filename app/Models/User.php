@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Schema;
  * @property string|null $role
  * @property string|null $department
  * @property bool|null $is_active
+ * @property bool|null $is_absent
+ * @property \Illuminate\Support\Carbon|null $absent_set_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  */
@@ -41,6 +43,8 @@ class User extends Authenticatable
         'role',
         'department',
         'is_active',
+        'is_absent',
+        'absent_set_at',
         'email_verified_at',
         'avatar',
     ];
@@ -65,8 +69,15 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'is_active' => 'boolean',
+            'is_absent' => 'boolean',
+            'absent_set_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function isCollectorAvailableForAssignment(): bool
+    {
+        return (bool) $this->is_active && ! (bool) $this->is_absent;
     }
 
     public function isAdmin(): bool

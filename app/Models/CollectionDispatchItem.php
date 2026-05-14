@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class CollectionDispatchItem extends Model
 {
@@ -76,5 +77,10 @@ class CollectionDispatchItem extends Model
     public function reviewedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by_user_id');
+    }
+
+    public function marketDueLog(): HasOne
+    {
+        return $this->hasOne(MarketDueLog::class, 'collection_dispatch_item_id');
     }
 }

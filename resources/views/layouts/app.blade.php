@@ -17,6 +17,7 @@
     $authRoleLabel = $authUser?->roleLabel() ?? 'Administrator';
     $topbarName = $authUser ? explode(' ', trim($authUser->name))[0] : 'User';
     $userAvatar = $authUser?->avatar ?? 'boy';
+    $isCollectorAbsent = (bool) ($authUser?->isCollector() && ($authUser?->is_absent ?? false));
     $topbarNotifications = collect();
     $topbarUnreadCount = 0;
 
@@ -133,7 +134,10 @@
                 <h4 id="sidebarUserName">{{ $authUser?->name }}</h4>
                 <span id="sidebarUserRole" class="role-badge">{{ $authRoleLabel }}</span>
             </div>
-            <div class="sidebar-user-status"></div>
+            <div
+                class="sidebar-user-status {{ $isCollectorAbsent ? 'is-absent' : '' }}"
+                title="{{ $isCollectorAbsent ? 'Absent' : 'Available' }}"
+            ></div>
         </div>
 
         <!-- Navigation Label -->

@@ -1109,7 +1109,7 @@
                     {{-- Proof Photo — custom styled ── --}}
                     <div class="cpm-form-field">
                         <div class="cpm-form-label">
-                            <i class="fa-solid fa-camera"></i> Proof Photo
+                            <i class="fa-solid fa-camera"></i> Proof Photo <span class="req">*</span>
                         </div>
                         <div class="cpm-proof-grid">
                             {{-- Upload from gallery --}}
@@ -1131,7 +1131,7 @@
                         </div>
                         <p class="cpm-proof-note" id="cpmResendProofHint">
                             <i class="fa-solid fa-circle-info"></i>
-                            Upload or capture a new proof photo.
+                            Upload or capture a new proof photo (required).
                         </p>
                     </div>
                 </div>

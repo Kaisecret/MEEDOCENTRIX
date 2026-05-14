@@ -7,8 +7,6 @@ use App\Models\CollectionDispatch;
 use App\Models\CollectionDispatchItem;
 use App\Models\CollectorDepartmentAssignment;
 use App\Support\AppNotificationService;
-use App\Support\MarketDueLogService;
-use App\Support\MarketQueueLifecycle;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,10 +21,6 @@ class CollectorCollectionController extends Controller
     {
         $assignment = $this->collectorAssignment($request);
         $departmentCode = $assignment?->department?->code;
-        if ($departmentCode === 'market') {
-            MarketQueueLifecycle::autoCancelStaleSentItems();
-            MarketDueLogService::sync();
-        }
         if (! $departmentCode) {
             return view('collector.dashboard', [
                 'assignment' => $assignment,
@@ -229,10 +223,6 @@ class CollectorCollectionController extends Controller
     {
         $assignment = $this->collectorAssignment($request);
         $departmentCode = $assignment?->department?->code;
-        if ($departmentCode === 'market') {
-            MarketQueueLifecycle::autoCancelStaleSentItems();
-            MarketDueLogService::sync();
-        }
         if (! $departmentCode) {
             return view('collector.pending_collections', [
                 'assignment' => $assignment,
@@ -364,8 +354,11 @@ class CollectorCollectionController extends Controller
         $validated = $request->validate([
             'payer_name' => ['required', 'string', 'max:150'],
             'collector_note' => ['nullable', 'string', 'max:1000'],
-            'proof_image' => ['nullable', 'image', 'max:5120'],
-            'proof_camera' => ['nullable', 'image', 'max:5120'],
+            'proof_image' => ['nullable', 'required_without:proof_camera', 'image', 'max:5120'],
+            'proof_camera' => ['nullable', 'required_without:proof_image', 'image', 'max:5120'],
+        ], [
+            'proof_image.required_without' => 'Upload a proof photo or capture one using camera.',
+            'proof_camera.required_without' => 'Upload a proof photo or capture one using camera.',
         ]);
 
         $proofFile = $request->file('proof_camera') ?: $request->file('proof_image');
@@ -376,13 +369,6 @@ class CollectorCollectionController extends Controller
             if (! $proofPath) {
                 return redirect()->back()->with('error', 'Unable to upload proof image. Please try again.');
             }
-        } else {
-            return redirect()
-                ->back()
-                ->withInput()
-                ->withErrors([
-                    'proof_image' => 'Upload a proof photo or capture one using camera.',
-                ]);
         }
 
         DB::transaction(function () use ($request, $dispatchItem, $validated, $proofPath): void {
@@ -442,7 +428,7 @@ class CollectorCollectionController extends Controller
             return redirect()->back()->with('error', 'Only awaiting submissions can be cancelled.');
         }
 
-        DB::transaction(function () use ($dispatchItem): void {
+        DB::transaction(function () use ($request, $dispatchItem): void {
             /** @var CollectionDispatchItem $item */
             $item = CollectionDispatchItem::query()
                 ->with('dispatch')
@@ -522,10 +508,6 @@ class CollectorCollectionController extends Controller
     {
         $assignment = $this->collectorAssignment($request);
         $departmentCode = $assignment?->department?->code;
-        if ($departmentCode === 'market') {
-            MarketQueueLifecycle::autoCancelStaleSentItems();
-            MarketDueLogService::sync();
-        }
         if (! $departmentCode) {
             return view('collector.payments', [
                 'assignment' => $assignment,
@@ -614,7 +596,6 @@ class CollectorCollectionController extends Controller
                     $query->where('department_code', $departmentCode);
                 }
             });
-        $this->applyDepartmentVisibilityFilter($itemsQuery, $departmentCode);
 
         if ($statusFilter === 'awaiting') {
             $itemsQuery->where('status', 'collected_pending_confirmation');
@@ -637,7 +618,6 @@ class CollectorCollectionController extends Controller
                     $query->where('department_code', $departmentCode);
                 }
             });
-        $this->applyDepartmentVisibilityFilter($baseCountQuery, $departmentCode);
 
         $counts = [
             'all' => (clone $baseCountQuery)->count(),

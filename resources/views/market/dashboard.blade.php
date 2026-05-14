@@ -708,13 +708,36 @@
         return gradient;
     };
 
+    const mkdSoftLineGlowPlugin = {
+        id: 'mkdSoftLineGlow',
+        beforeDatasetDraw(chart, args) {
+            const dataset = chart.data.datasets?.[args.index];
+            if (!dataset || dataset.type !== 'line' || dataset.enableGlow !== true) {
+                return;
+            }
+
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.shadowColor = dataset.glowColor || 'rgba(30,58,138,.22)';
+            ctx.shadowBlur = Number(dataset.glowBlur || 10);
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 1;
+        },
+        afterDatasetDraw(chart, args) {
+            const dataset = chart.data.datasets?.[args.index];
+            if (!dataset || dataset.type !== 'line' || dataset.enableGlow !== true) {
+                return;
+            }
+
+            chart.ctx.restore();
+        }
+    };
+
     const dailyCanvas = document.getElementById('mkdDailyChart');
     const acceptedSeries = dailyStats.map((entry) => Number(entry.accepted) || 0);
     const awaitingSeries = dailyStats.map((entry) => Number(entry.awaiting) || 0);
     const pendingSeries = dailyStats.map((entry) => Number(entry.pending) || 0);
-    const dailyTotalSeries = acceptedSeries.map((value, index) =>
-        value + (awaitingSeries[index] || 0) + (pendingSeries[index] || 0)
-    );
+    const dailyTotalSeries = dailyStats.map((entry) => Number(entry.total) || 0);
 
     new Chart(dailyCanvas, {
         type: 'bar',
@@ -734,6 +757,7 @@
                     barPercentage: .62,
                     categoryPercentage: .78,
                     maxBarThickness: 38,
+                    stack: 'queue',
                     order: 2,
                 },
                 {
@@ -749,6 +773,7 @@
                     barPercentage: .62,
                     categoryPercentage: .78,
                     maxBarThickness: 38,
+                    stack: 'queue',
                     order: 2,
                 },
                 {
@@ -764,6 +789,7 @@
                     barPercentage: .62,
                     categoryPercentage: .78,
                     maxBarThickness: 38,
+                    stack: 'queue',
                     order: 2,
                 },
                 {
@@ -772,13 +798,18 @@
                     data: dailyTotalSeries,
                     borderColor: MKD_TOTAL,
                     backgroundColor: 'rgba(30,58,138,.14)',
-                    borderWidth: 1.7,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
+                    borderWidth: 2.4,
+                    pointRadius: 3,
+                    pointHoverRadius: 5.5,
                     pointBackgroundColor: MKD_TOTAL,
                     pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    tension: .28,
+                    pointBorderWidth: 1.8,
+                    tension: 0,
+                    borderCapStyle: 'round',
+                    borderJoinStyle: 'round',
+                    enableGlow: true,
+                    glowColor: 'rgba(30,58,138,.2)',
+                    glowBlur: 9,
                     fill: false,
                     order: 1,
                 }
@@ -800,16 +831,19 @@
             scales: {
                 x: {
                     offset: true,
+                    stacked: true,
                     grid: { color: 'rgba(148,163,184,.12)', drawBorder: false, drawTicks: false },
                     ticks: { color: '#64748b', font: { size: 10, weight: '600' }, maxRotation: 0, autoSkipPadding: 12, padding: 8 },
                 },
                 y: {
                     beginAtZero: true,
+                    stacked: true,
                     ticks: { stepSize: 1, color: '#64748b', font: { size: 10, weight: '600' }, padding: 8 },
                     grid: { color: 'rgba(148,163,184,.24)', drawBorder: false },
                 }
             }
-        }
+        },
+        plugins: [mkdSoftLineGlowPlugin]
     });
 
     new Chart(document.getElementById('mkdStatusDonut'), {
@@ -867,14 +901,20 @@
                     data: revenueValues,
                     borderColor: 'rgba(216,124,124,.78)',
                     backgroundColor: 'rgba(216,124,124,.16)',
-                    borderWidth: 1.6,
+                    borderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 4,
                     pointHoverBackgroundColor: '#d87c7c',
                     pointHoverBorderColor: '#fff',
                     pointHoverBorderWidth: 2,
                     fill: false,
-                    tension: .28,
+                    tension: .34,
+                    cubicInterpolationMode: 'monotone',
+                    borderCapStyle: 'round',
+                    borderJoinStyle: 'round',
+                    enableGlow: true,
+                    glowColor: 'rgba(216,124,124,.2)',
+                    glowBlur: 10,
                     order: 1,
                 },
             ]
@@ -912,7 +952,8 @@
                     grid: { color: 'rgba(148,163,184,.24)', drawBorder: false },
                 }
             }
-        }
+        },
+        plugins: [mkdSoftLineGlowPlugin]
     });
 
 })();

@@ -3,10 +3,16 @@
 namespace App\Http\Controllers\Market;
 
 use App\Http\Controllers\Controller;
+use App\Models\MarketDueLog;
 use App\Models\MarketPaymentCollection;
+use App\Models\MarketStallLease;
 use App\Models\MarketTenant;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
 
@@ -102,11 +108,14 @@ class MarketTenantController extends Controller
             })
             ->sum('amount_paid');
 
+        $billingTimeline = $this->buildBillingTimelineSummary($activeLease);
+
         return view('market.vendor_edit', [
             'tenant' => $marketTenant,
             'activeLease' => $activeLease,
             'leaseHistory' => $leaseHistory,
             'paymentHistory' => $paymentHistory,
+            'billingTimeline' => $billingTimeline,
             'leaseSummary' => [
                 'total' => $totalLeases,
                 'active' => $activeLeaseCount,
@@ -139,6 +148,20 @@ class MarketTenantController extends Controller
             ->with('status', 'Tenant record updated. Connected market tabs now show the latest tenant data.');
     }
 
+    public function finalNoticePdf(MarketTenant $marketTenant)
+    {
+        $activeLease = $marketTenant->activeLease()
+            ->with(['stall.location', 'rate'])
+            ->first();
+
+        $payload = $this->buildFinalNoticePayload($marketTenant, $activeLease);
+        $filename = 'market-final-notice-' . str_pad((string) $marketTenant->id, 4, '0', STR_PAD_LEFT) . '-' . now()->format('Ymd-His') . '.pdf';
+
+        return Pdf::loadView('market.final_notice_pdf', $payload)
+            ->setPaper('a4', 'portrait')
+            ->download($filename);
+    }
+
     /**
      * @param  array<string, mixed>  $validated
      * @return array<string, string|null>
@@ -160,6 +183,337 @@ class MarketTenantController extends Controller
             'business_type' => $normalizeNullable($validated['business_type'] ?? null),
             'mpo_control_no' => $normalizeNullable($validated['mpo_control_no'] ?? null),
         ];
+    }
+
+    /**
+     * @return array{
+     *     has_active_lease: bool,
+     *     period: string,
+     *     period_label: string,
+     *     cycles: int,
+     *     interval_days: int,
+     *     interval_label: string,
+     *     start_date_label: string,
+     *     first_due_label: string,
+     *     next_due_label: string,
+     *     days_since_start: int,
+     *     due_today: bool,
+     *     expected_cycles: int,
+     *     paid_cycles: int,
+     *     unpaid_cycles: int,
+     *     unpaid_overdue_cycles: int,
+     *     unpaid_preview: array<int, array{date:string,status:string,age:string,is_today:bool}>,
+     *     unpaid_all: array<int, array{date:string,status:string,age:string,is_today:bool}>,
+     *     unpaid_remaining: int
+     * }
+     */
+    private function buildBillingTimelineSummary($activeLease): array
+    {
+        if (! $activeLease) {
+            return [
+                'has_active_lease' => false,
+                'period' => 'monthly',
+                'period_label' => 'Monthly',
+                'cycles' => 1,
+                'interval_days' => 30,
+                'interval_label' => 'Every 30 days',
+                'start_date_label' => '-',
+                'first_due_label' => '-',
+                'next_due_label' => '-',
+                'days_since_start' => 0,
+                'due_today' => false,
+                'expected_cycles' => 0,
+                'paid_cycles' => 0,
+                'unpaid_cycles' => 0,
+                'unpaid_overdue_cycles' => 0,
+                'unpaid_preview' => [],
+                'unpaid_all' => [],
+                'unpaid_remaining' => 0,
+            ];
+        }
+
+        $period = strtolower((string) ($activeLease->billing_period ?? 'monthly'));
+        if (! in_array($period, ['daily', 'weekly', 'monthly'], true)) {
+            $period = 'monthly';
+        }
+
+        $cycles = max(1, (int) ($activeLease->billing_cycles ?? 1));
+        $intervalDays = match ($period) {
+            'daily' => 1 * $cycles,
+            'weekly' => 7 * $cycles,
+            default => 30 * $cycles,
+        };
+
+        $startAt = $activeLease->start_date instanceof Carbon
+            ? $activeLease->start_date->copy()->startOfDay()
+            : ($activeLease->created_at ? $activeLease->created_at->copy()->startOfDay() : null);
+
+        if (! $startAt) {
+            return [
+                'has_active_lease' => true,
+                'period' => $period,
+                'period_label' => ucfirst($period),
+                'cycles' => $cycles,
+                'interval_days' => $intervalDays,
+                'interval_label' => $this->formatIntervalLabel($period, $cycles, $intervalDays),
+                'start_date_label' => '-',
+                'first_due_label' => '-',
+                'next_due_label' => '-',
+                'days_since_start' => 0,
+                'due_today' => false,
+                'expected_cycles' => 0,
+                'paid_cycles' => 0,
+                'unpaid_cycles' => 0,
+                'unpaid_overdue_cycles' => 0,
+                'unpaid_preview' => [],
+                'unpaid_all' => [],
+                'unpaid_remaining' => 0,
+            ];
+        }
+
+        $today = now()->startOfDay();
+        $firstDueAt = $startAt->copy()->addDays($intervalDays);
+        $dueDateKeys = [];
+        $nextDueAt = $firstDueAt->copy();
+
+        if ($today->gte($firstDueAt)) {
+            $cursor = $firstDueAt->copy();
+            $guard = 0;
+
+            while ($cursor->lte($today) && $guard < 4000) {
+                $dueDateKeys[] = $cursor->toDateString();
+                $cursor->addDays($intervalDays);
+                $guard++;
+            }
+
+            $nextDueAt = $cursor;
+        }
+
+        $dueLogsByDate = collect();
+        if (Schema::hasTable('market_due_logs')) {
+            $dueLogsByDate = MarketDueLog::query()
+                ->where('market_stall_lease_id', (int) $activeLease->id)
+                ->whereDate('due_date', '>=', $firstDueAt->toDateString())
+                ->whereDate('due_date', '<=', $today->toDateString())
+                ->get(['due_date', 'status'])
+                ->keyBy(static fn (MarketDueLog $log): string => $log->due_date?->toDateString() ?? '');
+        }
+
+        $unpaidRows = [];
+        $paidCycles = 0;
+        $unpaidOverdueCycles = 0;
+        $todayKey = $today->toDateString();
+
+        foreach ($dueDateKeys as $dueDateKey) {
+            $statusKey = strtolower((string) ($dueLogsByDate->get($dueDateKey)?->status ?? 'due'));
+            $isPaid = $statusKey === 'paid';
+            if ($isPaid) {
+                $paidCycles++;
+                continue;
+            }
+
+            $dueAt = Carbon::parse($dueDateKey)->startOfDay();
+            $isToday = $dueDateKey === $todayKey;
+            if (! $isToday) {
+                $unpaidOverdueCycles++;
+            }
+
+            $ageLabel = $isToday
+                ? 'Due today'
+                : $today->diffInDays($dueAt) . ' day(s) overdue';
+
+            $unpaidRows[] = [
+                'date' => $dueAt->format('M d, Y'),
+                'status' => $this->formatDueStatusLabel($statusKey),
+                'age' => $ageLabel,
+                'is_today' => $isToday,
+                'sort_key' => $dueAt->toDateString(),
+            ];
+        }
+
+        usort($unpaidRows, static function (array $left, array $right): int {
+            return strcmp((string) $right['sort_key'], (string) $left['sort_key']);
+        });
+
+        $unpaidAll = array_map(static function (array $item): array {
+            unset($item['sort_key']);
+            return $item;
+        }, $unpaidRows);
+        $unpaidPreview = array_slice($unpaidAll, 0, 3);
+        $unpaidRemaining = max(0, count($unpaidAll) - count($unpaidPreview));
+
+        return [
+            'has_active_lease' => true,
+            'period' => $period,
+            'period_label' => ucfirst($period),
+            'cycles' => $cycles,
+            'interval_days' => $intervalDays,
+            'interval_label' => $this->formatIntervalLabel($period, $cycles, $intervalDays),
+            'start_date_label' => $startAt->format('M d, Y'),
+            'first_due_label' => $firstDueAt->format('M d, Y'),
+            'next_due_label' => $nextDueAt->format('M d, Y'),
+            'days_since_start' => max(0, $startAt->diffInDays($today)),
+            'due_today' => in_array($todayKey, $dueDateKeys, true),
+            'expected_cycles' => count($dueDateKeys),
+            'paid_cycles' => $paidCycles,
+            'unpaid_cycles' => count($unpaidRows),
+            'unpaid_overdue_cycles' => $unpaidOverdueCycles,
+            'unpaid_preview' => $unpaidPreview,
+            'unpaid_all' => $unpaidAll,
+            'unpaid_remaining' => $unpaidRemaining,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function buildFinalNoticePayload(MarketTenant $tenant, ?MarketStallLease $activeLease): array
+    {
+        $today = now()->startOfDay();
+        $tenantName = trim((string) ($tenant->fullName() ?: 'N/A'));
+        $address = trim((string) ($tenant->address ?: '-'));
+        $tenantIdLabel = 'TNT-' . str_pad((string) $tenant->id, 4, '0', STR_PAD_LEFT);
+        $stallNo = $activeLease?->stall?->stall_no ?: '-';
+        $locationCode = (string) ($activeLease?->stall?->location?->location_code ?: '-');
+        $contractNo = (string) ($activeLease?->contract_number ?: '-');
+        $billingPeriod = strtolower((string) ($activeLease?->billing_period ?: 'monthly'));
+        if (! in_array($billingPeriod, ['daily', 'weekly', 'monthly'], true)) {
+            $billingPeriod = 'monthly';
+        }
+
+        $rateAmount = round((float) ($activeLease?->computed_rate_amount ?? $activeLease?->rate?->rate_amount ?? 0), 2);
+        $dueRows = collect();
+
+        if ($activeLease) {
+            $dueRows = $this->buildUnpaidDueRowsForNotice($activeLease, $today, $rateAmount);
+        }
+
+        $grandTotal = (float) $dueRows->sum('amount_due');
+        $statementMonth = $today->copy()->format('F Y');
+
+        return [
+            'generatedAt' => now(),
+            'today' => $today,
+            'tenant' => $tenant,
+            'activeLease' => $activeLease,
+            'tenantName' => $tenantName,
+            'tenantIdLabel' => $tenantIdLabel,
+            'address' => $address,
+            'stallNo' => $stallNo,
+            'locationCode' => $locationCode,
+            'contractNo' => $contractNo,
+            'billingPeriod' => ucfirst($billingPeriod),
+            'billingCycles' => max(1, (int) ($activeLease?->billing_cycles ?? 1)),
+            'rateAmount' => $rateAmount,
+            'statementMonth' => $statementMonth,
+            'dueRows' => $dueRows,
+            'grandTotal' => $grandTotal,
+        ];
+    }
+
+    /**
+     * @return Collection<int, array<string,mixed>>
+     */
+    private function buildUnpaidDueRowsForNotice(MarketStallLease $lease, Carbon $today, float $rateAmount): Collection
+    {
+        $period = strtolower((string) ($lease->billing_period ?? 'monthly'));
+        if (! in_array($period, ['daily', 'weekly', 'monthly'], true)) {
+            $period = 'monthly';
+        }
+        $cycles = max(1, (int) ($lease->billing_cycles ?? 1));
+        $intervalDays = match ($period) {
+            'daily' => 1 * $cycles,
+            'weekly' => 7 * $cycles,
+            default => 30 * $cycles,
+        };
+
+        $startAt = $lease->start_date instanceof Carbon
+            ? $lease->start_date->copy()->startOfDay()
+            : ($lease->created_at ? $lease->created_at->copy()->startOfDay() : null);
+        if (! $startAt) {
+            return collect();
+        }
+
+        $firstDueAt = $startAt->copy()->addDays($intervalDays);
+        if ($today->lt($firstDueAt)) {
+            return collect();
+        }
+
+        $dueKeys = [];
+        $cursor = $firstDueAt->copy();
+        $guard = 0;
+        while ($cursor->lte($today) && $guard < 4000) {
+            $dueKeys[] = $cursor->toDateString();
+            $cursor->addDays($intervalDays);
+            $guard++;
+        }
+
+        $dueLogsByDate = collect();
+        if (Schema::hasTable('market_due_logs')) {
+            $dueLogsByDate = MarketDueLog::query()
+                ->where('market_stall_lease_id', (int) $lease->id)
+                ->whereDate('due_date', '>=', $firstDueAt->toDateString())
+                ->whereDate('due_date', '<=', $today->toDateString())
+                ->get(['due_date', 'status'])
+                ->keyBy(static fn (MarketDueLog $log): string => $log->due_date?->toDateString() ?? '');
+        }
+
+        $rows = collect();
+        foreach ($dueKeys as $idx => $dueDateKey) {
+            $status = strtolower((string) ($dueLogsByDate->get($dueDateKey)?->status ?? 'due'));
+            if ($status === 'paid') {
+                continue;
+            }
+
+            $dueAt = Carbon::parse($dueDateKey)->startOfDay();
+            $daysUnpaid = max(0, $dueAt->diffInDays($today));
+            $unpaidRent = $rateAmount;
+            $surcharge = round($unpaidRent * 0.25, 2);
+            $penaltyMonths = $daysUnpaid > 0 ? max(1, (int) ceil($daysUnpaid / 30)) : 0;
+            $penalty = round($unpaidRent * 0.02 * $penaltyMonths, 2);
+            $amountDue = round($unpaidRent + $surcharge + $penalty, 2);
+
+            $rows->push([
+                'posting_id' => 'DUE-' . str_pad((string) ($idx + 1), 4, '0', STR_PAD_LEFT),
+                'billing_period' => $dueAt->format('M d, Y'),
+                'due_date_sort' => $dueAt->toDateString(),
+                'rate' => $unpaidRent,
+                'days_unpaid' => $daysUnpaid,
+                'unpaid_rent' => $unpaidRent,
+                'surcharge' => $surcharge,
+                'penalty' => $penalty,
+                'amount_due' => $amountDue,
+                'status' => $status,
+            ]);
+        }
+
+        return $rows
+            ->sortByDesc('due_date_sort')
+            ->map(static function (array $row): array {
+                unset($row['due_date_sort']);
+                return $row;
+            })
+            ->values();
+    }
+
+    private function formatIntervalLabel(string $period, int $cycles, int $intervalDays): string
+    {
+        return match ($period) {
+            'daily' => 'Every ' . $cycles . ' day(s)',
+            'weekly' => 'Every ' . (7 * $cycles) . ' day(s) (' . $cycles . ' week cycle)',
+            default => 'Every ' . $intervalDays . ' day(s) (' . $cycles . ' month cycle)',
+        };
+    }
+
+    private function formatDueStatusLabel(string $statusKey): string
+    {
+        return match ($statusKey) {
+            'paid' => 'Paid',
+            'sent' => 'Sent to collector',
+            'awaiting_confirmation' => 'Awaiting confirmation',
+            'missed' => 'Missed',
+            default => 'Unpaid',
+        };
     }
 
     private function buildFilteredTenantQuery(string $search)

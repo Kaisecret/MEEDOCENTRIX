@@ -217,23 +217,12 @@ class MarketStallController extends Controller
 
     public function destroy(MarketStall $marketStall): RedirectResponse
     {
-        if ($marketStall->leases()->exists()) {
-            $marketStall->update([
-                'stall_status' => 'inactive',
-                'is_billable' => false,
-            ]);
-
-            return redirect()
-                ->back()
-                ->with('status', "Stall {$marketStall->stall_no} has existing lease history and was set to inactive.");
-        }
-
         $stallNo = $marketStall->stall_no;
         $marketStall->delete();
 
         return redirect()
             ->back()
-            ->with('status', "Stall {$stallNo} deleted.");
+            ->with('status', "Stall {$stallNo} permanently deleted.");
     }
 
     /**

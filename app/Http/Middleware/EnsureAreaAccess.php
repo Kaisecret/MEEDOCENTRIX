@@ -2,9 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\AppNotification;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureAreaAccess
@@ -31,6 +33,7 @@ class EnsureAreaAccess
         $requiredPermission = $this->resolveRequiredPermission($area, $routeName);
 
         if ($requiredPermission === null || $user->hasPermission($requiredPermission)) {
+            $this->queueCollectorAvailabilityReminder($request, $area);
             return $next($request);
         }
 
@@ -287,5 +290,55 @@ class EnsureAreaAccess
         if (str_starts_with($action, 'remittance')) return 'cashier.remittance.view';
 
         return null;
+    }
+
+    private function queueCollectorAvailabilityReminder(Request $request, string $area): void
+    {
+        if ($area !== 'collector') {
+            return;
+        }
+
+        if (! Schema::hasTable('app_notifications') || ! Schema::hasColumn('users', 'is_absent') || ! Schema::hasColumn('users', 'absent_set_at')) {
+            return;
+        }
+
+        $user = $request->user();
+        if (! $user || ! $user->isCollector() || ! (bool) $user->is_absent) {
+            return;
+        }
+
+        $absentSetAt = $user->absent_set_at;
+        if (! $absentSetAt) {
+            return;
+        }
+
+        $today = now()->startOfDay();
+        if ($absentSetAt->copy()->startOfDay()->gte($today)) {
+            // Reminder starts on the next day after the user was marked absent.
+            return;
+        }
+
+        $eventKey = 'collector_availability_reminder_' . $today->toDateString();
+
+        AppNotification::query()->firstOrCreate(
+            [
+                'user_id' => (int) $user->id,
+                'event_key' => $eventKey,
+            ],
+            [
+                'type' => 'warning',
+                'title' => 'Availability Reminder',
+                'message' => 'You are still marked absent. If you are present today, open your profile and set your status to Available so assignments can be sent to you.',
+                'action_url' => route('collector.profile'),
+                'payload' => [
+                    'source' => 'collector_absence_reminder',
+                    'absent_set_at' => $absentSetAt->toDateTimeString(),
+                    'reminder_date' => $today->toDateString(),
+                ],
+                'created_by_user_id' => null,
+                'is_read' => false,
+                'read_at' => null,
+            ]
+        );
     }
 }

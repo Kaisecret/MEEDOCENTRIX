@@ -18,6 +18,7 @@
 .cpm-search input::placeholder{color:rgba(255,255,255,.72)}
 .cpm-card{border:1px solid var(--cpm-border);border-radius:14px;background:#fff;overflow:hidden}
 .cpm-table-wrap{overflow-x:auto}.cpm-table{width:100%;border-collapse:collapse;min-width:980px}
+.cpm-mobile-list{display:none}
 .cpm-table th{background:#eef5fb;color:#103250;text-transform:uppercase;letter-spacing:.04em;font-size:.73rem;font-weight:800;text-align:left;padding:.8rem .9rem;border-bottom:1px solid var(--cpm-border)}
 .cpm-table td{padding:.85rem .9rem;font-size:.9rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
 .cpm-strong{color:var(--cpm-head);font-weight:700}.cpm-sub{color:var(--cpm-muted);font-size:.8rem}
@@ -52,6 +53,17 @@
 .cpm-camera-note{margin:0;color:#64748b;font-size:.82rem}
 body.cpm-lock-scroll{overflow:hidden}
 @media (max-width:768px){.cpm-grid,.cpm-proof{grid-template-columns:1fr}.cpm-search{width:100%}}
+@media (max-width:640px){
+    .cpm-table-wrap{display:none}
+    .cpm-mobile-list{display:grid;gap:12px;padding:12px}
+    .cpm-mobile-card{border:1px solid var(--cpm-border);border-radius:12px;background:#fff;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);display:grid;gap:8px}
+    .cpm-mobile-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+    .cpm-mobile-title{font-weight:800;color:var(--cpm-head)}
+    .cpm-mobile-meta{font-size:.8rem;color:var(--cpm-muted)}
+    .cpm-mobile-row{display:flex;justify-content:space-between;gap:8px;font-size:.86rem}
+    .cpm-mobile-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .cpm-mobile-actions .cpm-btn{flex:1;justify-content:center}
+}
 </style>
 
 <div data-server-rendered-page="pending_collections" data-page-title="Pending Collections" class="cpm-page">
@@ -126,6 +138,61 @@ body.cpm-lock-scroll{overflow:hidden}
                         @endforeach
                     </tbody>
                 </table>
+            </div>
+            <div class="cpm-mobile-list">
+                @foreach ($items as $item)
+                    @php
+                        $lease = $item->marketStallLease;
+                        $stall = $lease?->stall;
+                        $tenant = $lease?->tenant;
+                        $status = (string) $item->status;
+                        $isRejected = $status === 'rejected';
+                        $billing = ucfirst((string) ($lease?->billing_period ?? 'monthly')) . ' x ' . (int) ($lease?->billing_cycles ?? 1);
+                    @endphp
+                    <div class="cpm-mobile-card">
+                        <div class="cpm-mobile-head">
+                            <div>
+                                <div class="cpm-mobile-title">{{ $stall?->stall_no ?? '-' }}</div>
+                                <div class="cpm-mobile-meta">{{ $stall?->location?->location_code ?? '-' }} | {{ $tenant?->fullName() ?: '-' }}</div>
+                            </div>
+                            <div>
+                                @if($isRejected)
+                                    <span class="cpm-pill cpm-pill-red">Rejected</span>
+                                @else
+                                    <span class="cpm-pill cpm-pill-blue">For Collection</span>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="cpm-mobile-row"><span class="cpm-mobile-meta">Business</span><strong>{{ $tenant?->business_name ?: '-' }}</strong></div>
+                        <div class="cpm-mobile-row"><span class="cpm-mobile-meta">Contract</span><strong>{{ $lease?->contract_number ?: '-' }}</strong></div>
+                        <div class="cpm-mobile-row"><span class="cpm-mobile-meta">Billing</span><strong>{{ $billing }}</strong></div>
+                        <div class="cpm-mobile-row"><span class="cpm-mobile-meta">Total</span><strong>PHP {{ number_format((float) $item->amount_snapshot, 2) }}</strong></div>
+                        <div class="cpm-mobile-actions">
+                            <button type="button" class="cpm-btn cpm-btn-view js-open-view"
+                                data-stall="{{ $stall?->stall_no ?? '-' }}"
+                                data-tenant="{{ $tenant?->fullName() ?: '-' }}"
+                                data-business="{{ $tenant?->business_name ?: '-' }}"
+                                data-contract="{{ $lease?->contract_number ?: '-' }}"
+                                data-billing="{{ $billing }}"
+                                data-total="{{ number_format((float) $item->amount_snapshot, 2, '.', '') }}"
+                                data-status="{{ $status }}"
+                                data-note="{{ $item->review_note ?? '' }}"
+                            ><i class="fa-regular fa-eye"></i>View</button>
+                            <button type="button" class="cpm-btn cpm-btn-collect js-open-collect"
+                                data-action="{{ route('collector.pending_collections.collect', $item) }}"
+                                data-stall="{{ $stall?->stall_no ?? '-' }}"
+                                data-tenant="{{ $tenant?->fullName() ?: '-' }}"
+                                data-business="{{ $tenant?->business_name ?: '-' }}"
+                                data-contract="{{ $lease?->contract_number ?: '-' }}"
+                                data-billing="{{ $billing }}"
+                                data-total="{{ number_format((float) $item->amount_snapshot, 2, '.', '') }}"
+                                data-status="{{ $status }}"
+                                data-note="{{ $item->review_note ?? '' }}"
+                                data-allow-proof="{{ $isRejected && filled($item->proof_image_path) ? '1' : '0' }}"
+                            ><i class="fa-solid fa-hand-holding-dollar"></i>Collect</button>
+                        </div>
+                    </div>
+                @endforeach
             </div>
         @else
             <div class="cpm-empty"><i class="fa-solid fa-inbox"></i><h3>No Pending Collections</h3><p>All market collection items have been processed.</p></div>

@@ -223,7 +223,7 @@
                 </div>
 
                 <div class="cpm-form-field">
-                    <div class="cpm-form-label"><i class="fa-solid fa-camera"></i> Proof Photo</div>
+                    <div class="cpm-form-label"><i class="fa-solid fa-camera"></i> Proof Photo <span class="req">*</span></div>
                     <div class="cpm-proof-grid">
                         <label class="cpm-upload-zone" id="cpmUploadLabel">
                             <input type="file" name="proof_image" accept="image/*" id="cpmResendProofUpload" onchange="cpmSetFile(this,'cpmUploadLabel','cpmUploadSub')">
@@ -238,7 +238,7 @@
                             <div class="cpm-upload-sub" id="cpmCameraSub">Capture photo</div>
                         </label>
                     </div>
-                    <p class="cpm-proof-note" id="cpmResendProofHint"><i class="fa-solid fa-circle-info"></i>Upload or capture a new proof photo.</p>
+                    <p class="cpm-proof-note" id="cpmResendProofHint"><i class="fa-solid fa-circle-info"></i>Upload or capture a new proof photo (required).</p>
                 </div>
             </div>
             <div class="cpm-modal-foot">

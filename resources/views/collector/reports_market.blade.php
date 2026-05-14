@@ -67,7 +67,7 @@
 @media (max-width:640px){.cr-grid{grid-template-columns:1fr}.cr-filter{grid-template-columns:1fr}.cr-modal-head{flex-wrap:wrap;gap:8px}.cr-modal-actions{width:100%;justify-content:flex-end}.cr-preview-frame{height:68vh}}
 </style>
 
-<div data-server-rendered-page="collector_reports_market" data-page-title="Market Collector Reports" class="cr">
+<div data-server-rendered-page="collector_reports" data-page-title="Market Collector Reports" class="cr">
     <section class="cr-hero">
         <div>
             <h2><i class="fa-solid fa-store" style="margin-right:8px;opacity:.88;"></i>Market Collector Reports</h2>

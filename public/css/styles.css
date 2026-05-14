@@ -876,6 +876,10 @@ input, select, textarea {
     flex-shrink: 0;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
+.sidebar-user-status.is-absent {
+    background: #f97316;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.22);
+}
 
 /* -- Nav Label -- */
 .sidebar-nav-label {

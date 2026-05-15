@@ -312,12 +312,17 @@
 
     .report-filters {
         display: grid;
-        grid-template-columns: minmax(220px, 1.35fr) repeat(4, minmax(150px, 1fr)) auto;
-        gap: 12px;
+        grid-template-columns: minmax(260px, 1.4fr) minmax(220px, 1fr) minmax(180px, 1fr) minmax(145px, 0.9fr) minmax(145px, 0.9fr) auto;
+        column-gap: 14px;
+        row-gap: 12px;
         padding: 12px;
         align-items: end;
         border-bottom: 1px solid var(--line);
         background: #ffffff;
+    }
+
+    .report-filters > * {
+        min-width: 0;
     }
 
     .report-filters label {
@@ -338,6 +343,9 @@
     .report-search {
         position: relative;
         display: block;
+        width: 100%;
+        max-width: 360px;
+        justify-self: start;
     }
 
     .report-search i {
@@ -346,10 +354,14 @@
         left: 12px;
         transform: translateY(-50%);
         color: #8aa0b6;
+        font-size: 0.95rem;
         pointer-events: none;
     }
 
     .report-search input {
+        min-height: 38px;
+        height: 38px;
+        font-size: 0.9rem;
         padding-left: 36px !important;
     }
 
@@ -376,6 +388,8 @@
         display: flex;
         align-items: flex-end;
         gap: 8px;
+        flex-wrap: wrap;
+        padding-left: 4px;
     }
 
     .report-btn {
@@ -384,12 +398,42 @@
         border-radius: 9px;
         font-weight: 800;
         font-size: 0.85rem;
+        white-space: nowrap;
         text-decoration: none;
         border: 1px solid transparent;
         display: inline-flex;
         align-items: center;
         gap: 7px;
         cursor: pointer;
+    }
+
+    @media (max-width: 1500px) {
+        .report-filters {
+            grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 1fr) minmax(160px, 0.9fr) minmax(145px, 0.85fr) minmax(145px, 0.85fr);
+        }
+
+        .report-filter-actions {
+            grid-column: 1 / -1;
+            justify-content: flex-start;
+        }
+    }
+
+    @media (max-width: 1700px) {
+        .report-filters {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+
+        .report-search {
+            grid-column: 1 / span 1;
+            max-width: 320px;
+        }
+
+        .report-filter-actions {
+            grid-column: 1 / -1;
+            justify-content: flex-start;
+            padding-left: 0;
+            margin-top: 2px;
+        }
     }
 
     .report-btn-primary {
@@ -820,11 +864,12 @@
 
     @media (max-width: 1280px) {
         .report-filters {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
         }
 
         .report-search {
-            grid-column: 1 / -1;
+            grid-column: 1 / span 1;
+            max-width: 300px;
         }
 
         .report-filter-actions {
@@ -840,6 +885,7 @@
     @media (max-width: 860px) {
         .report-filters {
             grid-template-columns: 1fr;
+            row-gap: 8px;
         }
 
         .report-filter-actions {

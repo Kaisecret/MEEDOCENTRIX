@@ -481,7 +481,7 @@
     <section class="mkd-grid-twin">
         <article class="mkd-card">
             <div class="mkd-card-head">
-                <h3><i class="fa-solid fa-chart-column" style="color:var(--mkd-primary);"></i>Daily Queue Movement</h3>
+                <h3><i class="fa-solid fa-chart-area" style="color:var(--mkd-primary);"></i>Daily Queue Movement</h3>
                 <span>{{ $displayRange }}</span>
             </div>
             <div class="mkd-card-body">
@@ -740,80 +740,30 @@
     const dailyTotalSeries = dailyStats.map((entry) => Number(entry.total) || 0);
 
     new Chart(dailyCanvas, {
-        type: 'bar',
+        type: 'line',
         data: {
-            labels: dailyStats.map((entry) => [entry.label, entry.date]),
-            datasets: [
-                {
-                    type: 'bar',
-                    label: 'Accepted',
-                    data: acceptedSeries,
-                    backgroundColor: mkdBuildGradient(dailyCanvas, 'rgba(16,185,129,.9)', 'rgba(16,185,129,.62)'),
-                    hoverBackgroundColor: MKD_ACCEPTED,
-                    borderColor: 'rgba(5,150,105,.24)',
-                    borderWidth: 1,
-                    borderRadius: 0,
-                    borderSkipped: false,
-                    barPercentage: .62,
-                    categoryPercentage: .78,
-                    maxBarThickness: 38,
-                    stack: 'queue',
-                    order: 2,
+            labels: dailyStats.map((entry) => entry.date || entry.label),
+            datasets: [{
+                label: 'Total',
+                data: dailyTotalSeries,
+                borderColor: '#155f8f',
+                backgroundColor: (context) => {
+                    const { ctx, chartArea } = context.chart;
+                    if (!chartArea) return 'rgba(21,95,143,0.14)';
+                    const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                    gradient.addColorStop(0, 'rgba(21,95,143,0.28)');
+                    gradient.addColorStop(1, 'rgba(21,95,143,0.02)');
+                    return gradient;
                 },
-                {
-                    type: 'bar',
-                    label: 'Awaiting',
-                    data: awaitingSeries,
-                    backgroundColor: mkdBuildGradient(dailyCanvas, 'rgba(21,95,143,.9)', 'rgba(21,95,143,.62)'),
-                    hoverBackgroundColor: MKD_PRIMARY,
-                    borderColor: 'rgba(21,95,143,.28)',
-                    borderWidth: 1,
-                    borderRadius: 0,
-                    borderSkipped: false,
-                    barPercentage: .62,
-                    categoryPercentage: .78,
-                    maxBarThickness: 38,
-                    stack: 'queue',
-                    order: 2,
-                },
-                {
-                    type: 'bar',
-                    label: 'Pending',
-                    data: pendingSeries,
-                    backgroundColor: mkdBuildGradient(dailyCanvas, 'rgba(245,158,11,.9)', 'rgba(245,158,11,.58)'),
-                    hoverBackgroundColor: MKD_PENDING,
-                    borderColor: 'rgba(180,83,9,.22)',
-                    borderWidth: 1,
-                    borderRadius: 0,
-                    borderSkipped: false,
-                    barPercentage: .62,
-                    categoryPercentage: .78,
-                    maxBarThickness: 38,
-                    stack: 'queue',
-                    order: 2,
-                },
-                {
-                    type: 'line',
-                    label: 'Total',
-                    data: dailyTotalSeries,
-                    borderColor: MKD_TOTAL,
-                    backgroundColor: 'rgba(30,58,138,.14)',
-                    borderWidth: 2.4,
-                    pointRadius: 3,
-                    pointHoverRadius: 5.5,
-                    pointBackgroundColor: MKD_TOTAL,
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 1.8,
-                    tension: 0,
-                    borderCapStyle: 'round',
-                    borderJoinStyle: 'round',
-                    enableGlow: true,
-                    glowColor: 'rgba(30,58,138,.2)',
-                    glowBlur: 9,
-                    fill: false,
-                    order: 1,
-                }
-            ]
+                borderWidth: 2.8,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#155f8f',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                tension: 0.38,
+                fill: true,
+            }]
         },
         options: {
             responsive: true,
@@ -821,29 +771,21 @@
             layout: { padding: { top: 10, right: 8, left: 0, bottom: 0 } },
             interaction: { mode: 'index', intersect: false },
             plugins: {
-                legend: {
-                    position: 'top',
-                    align: 'end',
-                    labels: { color: '#475569', font: { size: 11, weight: '700' }, boxWidth: 8, boxHeight: 8, usePointStyle: true, padding: 14 },
-                },
+                legend: { display: false },
                 tooltip: { ...mkdTooltip, mode: 'index', intersect: false },
             },
             scales: {
                 x: {
-                    offset: true,
-                    stacked: true,
-                    grid: { color: 'rgba(148,163,184,.12)', drawBorder: false, drawTicks: false },
-                    ticks: { color: '#64748b', font: { size: 10, weight: '600' }, maxRotation: 0, autoSkipPadding: 12, padding: 8 },
+                    grid: { display: false, drawBorder: false },
+                    ticks: { color: '#64748b', font: { size: 11, weight: '600' }, maxRotation: 0, autoSkipPadding: 12, padding: 8 },
                 },
                 y: {
                     beginAtZero: true,
-                    stacked: true,
                     ticks: { stepSize: 1, color: '#64748b', font: { size: 10, weight: '600' }, padding: 8 },
-                    grid: { color: 'rgba(148,163,184,.24)', drawBorder: false },
+                    grid: { color: 'rgba(148,163,184,.22)', drawBorder: false, borderDash: [4, 4] },
                 }
             }
-        },
-        plugins: [mkdSoftLineGlowPlugin]
+        }
     });
 
     new Chart(document.getElementById('mkdStatusDonut'), {

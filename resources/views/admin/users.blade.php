@@ -96,8 +96,7 @@
         <section class="um-card">
             <header class="um-card-head">
                 <div>
-                    <h3>Registered Accounts</h3>
-                    <p>Search by name, email, username, role, or department.</p>
+                    <h3 style="margin:0;">Registered Accounts</h3>
                 </div>
                 <form action="{{ route('admin.users') }}" method="GET" class="um-search-form">
                     <div class="um-search-wrap">
@@ -111,8 +110,8 @@
                 </form>
             </header>
 
-            <div class="um-table-wrap">
-                <table class="um-table">
+            <div class="um-table-wrap um-users-table-wrap">
+                <table class="um-table um-users-table">
                     <thead>
                         <tr>
                             <th>Name</th>
@@ -130,6 +129,7 @@
                                 $departmentCode = strtolower((string) $user->department);
                                 $departmentLabel = $departmentLabels[$departmentCode] ?? ucfirst($departmentCode ?: 'Administration');
                                 $isCurrentUser = (int) auth()->id() === (int) $user->id;
+                                $createdLocal = $user->created_at?->copy()->timezone($displayTimezone);
                             @endphp
                             <tr>
                                 <td>
@@ -142,8 +142,8 @@
                                     <div class="um-email">{{ $user->email }}</div>
                                     <div class="um-sub">{{ $user->username ?: 'No username' }}</div>
                                 </td>
-                                <td>{{ $user->roleLabel() }}</td>
-                                <td>{{ $departmentLabel }}</td>
+                                <td><span class="um-role-chip" title="{{ $user->roleLabel() }}">{{ $user->roleLabel() }}</span></td>
+                                <td><span class="um-department-chip" title="{{ $departmentLabel }}">{{ $departmentLabel }}</span></td>
                                 <td>
                                     @if ($user->is_active)
                                         <span class="um-pill um-pill-success">Active</span>
@@ -151,8 +151,9 @@
                                         <span class="um-pill um-pill-danger">Inactive</span>
                                     @endif
                                 </td>
-                                <td class="um-sub">
-                                    {{ $user->created_at?->copy()->timezone($displayTimezone)->format('M d, Y h:i A') }}
+                                <td>
+                                    <div class="um-created-date">{{ $createdLocal?->format('M d, Y') }}</div>
+                                    <div class="um-created-time">{{ $createdLocal?->format('h:i A') }}</div>
                                 </td>
                                 <td>
                                     <div class="um-row-actions">
@@ -281,7 +282,6 @@
                                 @endforeach
                             </select>
                         </div>
-                        <small class="um-field-help">Collector accounts require assignment in the next tab.</small>
                     </label>
                     <label class="um-field">
                         <span class="um-field-label">Password</span>
@@ -1639,7 +1639,16 @@
     }
 
     .um-search-submit {
-        box-shadow: 0 10px 20px rgba(25, 97, 165, 0.2);
+        background: #155e8f;
+        border-color: #155e8f;
+        color: #fff;
+        box-shadow: 0 10px 20px rgba(21, 94, 143, 0.22);
+    }
+    .um-search-submit:hover,
+    .um-search-submit:focus {
+        background: #0f4b73;
+        border-color: #0f4b73;
+        color: #fff;
     }
 
     .um-search-clear {
@@ -1740,6 +1749,157 @@
         color: #456381;
     }
 
+    /* Registered accounts table redesign */
+    .um-users-table-wrap {
+        margin: 0;
+        border-top: 1px solid #d7e3ef;
+        background: #fff;
+        overflow-x: hidden;
+    }
+
+    .um-users-table {
+        width: 100%;
+        min-width: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        table-layout: auto;
+    }
+
+    .um-users-table thead th {
+        background: #eef4fa;
+        color: #486683;
+        font-size: 0.74rem;
+        letter-spacing: 0.04em;
+        font-weight: 800;
+        padding: 0.8rem 0.85rem;
+        border-bottom: 1px solid #d7e4f1;
+    }
+
+    .um-users-table tbody td {
+        padding: 0.82rem 0.85rem;
+        font-size: 0.92rem;
+        color: #173955;
+        border-bottom: 1px solid #e7eef6;
+        vertical-align: middle;
+        background: #fff;
+    }
+
+    .um-users-table tbody tr:hover td {
+        background: #f7fbff;
+    }
+
+    .um-users-table th:nth-child(1), .um-users-table td:nth-child(1) { width: 14%; min-width: 140px; }
+    .um-users-table th:nth-child(2), .um-users-table td:nth-child(2) { width: 20%; min-width: 190px; }
+    .um-users-table th:nth-child(3), .um-users-table td:nth-child(3) { width: 12%; min-width: 115px; }
+    .um-users-table th:nth-child(4), .um-users-table td:nth-child(4) { width: 11%; min-width: 105px; }
+    .um-users-table th:nth-child(5), .um-users-table td:nth-child(5) { width: 8%;  min-width: 80px; }
+    .um-users-table th:nth-child(6), .um-users-table td:nth-child(6) { width: 12%; min-width: 115px; }
+    .um-users-table th:nth-child(7), .um-users-table td:nth-child(7) { width: 13%; min-width: 175px; white-space: nowrap; padding-right: 1rem; }
+
+    .um-users-table .um-name-cell {
+        gap: 0.55rem;
+        font-size: 0.99rem;
+        font-weight: 800;
+        color: #102c49;
+    }
+
+    .um-users-table .um-name-avatar {
+        width: 34px;
+        height: 34px;
+        font-size: 0.83rem;
+        border: 1px solid #b8d1e9;
+        background: #dbe9f7;
+        color: #154f85;
+    }
+
+    .um-users-table .um-email {
+        font-size: 0.97rem;
+        font-weight: 700;
+        color: #143755;
+        line-height: 1.35;
+    }
+
+    .um-users-table .um-sub {
+        margin-top: 1px;
+        font-size: 0.84rem;
+        color: #61809e;
+    }
+
+    .um-role-chip,
+    .um-department-chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid #cbdced;
+        background: #f6faff;
+        color: #2e5379;
+        font-size: 0.78rem;
+        font-weight: 800;
+        padding: 0.26rem 0.58rem;
+        line-height: 1.15;
+        max-width: 165px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        vertical-align: middle;
+    }
+
+    .um-department-chip {
+        background: #eef7f1;
+        border-color: #c9e5d3;
+        color: #2f6a48;
+        max-width: 145px;
+    }
+
+    .um-users-table .um-pill {
+        font-size: 0.78rem;
+        font-weight: 800;
+        padding: 0.24rem 0.64rem;
+        white-space: nowrap;
+    }
+
+    .um-created-date {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #143a5a;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+
+    .um-created-time {
+        margin-top: 2px;
+        font-size: 0.82rem;
+        color: #5f7892;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+
+    .um-users-table .um-row-actions {
+        width: 100%;
+        justify-content: flex-start;
+        gap: 0.45rem;
+        flex-wrap: nowrap;
+    }
+
+    .um-users-table .um-action-btn {
+        min-height: 34px;
+        min-width: 74px;
+        border-radius: 9px;
+        padding: 0.32rem 0.56rem;
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    .um-users-table .um-action-btn i {
+        font-size: 0.75rem;
+    }
+
+    .um-users-table th:last-child,
+    .um-users-table td:last-child {
+        width: auto;
+        white-space: nowrap;
+    }
+
     .um-page-link {
         min-width: 38px;
         height: 36px;
@@ -1769,6 +1929,10 @@
 
         .um-table-wrap {
             margin: 0 0.55rem;
+        }
+
+        .um-users-table-wrap {
+            margin: 0 0.55rem 0.85rem;
         }
     }
 

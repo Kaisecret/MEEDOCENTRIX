@@ -200,15 +200,13 @@
     .ctx-table th:nth-child(4), .ctx-table td:nth-child(4) { min-width: 140px; }
     .ctx-table th:nth-child(5), .ctx-table td:nth-child(5) { min-width: 130px; }
     .ctx-table th:nth-child(6), .ctx-table td:nth-child(6) { min-width: 120px; text-align: right; }
-    .ctx-table th:nth-child(10), .ctx-table td:nth-child(10) { min-width: 260px; text-align: right; }
+    .ctx-table th:nth-child(9), .ctx-table td:nth-child(9) { min-width: 260px; text-align: right; }
 
     /* Show only important list columns so users do not need horizontal scroll */
     .ctx-table th:nth-child(7),
     .ctx-table td:nth-child(7),
     .ctx-table th:nth-child(8),
-    .ctx-table td:nth-child(8),
-    .ctx-table th:nth-child(9),
-    .ctx-table td:nth-child(9) {
+    .ctx-table td:nth-child(8) {
         display: none;
     }
 
@@ -502,9 +500,8 @@
                         <th>Cemetery / Category</th>
                         <th>Transaction Type</th>
                         <th>Occupant Record</th>
-                        <th>Amount Due</th>
+                        <th>Current Balance</th>
                         <th>Paid To Date</th>
-                        <th>Balance</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -539,44 +536,17 @@
                                     <span class="ctx-cell-sub">-</span>
                                 @endif
                             </td>
-                            <td><strong>PHP {{ number_format($amountDue, 2) }}</strong></td>
-                            <td>PHP {{ number_format($totalPaid, 2) }}</td>
                             <td><strong>PHP {{ number_format($balance, 2) }}</strong></td>
+                            <td>PHP {{ number_format($totalPaid, 2) }}</td>
                             <td><span class="ctx-badge ctx-badge-{{ $transaction->status }}">{{ $statusOptions[$transaction->status] ?? strtoupper($transaction->status) }}</span></td>
                             <td>
                                 <div class="ctx-actions">
-                                    <button
-                                        type="button"
-                                        class="ctx-icon-btn js-open-view-transaction-btn"
-                                        data-transaction-no="{{ $transaction->transaction_no }}"
-                                        data-transaction-date="{{ optional($transaction->transaction_date)->format('Y-m-d h:i A') }}"
-                                        data-cemetery-name="{{ $transaction->site?->site_name ?: '-' }}"
-                                        data-category-name="{{ $transaction->category?->category_name ?: '-' }}"
-                                        data-deceased-name="{{ $transaction->deceased_name }}"
-                                        data-plot-reference="{{ $transaction->plot_reference }}"
-                                        data-transaction-type-name="{{ $transaction->transactionType?->type_name ?: '-' }}"
-                                        data-source-type="Occupant Record"
-                                        data-source-reference="{{ $transaction->occupantRecord?->record_no ?: '-' }}"
-                                        data-occupant-record-no="{{ $transaction->occupantRecord?->record_no ?: '-' }}"
-                                        data-contact-person="{{ $transaction->occupantRecord?->contact?->contact_person ?: '-' }}"
-                                        data-contact-number="{{ $transaction->occupantRecord?->contact?->contact_number ?: '-' }}"
-                                        data-contact-address="{{ $transaction->occupantRecord?->contact?->address ?: '-' }}"
-                                        data-quantity="{{ $transaction->quantity !== null ? number_format((float) $transaction->quantity, 2) : '-' }}"
-                                        data-status="{{ $statusOptions[$transaction->status] ?? strtoupper($transaction->status) }}"
-                                        data-amount-due="{{ number_format((float) $transaction->amount_due, 2) }}"
-                                        data-paid-to-date="{{ number_format($totalPaid, 2) }}"
-                                        data-current-balance="{{ number_format($balance, 2) }}"
-                                        data-base-fee="{{ number_format((float) ($transaction->base_fee ?? 0), 2) }}"
-                                        data-maintenance-fee="{{ number_format((float) ($transaction->maintenance_fee ?? 0), 2) }}"
-                                        data-burial-permit-fee="{{ number_format((float) ($transaction->burial_permit_fee ?? 0), 2) }}"
-                                        data-other-applicable-fee="{{ number_format((float) ($transaction->other_applicable_fee ?? 0), 2) }}"
-                                        data-maintenance-type="{{ $transaction->maintenance_type ?: 'none' }}"
-                                        data-maintenance-years="{{ $transaction->maintenance_years ?? '-' }}"
-                                        data-has-burial-permit="{{ (int) ($transaction->has_burial_permit ?? 0) }}"
-                                        data-remarks="{{ $transaction->remarks ?: '-' }}"
-                                        title="View full transaction">
+                                    <a
+                                        href="{{ route('cemetery.transactions.show', $transaction) }}"
+                                        class="ctx-icon-btn"
+                                        title="View full transaction details">
                                         <i class="fa-solid fa-eye"></i>
-                                    </button>
+                                    </a>
                                     <button
                                         type="button"
                                         class="ctx-icon-btn js-open-quick-pay-btn"
@@ -633,22 +603,29 @@
                                         title="Edit transaction">
                                         <i class="fa-solid fa-pen"></i>
                                     </button>
-                                    @if($hasPaymentRecord)
-                                        <button type="button" class="ctx-icon-btn ctx-icon-btn-danger" title="Cannot delete: transaction has payment collection record" disabled>
+                                    <form
+                                        method="POST"
+                                        action="{{ route('cemetery.transactions.destroy', $transaction) }}"
+                                        class="js-delete-transaction-form"
+                                        data-transaction-no="{{ $transaction->transaction_no }}"
+                                        data-deceased="{{ $transaction->deceased_name }}"
+                                        data-has-payment-record="{{ $hasPaymentRecord ? '1' : '0' }}"
+                                    >
+                                        @csrf
+                                        @method('DELETE')
+                                        <button
+                                            type="submit"
+                                            class="ctx-icon-btn ctx-icon-btn-danger"
+                                            title="{{ $hasPaymentRecord ? 'Delete transaction and linked payment records' : 'Delete transaction' }}"
+                                        >
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
-                                    @else
-                                        <form method="POST" action="{{ route('cemetery.transactions.destroy', $transaction) }}" class="js-delete-transaction-form" data-transaction-no="{{ $transaction->transaction_no }}" data-deceased="{{ $transaction->deceased_name }}">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="ctx-icon-btn ctx-icon-btn-danger" title="Delete transaction"><i class="fa-solid fa-trash"></i></button>
-                                        </form>
-                                    @endif
+                                    </form>
                                 </div>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="10" style="text-align:center; padding:1.4rem;">No transactions found.</td></tr>
+                        <tr><td colspan="9" style="text-align:center; padding:1.4rem;">No transactions found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -842,6 +819,9 @@
                 <div><strong id="deleteTransactionNo">-</strong></div>
                 <div>Deceased: <span id="deleteTransactionDeceased">-</span></div>
             </div>
+            <p id="deletePaymentWarning" style="display:none; margin:10px 0 0; color:#b45309; font-weight:700;">
+                This transaction has payment record(s). Deleting it will also delete linked payment records.
+            </p>
         </div>
         <div class="ctx-modal-foot">
             <button type="button" class="ctx-btn ctx-btn-secondary" data-close-modal="deleteTransactionModal">Cancel</button>
@@ -874,6 +854,7 @@
     const confirmDeleteButton = document.getElementById('confirmDeleteTransactionBtn');
     const deleteTransactionNo = document.getElementById('deleteTransactionNo');
     const deleteTransactionDeceased = document.getElementById('deleteTransactionDeceased');
+    const deletePaymentWarning = document.getElementById('deletePaymentWarning');
     const autoFilterForm = document.getElementById('ctxAutoFilterForm');
     const autoSearchInput = document.getElementById('ctxAutoSearch');
     const statusToast = document.getElementById('ctxStatusToast');
@@ -1015,10 +996,15 @@
         if (quickPayDeceasedNameField) quickPayDeceasedNameField.value = deceasedName;
 
         const suggestedPayment = parseMoney(currentBalance);
+        const shouldKeepOldAmount = hasErrors
+            && oldFormMode === 'quick_pay'
+            && oldQuickTransactionId !== ''
+            && oldQuickTransactionId === transactionId;
         if (quickPayAmountPaidInput) {
             quickPayAmountPaidInput.max = suggestedPayment.toFixed(2);
-            if (!quickPayAmountPaidInput.value || parseMoney(quickPayAmountPaidInput.value) <= 0) {
-                quickPayAmountPaidInput.value = suggestedPayment > 0 ? suggestedPayment.toFixed(2) : '';
+            if (!shouldKeepOldAmount) {
+                // Do not auto-fill with current balance. Let user input payment manually.
+                quickPayAmountPaidInput.value = '';
             }
         }
 
@@ -1300,6 +1286,9 @@
         pendingDeleteForm = deleteForm;
         if (deleteTransactionNo) deleteTransactionNo.textContent = deleteForm.dataset.transactionNo || '-';
         if (deleteTransactionDeceased) deleteTransactionDeceased.textContent = deleteForm.dataset.deceased || '-';
+        if (deletePaymentWarning) {
+            deletePaymentWarning.style.display = deleteForm.dataset.hasPaymentRecord === '1' ? 'block' : 'none';
+        }
         openModal(deleteModal);
     });
 

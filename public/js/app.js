@@ -102,6 +102,7 @@ const ROLES = {
 const SESSION_ROLE_KEY = 'meedocentrixRole';
 
 const SHARED_PAGE_ROUTES = {
+    profile: '/profile',
     settings: '/settings',
     notifications: '/notifications',
     direct_payment: '/direct-payment'
@@ -113,6 +114,7 @@ const ROLE_PAGE_ROUTES = {
         users: '/admin/users',
         roles: '/admin/roles',
         rates: '/admin/rates',
+        profile: '/admin/profile',
         transactions: '/admin/transactions',
         reports: '/admin/reports'
     },

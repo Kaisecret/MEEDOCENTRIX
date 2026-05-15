@@ -70,6 +70,9 @@
     .mtr-proof-body { padding:1rem 1.1rem; display:grid; gap:10px; }
     .mtr-proof-meta { color:#64748b; font-size:.82rem; font-weight:700; }
     .mtr-proof-image { width:100%; max-height:72vh; object-fit:contain; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; }
+    .mtr-proof-image-wrap { position:relative; }
+    .mtr-proof-watermark { position:absolute; inset:0; pointer-events:none; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .mtr-proof-watermark span { transform:rotate(-24deg); color:rgba(255,255,255,.34); font-size:clamp(14px,2.2vw,32px); font-weight:900; letter-spacing:.2em; text-align:center; text-shadow:0 1px 4px rgba(15,23,42,.35); padding:.5rem 1rem; border:1px dashed rgba(255,255,255,.28); border-radius:10px; background:rgba(15,23,42,.08); }
     .mtr-proof-foot { border-top:1px solid #e2e8f0; padding:.75rem 1.1rem; display:flex; justify-content:flex-end; background:#f8fafc; }
     .mtr-proof-foot-btn { border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#334155; font-size:.83rem; font-weight:700; padding:.45rem .85rem; cursor:pointer; }
     .mtr-proof-foot-btn:hover { border-color:#0f5fa8; color:#0f5fa8; background:#f0f7ff; }
@@ -311,7 +314,12 @@
         </div>
         <div class="mtr-proof-body">
             <div class="mtr-proof-meta" id="mtrProofMeta">Record: -</div>
-            <img id="mtrProofImage" class="mtr-proof-image" src="" alt="Proof image preview">
+            <div class="mtr-proof-image-wrap">
+                <img id="mtrProofImage" class="mtr-proof-image" src="" alt="Proof image preview">
+                <div class="mtr-proof-watermark" aria-hidden="true">
+                    <span>MARKET CONFIDENTIAL</span>
+                </div>
+            </div>
         </div>
         <div class="mtr-proof-foot">
             <button type="button" class="mtr-proof-foot-btn" id="mtrProofCloseFootBtn">Close</button>

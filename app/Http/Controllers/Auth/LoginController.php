@@ -124,12 +124,15 @@ class LoginController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
+        $sessionScope = strtolower(trim((string) $request->input('session_scope', $request->query('session_scope', ''))));
+        $redirectRoute = $sessionScope === 'admin' ? 'admin.login' : 'login';
+
         Auth::logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login');
+        return redirect()->route($redirectRoute);
     }
 
     private function switchSessionScope(Request $request, string $scope, ?string $tabToken = null): void

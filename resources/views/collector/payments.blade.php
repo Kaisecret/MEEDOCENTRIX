@@ -654,6 +654,34 @@
             flex-shrink: 0;
         }
 
+        .cpm-proof-image-wrap {
+            position: relative;
+        }
+
+        .cpm-proof-watermark {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .cpm-proof-watermark span {
+            transform: rotate(-24deg);
+            color: rgba(255, 255, 255, 0.34);
+            font-size: clamp(14px, 2.2vw, 30px);
+            font-weight: 900;
+            letter-spacing: 0.18em;
+            text-align: center;
+            text-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+            padding: 0.5rem 1rem;
+            border: 1px dashed rgba(255, 255, 255, 0.28);
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.08);
+        }
+
         .cpm-modal-foot {
             border-top: 1px solid var(--cpm-border);
             padding: .9rem 1.2rem;
@@ -1045,7 +1073,12 @@
                 <div style="display:grid;gap:8px;width:100%;">
                     <div id="cpmProofPreviewMeta" class="cpm-sub">-</div>
                     <div style="border:1px solid var(--cpm-border);border-radius:10px;background:#f8fafc;overflow:hidden;">
-                        <img id="cpmProofPreviewImage" src="" alt="Proof preview" style="display:block;width:100%;max-height:70vh;object-fit:contain;">
+                        <div class="cpm-proof-image-wrap">
+                            <img id="cpmProofPreviewImage" src="" alt="Proof preview" style="display:block;width:100%;max-height:70vh;object-fit:contain;">
+                            <div class="cpm-proof-watermark" aria-hidden="true">
+                                <span>COLLECTION PROOF CONFIDENTIAL</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

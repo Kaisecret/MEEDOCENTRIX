@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\AdminRateController;
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminProfileController;
 use App\Http\Controllers\Admin\AdminReportController;
 use App\Http\Controllers\Admin\AdminTransactionController;
 use App\Http\Controllers\Admin\RoleManagementController;
@@ -74,6 +75,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/roles/assignments', [RoleManagementController::class, 'assignUser'])->name('admin.roles.assignments.store');
         Route::get('/rates', [AdminRateController::class, 'index'])->name('admin.rates');
         Route::put('/rates', [AdminRateController::class, 'update'])->name('admin.rates.update');
+        Route::get('/profile', [AdminProfileController::class, 'show'])->name('admin.profile');
+        Route::put('/profile', [AdminProfileController::class, 'update'])->name('admin.profile.update');
         Route::get('/reports/csv', [AdminReportController::class, 'exportCsv'])->name('admin.reports.csv');
         Route::get('/reports', [AdminReportController::class, 'index'])->name('admin.reports');
         Route::get('/transactions/csv', [AdminTransactionController::class, 'exportCsv'])->name('admin.transactions.csv');
@@ -161,6 +164,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/services/{serviceLog}', [CemeteryServiceLogController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('cemetery.services.destroy');
         Route::get('/transactions', [CemeteryTransactionController::class, 'index'])->name('cemetery.transactions');
         Route::get('/transactions/csv', [CemeteryTransactionController::class, 'csv'])->name('cemetery.transactions.csv');
+        Route::get('/transactions/{transaction}', [CemeteryTransactionController::class, 'show'])->name('cemetery.transactions.show');
         Route::post('/transactions', [CemeteryTransactionController::class, 'store'])->name('cemetery.transactions.store');
         Route::put('/transactions/{transaction}', [CemeteryTransactionController::class, 'update'])->name('cemetery.transactions.update');
         Route::delete('/transactions/{transaction}', [CemeteryTransactionController::class, 'destroy'])->middleware('throttle:destructive-actions')->name('cemetery.transactions.destroy');

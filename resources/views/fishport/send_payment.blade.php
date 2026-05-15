@@ -252,7 +252,12 @@
         </div>
         <div class="sp-proof-body">
             <div class="sp-proof-meta" id="proofPreviewMeta">Log: -</div>
-            <img id="proofPreviewImage" src="" alt="Collection proof image preview">
+            <div class="sp-proof-image-wrap">
+                <img id="proofPreviewImage" src="" alt="Collection proof image preview">
+                <div class="sp-proof-watermark" aria-hidden="true">
+                    <span>FISHPORT CONFIDENTIAL</span>
+                </div>
+            </div>
         </div>
         <div class="sp-modal-foot">
             <button type="button" class="btn btn-secondary" data-close-modal="proofPreviewModal">Close</button>
@@ -633,6 +638,34 @@
     border: 1px solid var(--sp-border);
     border-radius: 10px;
     background: #f8fafc;
+}
+
+.sp-proof-image-wrap {
+    position: relative;
+}
+
+.sp-proof-watermark {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.sp-proof-watermark span {
+    transform: rotate(-24deg);
+    color: rgba(255, 255, 255, 0.34);
+    font-size: clamp(14px, 2.2vw, 32px);
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    text-align: center;
+    text-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+    padding: 0.5rem 1rem;
+    border: 1px dashed rgba(255, 255, 255, 0.28);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.08);
 }
 
 /* Animations */

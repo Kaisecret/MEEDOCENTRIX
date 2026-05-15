@@ -63,6 +63,9 @@
 .cpm-upload-zone.has-file{border-color:var(--cpm-green);background:#f0fdf4;border-style:solid}.cpm-upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .cpm-upload-icon{width:36px;height:36px;border-radius:10px;background:#e2e8f0;color:var(--cpm-muted);display:flex;align-items:center;justify-content:center;font-size:.95rem}.cpm-upload-name{font-size:.78rem;font-weight:700;color:var(--cpm-muted)}.cpm-upload-sub{font-size:.68rem;color:#94a3b8}
 .cpm-proof-note{font-size:.75rem;color:var(--cpm-muted);display:flex;align-items:flex-start;gap:5px;margin-top:2px}
+.cpm-proof-image-wrap{position:relative}
+.cpm-proof-watermark{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.cpm-proof-watermark span{transform:rotate(-24deg);color:rgba(255,255,255,.34);font-size:clamp(14px,2.2vw,30px);font-weight:900;letter-spacing:.18em;text-align:center;text-shadow:0 1px 4px rgba(15,23,42,.35);padding:.5rem 1rem;border:1px dashed rgba(255,255,255,.28);border-radius:10px;background:rgba(15,23,42,.08)}
 .cpm-modal-foot{border-top:1px solid var(--cpm-border);padding:.9rem 1.2rem;display:flex;justify-content:flex-end;gap:8px;background:var(--cpm-soft)}
 .cpm-cancel-btn{border:1.5px solid var(--cpm-border);background:#fff;color:var(--cpm-text);border-radius:9px;padding:.55rem 1.1rem;font-weight:600;cursor:pointer}
 .cpm-submit-btn{display:inline-flex;align-items:center;gap:7px;background:var(--cpm-primary);color:#fff;border:none;border-radius:9px;padding:.55rem 1.2rem;font-size:.88rem;font-weight:700;cursor:pointer}
@@ -187,7 +190,12 @@
             <div style="display:grid;gap:8px;width:100%;">
                 <div id="cpmProofPreviewMeta" class="cpm-sub">-</div>
                 <div style="border:1px solid var(--cpm-border);border-radius:10px;background:#f8fafc;overflow:hidden;">
-                    <img id="cpmProofPreviewImage" src="" alt="Proof preview" style="display:block;width:100%;max-height:70vh;object-fit:contain;">
+                    <div class="cpm-proof-image-wrap">
+                        <img id="cpmProofPreviewImage" src="" alt="Proof preview" style="display:block;width:100%;max-height:70vh;object-fit:contain;">
+                        <div class="cpm-proof-watermark" aria-hidden="true">
+                            <span>COLLECTION PROOF CONFIDENTIAL</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -438,12 +438,12 @@
     <section class="atrd-twin">
         <article class="atrd-card">
             <div class="atrd-card-head">
-                <h3><i class="fa-solid fa-chart-column" style="color:var(--atrd-primary);"></i>Daily Bookings Trend</h3>
+                <h3><i class="fa-solid fa-chart-area" style="color:var(--atrd-primary);"></i>Collection Trend</h3>
                 <span>{{ $displayRange }}</span>
             </div>
             <div class="atrd-card-body">
                 <div class="atrd-chart-wrap" style="height:240px;">
-                    <canvas id="atrdDailyChart"></canvas>
+                    <canvas id="atrdRevenueChart"></canvas>
                 </div>
             </div>
         </article>
@@ -483,12 +483,12 @@
     <section class="atrd-twin">
         <article class="atrd-card">
             <div class="atrd-card-head">
-                <h3><i class="fa-solid fa-chart-area" style="color:var(--atrd-primary);"></i>Collection Trend</h3>
+                <h3><i class="fa-solid fa-chart-column" style="color:var(--atrd-primary);"></i>Daily Bookings Trend</h3>
                 <span>{{ $displayRange }}</span>
             </div>
             <div class="atrd-card-body">
                 <div class="atrd-chart-wrap" style="height:240px;">
-                    <canvas id="atrdRevenueChart"></canvas>
+                    <canvas id="atrdDailyChart"></canvas>
                 </div>
             </div>
         </article>

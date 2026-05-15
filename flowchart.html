@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEEDOCentrix - Modern Business Workflow</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #FFFFFF; 
+    color: #0F172A; 
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: #0F172A;
+    padding: 20px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+  .header h1 { color: #F8FAFC; font-size: 26px; font-weight: 700; letter-spacing: 0.5px; }
+  .header-sub { color: #94A3B8; font-size: 16px; margin-top: 6px; font-weight: 400; }
+  .save-btns { display: flex; gap: 16px; }
+  .btn {
+    padding: 12px 24px; border: none; border-radius: 8px;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: all 0.2s ease-in-out; color: #fff;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  .btn:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+  .btn-png { background: #0284C7; } 
+  .btn-svg { background: #D97706; } 
+  .btn-print { background: #7C3AED; } 
+  
+  .wrap {
+    margin-top: 90px; padding: 8px;
+    display: flex; justify-content: center;
+  }
+  #chart {
+    background: #FFFFFF;
+    border-radius: 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.05);
+    padding: 8px;
+    width: calc(100vw - 16px);
+    max-width: 2600px;
+    overflow-x: auto;
+  }
+  #chart svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  #print-pages {
+    display: none;
+  }
+  .print-page {
+    width: 100%;
+  }
+  .print-page + .print-page {
+    margin-top: 24px;
+  }
+  .print-page svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  @media print {
+    @page { size: letter portrait; margin: 8mm; }
+    body { background: #FFFFFF; }
+    .header { display: none; }
+    .wrap { margin-top: 0; padding: 0; background: none; display: block; }
+    #chart { display: none; }
+    #print-pages { display: block; }
+    .print-page {
+      break-after: page;
+      page-break-after: always;
+      margin: 0;
+    }
+    .print-page:last-child {
+      break-after: auto;
+      page-break-after: auto;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>MEEDOCentrix &mdash; Enterprise Flowchart</h1>
+    <div class="header-sub">Clean Routing - No Overlapping Lines or Shapes</div>
+  </div>
+  <div class="save-btns">
+    <button class="btn btn-png" onclick="savePNG()">&#128190; Save Super HD PNG</button>
+    <button class="btn btn-print" onclick="window.print()">&#128424; Print Short Bond</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="chart"></div>
+  <div id="print-pages"></div>
+</div>
+
+<script>
+// Massive Enterprise Canvas Dimensions to utilize space better
+const W = 6400; 
+const H = 15100; 
+
+// Grid Coordinates - Spread out further
+const CX = 3200;   // Center Spine
+const LX = 1600;   // Main Left Branch
+const LLX = 400;   // Sub-Left Branch (pushed to edge)
+const RX = 4800;   // Main Right Branch
+const RRX = 6000;  // Sub-Right Branch (pushed to edge)
+const BOX_ARROW_GAP = 50; // Keep side arrowheads outside process boxes.
+const MERGE_Y = 14600;
+const END_Y = 14850;
+const LEFT_LOGOUT_Y = 13280;
+const RIGHT_LOGOUT_Y = 14280;
+const VIEWBOX_X = -100;
+const VIEWBOX_Y = 20;
+const VIEWBOX_W = W + 200;
+const VIEWBOX_H = H - 40;
+const SHORT_BOND_PX_W = 2550;
+const SHORT_BOND_PX_H = 3300;
+const SHORT_BOND_PAGE_HEIGHT = VIEWBOX_W * (SHORT_BOND_PX_H / SHORT_BOND_PX_W);
+const SHORT_BOND_OVERLAP = 320;
+const WHOLE_PNG_START_W = 9000;
+const WHOLE_PNG_MIN_W = 4000;
+const WHOLE_PNG_STEP_W = 500;
+const WHOLE_PNG_MAX_BYTES = 11.5 * 1024 * 1024;
+
+// Premium Business Palette
+const COL = {
+  start:    { f:'#FFFFFF', s:'#16A34A', t:'#14532D' }, 
+  process:  { f:'#FFFFFF', s:'#0284C7', t:'#082F49' }, 
+  decision: { f:'#FFFFFF', s:'#D97706', t:'#78350F' }, 
+  pay:      { f:'#FFFFFF', s:'#0D9488', t:'#134E4A' }, 
+  error:    { f:'#FFFFFF', s:'#DC2626', t:'#7F1D1D' }, 
+  bg:       '#FFFFFF',
+  arrow:    '#475569', 
+  yes:      '#15803D', 
+  no:       '#B91C1C', 
+  section:  '#FFFFFF'  
+};
+
+// Text Utility
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function wrap(text, max) {
+  const words = text.split(' '); const lines = []; let ln = '';
+  for (const w of words) {
+    if ((ln+' '+w).trim().length > max && ln) { lines.push(ln.trim()); ln = w; }
+    else ln = (ln+' '+w).trim();
+  }
+  if (ln) lines.push(ln.trim());
+  return lines;
+}
+function txtBlock(lines, cx, cy, sz, fill, weight) {
+  const lh = sz * 1.35;
+  const y0 = cy - ((lines.length-1)*lh)/2;
+  return lines.map((l,i) =>
+    `<text x="${cx}" y="${y0+i*lh}" text-anchor="middle" dominant-baseline="central" font-size="${sz}" fill="${fill}" font-weight="${weight}">${esc(l)}</text>`
+  ).join('');
+}
+function fitLabel(text, cx, cy, width, height, cfg) {
+  const safeWidth = Math.max(160, width * cfg.widthRatio);
+  const safeHeight = Math.max(80, height * cfg.heightRatio);
+
+  for (let sz = cfg.maxSize; sz >= cfg.minSize; sz -= 2) {
+    const maxChars = Math.max(6, Math.floor(safeWidth / (sz * 0.58)));
+    const lines = wrap(text, maxChars);
+    if (lines.length * sz * cfg.lineHeight <= safeHeight) {
+      return txtBlock(lines, cx, cy, sz, cfg.fill, cfg.weight);
+    }
+  }
+
+  const fallbackChars = Math.max(6, Math.floor(safeWidth / (cfg.minSize * 0.58)));
+  return txtBlock(wrap(text, fallbackChars), cx, cy, cfg.minSize, cfg.fill, cfg.weight);
+}
+
+// ─── SHAPE GENERATORS ─────────────────────────────────────────
+function ovalShape(cx, cy, w, h, c, label) {
+  const svg = `<ellipse cx="${cx}" cy="${cy}" rx="${w/2}" ry="${h/2}" fill="${c.f}" stroke="${c.s}" stroke-width="10"/>
+    ${fitLabel(label, cx, cy, w, h, {
+      fill: c.t,
+      weight: 800,
+      maxSize: 82,
+      minSize: 58,
+      widthRatio: 0.58,
+      heightRatio: 0.58,
+      lineHeight: 1.08
+    })}`;
+  return { svg };
+}
+
+function boxShape(cx, cy, w, h, c, label) {
+  const svg = `<rect x="${cx-w/2}" y="${cy-h/2}" width="${w}" height="${h}" rx="32" fill="${c.f}" stroke="${c.s}" stroke-width="10"/>
+    ${fitLabel(label, cx, cy, w - 120, h - 20, {
+      fill: c.t,
+      weight: 700,
+      maxSize: 68,
+      minSize: 40,
+      widthRatio: 0.88,
+      heightRatio: 0.8,
+      lineHeight: 1.12
+    })}`;
+  return { svg };
+}
+
+function diaShape(cx, cy, w, h, c, label) {
+  const p = `${cx},${cy-h/2} ${cx+w/2},${cy} ${cx},${cy+h/2} ${cx-w/2},${cy}`;
+  const svg = `<polygon points="${p}" fill="${c.f}" stroke="${c.s}" stroke-width="10" stroke-linejoin="round"/>
+    ${fitLabel(label, cx, cy, w, h, {
+      fill: c.t,
+      weight: 700,
+      maxSize: 60,
+      minSize: 38,
+      widthRatio: 0.56,
+      heightRatio: 0.58,
+      lineHeight: 1.08
+    })}`;
+  return { svg };
+}
+
+// ─── CONNECTOR GENERATORS (THICKER) ─────────────────────────────────────
+function arrDown(x, y1, y2, color) {
+  const c = color || COL.arrow;
+  return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${c}" stroke-width="10" marker-end="url(#ah-${c.slice(1)})"/>`;
+}
+function arrRight(x1, x2, y, color) {
+  const c = color || COL.arrow;
+  return `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${c}" stroke-width="10" marker-end="url(#ah-${c.slice(1)})"/>`;
+}
+function arrLeft(x1, x2, y, color) {
+  const c = color || COL.arrow;
+  return `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${c}" stroke-width="10" marker-end="url(#ah-${c.slice(1)})"/>`;
+}
+function polyLine(pts, color) {
+  const c = color || COL.arrow;
+  return `<polyline points="${pts.map(p=>p[0]+','+p[1]).join(' ')}" fill="none" stroke="${c}" stroke-width="10" stroke-linejoin="round"/>`;
+}
+function polyArrow(pts, color) {
+  const c = color || COL.arrow;
+  return `<polyline points="${pts.map(p=>p[0]+','+p[1]).join(' ')}" fill="none" stroke="${c}" stroke-width="10" stroke-linejoin="round" marker-end="url(#ah-${c.slice(1)})"/>`;
+}
+function label(x, y, text, color, anchor) {
+  return `<text x="${x}" y="${y}" text-anchor="${anchor||'start'}" font-size="56" fill="${color}" font-weight="800">${esc(text)}</text>`;
+}
+
+function markerDefs() {
+  return [COL.arrow, COL.yes, COL.no].map(c =>
+    `<marker id="ah-${c.slice(1)}" markerUnits="userSpaceOnUse" viewBox="0 0 44 32" markerWidth="44" markerHeight="32" refX="40" refY="16" orient="auto">
+      <polygon points="0 0,44 16,0 32" fill="${c}"/></marker>`
+  ).join('');
+}
+
+const WHOLE_VIEWBOX = {
+  x: VIEWBOX_X,
+  y: VIEWBOX_Y,
+  width: VIEWBOX_W,
+  height: VIEWBOX_H
+};
+
+function buildPageSlices() {
+  const pages = [];
+  const maxY = VIEWBOX_Y + VIEWBOX_H;
+  let y = VIEWBOX_Y;
+  let index = 1;
+
+  while (y < maxY) {
+    pages.push({
+      index,
+      x: VIEWBOX_X,
+      y,
+      width: VIEWBOX_W,
+      height: SHORT_BOND_PAGE_HEIGHT
+    });
+
+    if (y + SHORT_BOND_PAGE_HEIGHT >= maxY) break;
+    y += SHORT_BOND_PAGE_HEIGHT - SHORT_BOND_OVERLAP;
+    index += 1;
+  }
+
+  return pages;
+}
+
+const PAGE_SLICES = buildPageSlices();
+
+// ─── BACKGROUND CONTAINERS ────────────────────────────────────
+function sectionBox(y, h, title) {
+  return `<rect x="100" y="${y}" width="${W-200}" height="${h}" rx="60" fill="${COL.section}" stroke="#CBD5E1" stroke-width="6" stroke-dasharray="32,32"/>
+    <text x="200" y="${y+120}" font-size="80" fill="#334155" font-weight="800" letter-spacing="4">${esc(title)}</text>`;
+}
+
+// ─── LOGIC COMPONENTS ─────────────────────────────────────────
+
+let s = '';
+
+// Sub-decision cluster: Box routed around completely
+function subDia(x, cy, isLeft, diaTxt, boxTxt, isPayment, nextType) {
+  const sideGap = 90; // Keep the side boxes near the edge without clipping the canvas.
+  const yesLabelGap = 70; // Keep the Yes label in the connector gap, not on the box edge.
+  const sideX = isLeft ? LLX + 200 - sideGap : RRX - 200 + sideGap;
+  const boxCol = isPayment ? COL.pay : COL.process;
+  const boxLeft = sideX - 500;
+  const boxRight = sideX + 500;
+
+  // Shapes
+  s += diaShape(x, cy, 1000, 320, COL.decision, diaTxt).svg;
+  s += boxShape(sideX, cy, 1000, 220, boxCol, boxTxt).svg;
+
+  // Connection from Diamond to Box, stopping short so the arrowhead stays outside the box.
+  if (isLeft) {
+    s += arrLeft(x - 500, boxRight + BOX_ARROW_GAP, cy, COL.yes);
+    s += label(x - 500 - yesLabelGap, cy - 45, 'Yes', COL.yes, 'start');
+  } else {
+    s += arrRight(x + 500, boxLeft - BOX_ARROW_GAP, cy, COL.yes);
+    s += label(x + 500 + yesLabelGap, cy - 45, 'Yes', COL.yes, 'end');
+  }
+
+  // Routing from Box Bottom back to Main Trunk
+  // Drops down from the bottom center of the side box, moves horizontally, then down
+  const dropY = cy + 280; // Below the diamond and the box
+  s += polyLine([
+    [sideX, cy + 110], // Box bottom center
+    [sideX, dropY],    // Down below box
+    [x, dropY]         // Over to main column
+  ], COL.arrow);
+
+  // Connection downwards from Diamond (No)
+  s += polyLine([
+    [x, cy + 160], // Diamond bottom center
+    [x, dropY]     // Down to the merge point
+  ], COL.no);
+  s += label(x + 40, cy + 210, 'No', COL.no);
+
+  const nextCy = cy + 460;
+  if (nextType === 'box') {
+    s += arrDown(x, dropY, nextCy - 110, COL.arrow);
+  } else if (nextType === 'dia') {
+    s += arrDown(x, dropY, nextCy - 160, COL.arrow);
+  } else {
+    return dropY; 
+  }
+  return nextCy;
+}
+
+// Central role spine check
+function roleSpine(cy, roleName, isLeft, nextCy, targetType) {
+  s += diaShape(CX, cy, 1000, 320, COL.decision, `Is user ${roleName}?`).svg;
+  const targetIsBox = targetType === 'box';
+  
+  if (isLeft) {
+    s += arrLeft(CX - 500, LX + 500 + (targetIsBox ? BOX_ARROW_GAP : 0), cy, COL.yes);
+    s += label(CX - 500 - 50, cy - 35, 'Yes', COL.yes, 'end');
+  } else {
+    s += arrRight(CX + 500, RX - 500 - (targetIsBox ? BOX_ARROW_GAP : 0), cy, COL.yes);
+    s += label(CX + 500 + 50, cy - 35, 'Yes', COL.yes, 'start');
+  }
+  
+  s += arrDown(CX, cy + 160, nextCy - 160, COL.no);
+  s += label(CX + 40, cy + 210, 'No', COL.no);
+}
+
+function build() {
+  s = '';
+  
+  // =========================================================
+  // 1. LOGIN & AUTHENTICATION
+  // =========================================================
+  s += sectionBox(100, 2000, 'LOGIN & AUTHENTICATION');
+
+  let cy = 350;
+  s += ovalShape(CX, cy, 500, 200, COL.start, "START").svg;
+  s += arrDown(CX, cy+100, cy+400-110, COL.arrow); cy += 400;
+  
+  s += boxShape(CX, cy, 1000, 220, COL.process, "User opens MEEDOCentrix").svg;
+  s += arrDown(CX, cy+110, cy+400-110, COL.arrow); cy += 400;
+
+  s += boxShape(CX, cy, 1000, 220, COL.process, "User enters username and password").svg;
+  s += arrDown(CX, cy+110, cy+450-160, COL.arrow); cy += 450;
+
+  s += diaShape(CX, cy, 1000, 320, COL.decision, "Is login valid?").svg;
+  
+  // Invalid Login Loop (Routed entirely outside)
+  s += arrRight(CX+500, CX+700, cy, COL.no);
+  s += label(CX+550, cy-35, 'No', COL.no);
+  s += boxShape(CX+1200, cy, 1000, 220, COL.error, "Access denied / Return to login").svg;
+  
+  // Route from top of error box, way up, and left into the top of the login box
+  s += polyArrow([
+    [CX+1200, cy-110], // Top center of error box
+    [CX+1200, cy-400], // Up above
+    [CX+250, cy-400],  // Over to above the login box
+    [CX+250, cy-450+110] // Down into top right of login box (offset slightly so it doesnt hit the main line)
+  ], COL.no);
+
+  // Valid Login
+  s += arrDown(CX, cy+160, cy+450-110, COL.yes);
+  s += label(CX+40, cy+220, 'Yes', COL.yes); cy += 450;
+
+  s += boxShape(CX, cy, 1000, 220, COL.process, "System checks user role").svg;
+  s += arrDown(CX, cy+110, 2500-160, COL.arrow);
+
+  // =========================================================
+  // 2. ROLE-BASED ACCESS
+  // =========================================================
+  // Greatly increased vertical spacing between roles
+  s += sectionBox(2300, 11800, 'ROLE-BASED ACCESS ROUTING');
+
+  roleSpine(2600, "Administrator", true, 3000, 'box');
+  roleSpine(3000, "Fishport Personnel", false, 5800, 'dia');
+  
+  roleSpine(5800, "Public Market Personnel", true, 6200, 'dia');
+  roleSpine(6200, "Cemetery Personnel", false, 9000, 'dia');
+  
+  roleSpine(9000, "Terminal Personnel", true, 9400, 'dia');
+  roleSpine(9400, "Atrium Hall Personnel", false, 11600, 'dia');
+  
+  roleSpine(11600, "Assigned Collector", true, MERGE_Y, 'box');
+
+  // ---------------------------------------------------------
+  // BRANCH 1: Administrator (LEFT)
+  // ---------------------------------------------------------
+  cy = 2600;
+  [
+    "Manage user accounts", 
+    "Assign roles and permissions",
+    "Assign collectors by service area",
+    "Manage service rates and fees", 
+    "Monitor all transactions",
+    "Review collections and remittances", 
+    "Generate and view reports",
+    "Monitor overall system records"
+  ].forEach((txt, i) => {
+    s += boxShape(LX, cy, 1000, 220, COL.process, txt).svg;
+    if (i < 7) { s += arrDown(LX, cy+110, cy+380-110, COL.arrow); cy += 380; }
+  });
+
+  // ---------------------------------------------------------
+  // BRANCH 2: Fishport Personnel (RIGHT)
+  // ---------------------------------------------------------
+  cy = 3000;
+  cy = subDia(RX, cy, false, "Is vessel arrival or departure being recorded?", "Record vessel arrival/departure", false, 'dia');
+  cy = subDia(RX, cy, false, "Is fishport transaction detail being recorded?", "Record fishport transaction details", false, 'box');
+  s += boxShape(RX, cy, 1000, 220, COL.process, "Update vessel records").svg;
+  s += arrDown(RX, cy+110, cy+380-110, COL.arrow); cy += 380;
+  s += boxShape(RX, cy, 1000, 220, COL.process, "Monitor fishport activity").svg;
+  s += arrDown(RX, cy+110, cy+460-160, COL.arrow); cy += 460;
+  cy = subDia(RX, cy, false, "Is payment required?", "Send to assigned collector", true, 'none');
+
+  // ---------------------------------------------------------
+  // BRANCH 3: Public Market Personnel (LEFT)
+  // ---------------------------------------------------------
+  cy = 5800;
+  cy = subDia(LX, cy, true, "Is vendor detail being recorded?", "Record vendor details", false, 'dia');
+  cy = subDia(LX, cy, true, "Is stall detail being recorded?", "Record stall details", false, 'dia');
+  cy = subDia(LX, cy, true, "Is rental detail being recorded?", "Record rental details", false, 'dia');
+  cy = subDia(LX, cy, true, "Is market transaction being recorded?", "Record market transaction details", false, 'box');
+  s += boxShape(LX, cy, 1000, 220, COL.process, "Update vendor and stall records").svg;
+  s += arrDown(LX, cy+110, cy+380-110, COL.arrow); cy += 380;
+  s += boxShape(LX, cy, 1000, 220, COL.process, "Monitor market activity").svg;
+  s += arrDown(LX, cy+110, cy+460-160, COL.arrow);
+  cy += 460;
+  cy = subDia(LX, cy, true, "Is payment required?", "Send to assigned collector", true, 'none');
+
+  // ---------------------------------------------------------
+  // BRANCH 4: Cemetery Personnel (RIGHT)
+  // ---------------------------------------------------------
+  cy = 6200;
+  cy = subDia(RX, cy, false, "Is cemetery service detail being recorded?", "Record cemetery service details", false, 'dia');
+  cy = subDia(RX, cy, false, "Is client or occupant detail being recorded?", "Record client or occupant details", false, 'dia');
+  cy = subDia(RX, cy, false, "Is cemetery transaction being recorded?", "Record cemetery transaction details", false, 'dia');
+  cy = subDia(RX, cy, false, "Is payment required?", "Collect payment directly", true, 'box');
+  s += boxShape(RX, cy, 1000, 220, COL.process, "Enter payment details into the system").svg;
+  s += arrDown(RX, cy+110, cy+380-110, COL.arrow); cy += 380;
+  s += boxShape(RX, cy, 1000, 220, COL.process, "Monitor cemetery records").svg;
+
+  // ---------------------------------------------------------
+  // BRANCH 5: Terminal Personnel (LEFT)
+  // ---------------------------------------------------------
+  cy = 9000;
+  cy = subDia(LX, cy, true, "Is quick payment ticket being encoded?", "Create terminal quick payment", false, 'box');
+  s += boxShape(LX, cy, 1000, 220, COL.process, "Set route/operator fare and save unpaid record").svg;
+  s += arrDown(LX, cy+110, cy+460-160, COL.arrow); cy += 460;
+  cy = subDia(LX, cy, true, "Does unpaid record need correction?", "Update or delete unpaid record", false, 'box');
+  s += boxShape(LX, cy, 1000, 220, COL.process, "Monitor unpaid queue in Terminal Records").svg;
+  s += arrDown(LX, cy+110, cy+460-160, COL.arrow); cy += 460;
+  cy = subDia(LX, cy, true, "Is payment already settled?", "Mark payment as paid", true, 'box');
+  s += boxShape(LX, cy, 1000, 220, COL.process, "Move to Payment History and view reports").svg;
+
+  // ---------------------------------------------------------
+  // BRANCH 6: Atrium Hall Personnel (RIGHT)
+  // ---------------------------------------------------------
+  cy = 9400;
+  cy = subDia(RX, cy, false, "Is hall booking being recorded?", "Record hall booking details", false, 'dia');
+  cy = subDia(RX, cy, false, "Is client detail being recorded?", "Record client details", false, 'dia');
+  cy = subDia(RX, cy, false, "Is booking schedule being recorded?", "Record booking schedules", false, 'box');
+  s += boxShape(RX, cy, 1000, 220, COL.process, "Update hall reservation records").svg;
+  s += arrDown(RX, cy+110, cy+460-160, COL.arrow); cy += 460;
+  cy = subDia(RX, cy, false, "Is payment required?", "Collect payment directly", true, 'box');
+  s += boxShape(RX, cy, 1000, 220, COL.process, "Monitor hall booking records").svg;
+  s += arrDown(RX, cy+110, RIGHT_LOGOUT_Y-110, COL.arrow);
+  s += boxShape(RX, RIGHT_LOGOUT_Y, 1000, 220, COL.pay, "Log out").svg;
+  s += arrDown(RX, RIGHT_LOGOUT_Y+110, MERGE_Y, COL.arrow);
+
+  // ---------------------------------------------------------
+  // BRANCH 7: Assigned Collector (LEFT)
+  // ---------------------------------------------------------
+  cy = 11600;
+  [
+    "Collect assigned area payments",
+    "Record collected payments",
+    "Handle assigned collections",
+    "Finalize remittance records"
+  ].forEach((txt, i) => {
+    s += boxShape(LX, cy, 1000, 220, COL.process, txt).svg;
+    if (i < 3) { s += arrDown(LX, cy+110, cy+380-110, COL.arrow); cy += 380; }
+  });
+  s += arrDown(LX, cy+110, LEFT_LOGOUT_Y-110, COL.arrow);
+  s += boxShape(LX, LEFT_LOGOUT_Y, 1000, 220, COL.pay, "Log out").svg;
+  s += arrDown(LX, LEFT_LOGOUT_Y+110, MERGE_Y, COL.arrow);
+
+  // =========================================================
+  // GLOBAL MERGE AND END
+  // =========================================================
+  s += polyLine([[LX, MERGE_Y], [RX, MERGE_Y]], COL.arrow);
+  
+  s += arrDown(CX, MERGE_Y, END_Y-100, COL.arrow);
+  s += ovalShape(CX, END_Y, 600, 200, COL.start, "END").svg;
+
+  return s;
+}
+
+function svgMarkup(content, viewBox, className) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${viewBox.width}" height="${viewBox.height}" viewBox="${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}" preserveAspectRatio="xMidYMin meet" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" class="${className || 'diagram-svg'}" style="font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <defs>${markerDefs()}</defs>
+    <rect width="${W}" height="${H}" fill="${COL.bg}"/>
+    ${content}
+  </svg>`;
+}
+
+const DIAGRAM_CONTENT = build();
+
+function renderPageSet() {
+  document.getElementById('chart').innerHTML = svgMarkup(DIAGRAM_CONTENT, WHOLE_VIEWBOX, 'diagram-svg');
+  document.getElementById('print-pages').innerHTML = PAGE_SLICES.map(page =>
+    `<div class="print-page">${svgMarkup(DIAGRAM_CONTENT, page, 'diagram-svg print-svg')}</div>`
+  ).join('');
+}
+
+renderPageSet();
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.download = filename;
+  a.href = url;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+function svgToPNG(viewBox, outputWidth, outputHeight) {
+  return new Promise((resolve, reject) => {
+    const svgData = svgMarkup(DIAGRAM_CONTENT, viewBox, 'diagram-svg export-svg');
+    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.decoding = 'async';
+
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = outputWidth;
+        canvas.height = outputHeight;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not get canvas context.');
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.fillStyle = COL.bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob((pngBlob) => {
+          URL.revokeObjectURL(url);
+          if (!pngBlob) {
+            reject(new Error('Could not generate the PNG file.'));
+            return;
+          }
+          resolve(pngBlob);
+        }, 'image/png');
+      } catch (err) {
+        URL.revokeObjectURL(url);
+        reject(err);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load the SVG into the export renderer.'));
+    };
+
+    img.src = url;
+  });
+}
+
+async function savePNG() {
+  const btn = document.querySelector('.btn-png');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '&#8987; Generating super HD PNG...';
+  btn.style.opacity = '0.7';
+
+  try {
+    let pngBlob = null;
+
+    for (let width = WHOLE_PNG_START_W; width >= WHOLE_PNG_MIN_W; width -= WHOLE_PNG_STEP_W) {
+      btn.innerHTML = `&#8987; Rendering ${width}px PNG...`;
+      const height = Math.round(width * (WHOLE_VIEWBOX.height / WHOLE_VIEWBOX.width));
+      try {
+        pngBlob = await svgToPNG(WHOLE_VIEWBOX, width, height);
+        if (pngBlob && (pngBlob.size <= WHOLE_PNG_MAX_BYTES || width === WHOLE_PNG_MIN_W)) break;
+      } catch (renderErr) {
+        console.warn(`Failed at width ${width}, trying smaller...`, renderErr);
+        pngBlob = null; 
+      }
+      await wait(60);
+    }
+
+    if (!pngBlob) throw new Error('Could not generate the PNG file even at minimum resolution.');
+    downloadBlob(pngBlob, 'MEEDOCentrix-Whole-HD.png');
+  } catch (err) {
+    console.error(err);
+    alert('Failed to generate the super HD PNG. Your browser may not support canvas images this large.');
+  } finally {
+    btn.innerHTML = originalText;
+    btn.style.opacity = '1';
+  }
+}
+</script>
+</body>
+</html>

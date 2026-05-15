@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -29,6 +30,16 @@ class CemeteryTransactionController extends Controller
         'paid' => 'Paid',
         'partial' => 'Partial',
         'cancelled' => 'Cancelled',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const PAYMENT_STATUS_OPTIONS = [
+        'paid' => 'Paid',
+        'unpaid' => 'Unpaid',
+        'partial' => 'Partial',
+        'overdue' => 'Overdue',
     ];
 
     public function index(Request $request): View
@@ -128,6 +139,36 @@ class CemeteryTransactionController extends Controller
         }, $filename, $headers);
     }
 
+    public function show(CemeteryTransaction $transaction): View
+    {
+        $transaction->load([
+            'site:id,site_name',
+            'category:id,category_name',
+            'transactionType:id,type_name',
+            'occupantRecord:id,record_no,cemetery_contact_id',
+            'occupantRecord.contact:id,contact_person,contact_number,address',
+            'payments' => static function ($query): void {
+                $query
+                    ->with('creator:id,name')
+                    ->orderBy('payment_date')
+                    ->orderBy('id');
+            },
+        ]);
+
+        $amountDue = round((float) ($transaction->amount_due ?? 0), 2);
+        $totalPaid = round((float) $transaction->payments->sum('amount_paid'), 2);
+        $balance = round(max($amountDue - $totalPaid, 0), 2);
+
+        return view('cemetery.transaction_show', [
+            'transaction' => $transaction,
+            'amountDue' => $amountDue,
+            'totalPaid' => $totalPaid,
+            'balance' => $balance,
+            'statusLabel' => self::STATUS_OPTIONS[$transaction->status] ?? strtoupper((string) $transaction->status),
+            'paymentStatusOptions' => self::PAYMENT_STATUS_OPTIONS,
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate($this->rules($request));
@@ -202,15 +243,14 @@ class CemeteryTransactionController extends Controller
 
     public function destroy(CemeteryTransaction $transaction): RedirectResponse
     {
-        if ($transaction->paymentCollection()->exists()) {
-            return redirect()
-                ->back()
-                ->withErrors("Transaction {$transaction->transaction_no} cannot be deleted because it already has a payment record. Delete or void the payment first.");
-        }
-
         $transactionNo = $transaction->transaction_no;
+        $hadPayments = $transaction->payments()->exists();
         try {
-            $transaction->delete();
+            DB::transaction(function () use ($transaction): void {
+                // Keep delete behavior consistent from UI: remove linked payment rows first.
+                $transaction->payments()->delete();
+                $transaction->delete();
+            });
         } catch (QueryException $exception) {
             return redirect()
                 ->back()
@@ -219,7 +259,9 @@ class CemeteryTransactionController extends Controller
 
         return redirect()
             ->back()
-            ->with('status', "Transaction {$transactionNo} deleted.");
+            ->with('status', $hadPayments
+                ? "Transaction {$transactionNo} and its linked payment record(s) were deleted."
+                : "Transaction {$transactionNo} deleted.");
     }
 
     /**

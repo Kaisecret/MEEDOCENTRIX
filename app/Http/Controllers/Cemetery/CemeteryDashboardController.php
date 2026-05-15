@@ -18,10 +18,10 @@ class CemeteryDashboardController extends Controller
     public function index(Request $request): View
     {
         $today = Carbon::today();
-        $period = strtolower((string) $request->query('period', 'month'));
+        $period = strtolower((string) $request->query('period', 'week'));
         $allowedPeriods = ['today', 'week', 'month', 'range'];
         if (! in_array($period, $allowedPeriods, true)) {
-            $period = 'month';
+            $period = 'week';
         }
 
         $parsedFrom = $this->parseDate($request->query('date_from'));
@@ -45,13 +45,19 @@ class CemeteryDashboardController extends Controller
             $dateFrom = $rangeStart->toDateString();
             $dateTo = $rangeEnd->toDateString();
             $filterLabel = 'Custom Range';
-        } else {
-            $period = 'month';
+        } elseif ($period === 'month') {
             $rangeStart = $today->copy()->startOfMonth();
             $rangeEnd = $today->copy()->endOfDay();
             $dateFrom = $rangeStart->toDateString();
             $dateTo = $rangeEnd->toDateString();
             $filterLabel = 'This Month';
+        } else {
+            $period = 'week';
+            $rangeStart = $today->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
+            $rangeEnd = $today->copy()->endOfDay();
+            $dateFrom = $rangeStart->toDateString();
+            $dateTo = $rangeEnd->toDateString();
+            $filterLabel = 'This Week';
         }
 
         $displayRange = $rangeStart->isSameDay($rangeEnd)
@@ -138,26 +144,76 @@ class CemeteryDashboardController extends Controller
             ->map(fn ($value) => (int) $value);
         $statusCounts = $statusSeed->merge($statusTotals);
 
-        $monthStart = $rangeStart->copy()->startOfMonth();
-        $monthEnd = $rangeEnd->copy()->startOfMonth();
-        $paymentsByMonth = CemeteryPaymentCollection::query()
-            ->whereNotNull('payment_date')
-            ->where($paymentRangeQuery)
-            ->selectRaw("DATE_FORMAT(payment_date, '%Y-%m') as activity_month")
-            ->selectRaw('COALESCE(SUM(amount_paid), 0) as total_amount')
-            ->groupBy('activity_month')
-            ->pluck('total_amount', 'activity_month')
-            ->map(fn ($value) => round((float) $value, 2));
+        $rangeDays = $rangeStart->copy()->startOfDay()->diffInDays($rangeEnd->copy()->startOfDay()) + 1;
+        if ($rangeDays <= 45) {
+            $collectionGranularity = 'day';
+        } elseif ($rangeDays <= 180) {
+            $collectionGranularity = 'week';
+        } else {
+            $collectionGranularity = 'month';
+        }
 
-        $monthlyCollections = collect();
-        $monthCursor = $monthStart->copy();
-        while ($monthCursor->lte($monthEnd)) {
-            $key = $monthCursor->format('Y-m');
-            $monthlyCollections->push([
-                'label' => $monthCursor->format('M Y'),
-                'amount' => (float) ($paymentsByMonth->get($key, 0)),
-            ]);
-            $monthCursor->addMonth();
+        if ($collectionGranularity === 'day') {
+            $paymentsBucket = CemeteryPaymentCollection::query()
+                ->whereNotNull('payment_date')
+                ->where($paymentRangeQuery)
+                ->selectRaw("DATE(payment_date) as bucket")
+                ->selectRaw('COALESCE(SUM(amount_paid), 0) as total_amount')
+                ->groupBy('bucket')
+                ->pluck('total_amount', 'bucket')
+                ->map(fn ($value) => round((float) $value, 2));
+
+            $monthlyCollections = collect();
+            foreach (\Carbon\CarbonPeriod::create($rangeStart->copy()->startOfDay(), $rangeEnd->copy()->startOfDay()) as $day) {
+                $key = $day->toDateString();
+                $monthlyCollections->push([
+                    'label' => $day->format('M d'),
+                    'amount' => (float) ($paymentsBucket->get($key, 0)),
+                ]);
+            }
+        } elseif ($collectionGranularity === 'week') {
+            $paymentsBucket = CemeteryPaymentCollection::query()
+                ->whereNotNull('payment_date')
+                ->where($paymentRangeQuery)
+                ->selectRaw("YEARWEEK(payment_date, 3) as bucket")
+                ->selectRaw('COALESCE(SUM(amount_paid), 0) as total_amount')
+                ->groupBy('bucket')
+                ->pluck('total_amount', 'bucket')
+                ->map(fn ($value) => round((float) $value, 2));
+
+            $monthlyCollections = collect();
+            $weekCursor = $rangeStart->copy()->startOfWeek(Carbon::MONDAY);
+            $weekLimit = $rangeEnd->copy()->startOfWeek(Carbon::MONDAY);
+            while ($weekCursor->lte($weekLimit)) {
+                $key = (int) ($weekCursor->format('o') . str_pad((string) $weekCursor->isoWeek(), 2, '0', STR_PAD_LEFT));
+                $monthlyCollections->push([
+                    'label' => $weekCursor->format('M d'),
+                    'amount' => (float) ($paymentsBucket->get($key, 0)),
+                ]);
+                $weekCursor->addWeek();
+            }
+        } else {
+            $monthStart = $rangeStart->copy()->startOfMonth();
+            $monthEnd = $rangeEnd->copy()->startOfMonth();
+            $paymentsByMonth = CemeteryPaymentCollection::query()
+                ->whereNotNull('payment_date')
+                ->where($paymentRangeQuery)
+                ->selectRaw("DATE_FORMAT(payment_date, '%Y-%m') as activity_month")
+                ->selectRaw('COALESCE(SUM(amount_paid), 0) as total_amount')
+                ->groupBy('activity_month')
+                ->pluck('total_amount', 'activity_month')
+                ->map(fn ($value) => round((float) $value, 2));
+
+            $monthlyCollections = collect();
+            $monthCursor = $monthStart->copy();
+            while ($monthCursor->lte($monthEnd)) {
+                $key = $monthCursor->format('Y-m');
+                $monthlyCollections->push([
+                    'label' => $monthCursor->format('M Y'),
+                    'amount' => (float) ($paymentsByMonth->get($key, 0)),
+                ]);
+                $monthCursor->addMonth();
+            }
         }
 
         $recentTransactions = CemeteryTransaction::query()

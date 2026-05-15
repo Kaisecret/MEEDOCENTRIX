@@ -20,10 +20,10 @@ class MarketDashboardController extends Controller
         MarketDueLogService::sync();
 
         $today = Carbon::today();
-        $period = strtolower((string) $request->query('period', 'month'));
+        $period = strtolower((string) $request->query('period', 'week'));
         $allowedPeriods = ['today', 'week', 'month', 'range'];
         if (! in_array($period, $allowedPeriods, true)) {
-            $period = 'month';
+            $period = 'week';
         }
 
         $parsedFrom = $this->parseDate((string) $request->query('date_from', ''));
@@ -47,13 +47,19 @@ class MarketDashboardController extends Controller
             $dateFrom = $rangeStart->toDateString();
             $dateTo = $rangeEnd->toDateString();
             $filterLabel = 'Custom Range';
-        } else {
-            $period = 'month';
+        } elseif ($period === 'month') {
             $rangeStart = $today->copy()->startOfMonth();
             $rangeEnd = $today->copy()->endOfDay();
             $dateFrom = $rangeStart->toDateString();
             $dateTo = $rangeEnd->toDateString();
             $filterLabel = 'This Month';
+        } else {
+            $period = 'week';
+            $rangeStart = $today->copy()->startOfWeek()->startOfDay();
+            $rangeEnd = $today->copy()->endOfDay();
+            $dateFrom = $rangeStart->toDateString();
+            $dateTo = $rangeEnd->toDateString();
+            $filterLabel = 'This Week';
         }
 
         $displayRange = $rangeStart->isSameDay($rangeEnd)
@@ -121,8 +127,23 @@ class MarketDashboardController extends Controller
 
         $readyLeaseCount = (int) $readyLeaseQuery->count();
 
+        $rangeDays = $rangeStart->copy()->startOfDay()->diffInDays($rangeEnd->copy()->startOfDay()) + 1;
+        if ($rangeDays <= 45) {
+            $queueGranularity = 'day';
+        } elseif ($rangeDays <= 180) {
+            $queueGranularity = 'week';
+        } else {
+            $queueGranularity = 'month';
+        }
+
+        $bucketExpr = match ($queueGranularity) {
+            'day' => "DATE(updated_at)",
+            'week' => "YEARWEEK(updated_at, 3)",
+            default => "DATE_FORMAT(updated_at, '%Y-%m')",
+        };
+
         $rawDailyStatus = CollectionDispatchItem::query()
-            ->selectRaw("DATE(updated_at) as item_day")
+            ->selectRaw("$bucketExpr as bucket")
             ->selectRaw("SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) as accepted_count")
             ->selectRaw("SUM(CASE WHEN status IN ('sent','rejected') THEN 1 ELSE 0 END) as pending_count")
             ->selectRaw("SUM(CASE WHEN status = 'collected_pending_confirmation' THEN 1 ELSE 0 END) as awaiting_count")
@@ -130,29 +151,57 @@ class MarketDashboardController extends Controller
                 $query->where('department_code', 'market');
             })
             ->whereBetween('updated_at', [$rangeStart, $rangeEnd])
-            ->groupBy('item_day')
-            ->orderBy('item_day')
+            ->groupBy('bucket')
+            ->orderBy('bucket')
             ->get()
-            ->keyBy('item_day');
+            ->keyBy('bucket');
 
         $dailyStatusStats = collect();
-        $periodDays = CarbonPeriod::create($rangeStart->copy()->startOfDay(), $rangeEnd->copy()->startOfDay());
-        foreach ($periodDays as $day) {
-            $key = $day->toDateString();
-            $item = $rawDailyStatus->get($key);
-
-            $dailyStatusStats->push([
-                'label' => $day->format('D'),
-                'date' => $day->format('m/d'),
-                'accepted' => (int) ($item->accepted_count ?? 0),
-                'pending' => (int) ($item->pending_count ?? 0),
-                'awaiting' => (int) ($item->awaiting_count ?? 0),
-                'total' => (int) ($item->accepted_count ?? 0) + (int) ($item->pending_count ?? 0) + (int) ($item->awaiting_count ?? 0),
-            ]);
-        }
-
-        if ($dailyStatusStats->count() > 31) {
-            $dailyStatusStats = $dailyStatusStats->slice(-31)->values();
+        if ($queueGranularity === 'day') {
+            foreach (CarbonPeriod::create($rangeStart->copy()->startOfDay(), $rangeEnd->copy()->startOfDay()) as $day) {
+                $key = $day->toDateString();
+                $item = $rawDailyStatus->get($key);
+                $dailyStatusStats->push([
+                    'label' => $day->format('D'),
+                    'date' => $day->format('m/d'),
+                    'accepted' => (int) ($item->accepted_count ?? 0),
+                    'pending' => (int) ($item->pending_count ?? 0),
+                    'awaiting' => (int) ($item->awaiting_count ?? 0),
+                    'total' => (int) ($item->accepted_count ?? 0) + (int) ($item->pending_count ?? 0) + (int) ($item->awaiting_count ?? 0),
+                ]);
+            }
+        } elseif ($queueGranularity === 'week') {
+            $weekCursor = $rangeStart->copy()->startOfWeek(Carbon::MONDAY);
+            $weekLimit = $rangeEnd->copy()->startOfWeek(Carbon::MONDAY);
+            while ($weekCursor->lte($weekLimit)) {
+                $key = (int) ($weekCursor->format('o') . str_pad((string) $weekCursor->isoWeek(), 2, '0', STR_PAD_LEFT));
+                $item = $rawDailyStatus->get($key);
+                $dailyStatusStats->push([
+                    'label' => 'W' . $weekCursor->isoWeek(),
+                    'date' => $weekCursor->format('M d'),
+                    'accepted' => (int) ($item->accepted_count ?? 0),
+                    'pending' => (int) ($item->pending_count ?? 0),
+                    'awaiting' => (int) ($item->awaiting_count ?? 0),
+                    'total' => (int) ($item->accepted_count ?? 0) + (int) ($item->pending_count ?? 0) + (int) ($item->awaiting_count ?? 0),
+                ]);
+                $weekCursor->addWeek();
+            }
+        } else {
+            $monthCursor = $rangeStart->copy()->startOfMonth();
+            $monthLimit = $rangeEnd->copy()->startOfMonth();
+            while ($monthCursor->lte($monthLimit)) {
+                $key = $monthCursor->format('Y-m');
+                $item = $rawDailyStatus->get($key);
+                $dailyStatusStats->push([
+                    'label' => $monthCursor->format('M'),
+                    'date' => $monthCursor->format('Y'),
+                    'accepted' => (int) ($item->accepted_count ?? 0),
+                    'pending' => (int) ($item->pending_count ?? 0),
+                    'awaiting' => (int) ($item->awaiting_count ?? 0),
+                    'total' => (int) ($item->accepted_count ?? 0) + (int) ($item->pending_count ?? 0) + (int) ($item->awaiting_count ?? 0),
+                ]);
+                $monthCursor->addMonth();
+            }
         }
 
         $acceptedItemsInRange = CollectionDispatchItem::query()

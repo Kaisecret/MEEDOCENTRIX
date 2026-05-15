@@ -206,7 +206,12 @@
         </div>
         <div class="sp-proof-body">
             <div class="sp-proof-meta" id="proofPreviewMeta">Record: -</div>
-            <img id="proofPreviewImage" src="" alt="Collection proof image preview">
+            <div class="sp-proof-image-wrap">
+                <img id="proofPreviewImage" src="" alt="Collection proof image preview">
+                <div class="sp-proof-watermark" aria-hidden="true">
+                    <span>MARKET CONFIDENTIAL</span>
+                </div>
+            </div>
         </div>
         <div class="sp-modal-foot">
             <button type="button" class="btn btn-secondary" data-close-modal="proofPreviewModal">Close</button>
@@ -291,6 +296,9 @@
 .sp-proof-body{padding:10px;display:grid;gap:10px;background:#fff}
 .sp-proof-meta{color:var(--sp-muted);font-size:.82rem;font-weight:700}
 #proofPreviewImage{width:100%;max-height:72vh;object-fit:contain;border:1px solid var(--sp-border);border-radius:10px;background:#f8fafc}
+.sp-proof-image-wrap{position:relative}
+.sp-proof-watermark{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.sp-proof-watermark span{transform:rotate(-24deg);color:rgba(255,255,255,.34);font-size:clamp(14px,2.2vw,32px);font-weight:900;letter-spacing:.2em;text-align:center;text-shadow:0 1px 4px rgba(15,23,42,.35);padding:.5rem 1rem;border:1px dashed rgba(255,255,255,.28);border-radius:10px;background:rgba(15,23,42,.08)}
 @keyframes spToastIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}@keyframes spToastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(14px)}}@keyframes spModalIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media (max-width:980px){.sp-hero{flex-direction:column;align-items:flex-start}.sp-kpis{width:100%;grid-template-columns:repeat(3,1fr)}.sp-filter-row{grid-template-columns:1fr}}
 @media (max-width:640px){.sp-toast-stack{top:.75rem;right:.75rem;left:.75rem;align-items:stretch}.sp-alert{width:100%}.sp-filter-row{grid-template-columns:1fr}.sp-batch-controls{width:100%}.sp-batch-controls label{min-width:100%}.sp-footer-summary{justify-content:space-between}}

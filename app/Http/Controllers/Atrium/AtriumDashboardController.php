@@ -15,10 +15,10 @@ class AtriumDashboardController extends Controller
     public function index(Request $request): View
     {
         $today = Carbon::today();
-        $period = strtolower((string) $request->query('period', 'month'));
+        $period = strtolower((string) $request->query('period', 'week'));
         $allowedPeriods = ['today', 'week', 'month', 'range'];
         if (! in_array($period, $allowedPeriods, true)) {
-            $period = 'month';
+            $period = 'week';
         }
 
         $parsedFrom = $this->parseDate($request->query('date_from'));
@@ -42,13 +42,19 @@ class AtriumDashboardController extends Controller
             $dateFrom = $rangeStart->toDateString();
             $dateTo = $rangeEnd->toDateString();
             $filterLabel = 'Custom Range';
-        } else {
-            $period = 'month';
+        } elseif ($period === 'month') {
             $rangeStart = $today->copy()->startOfMonth();
             $rangeEnd = $today->copy()->endOfMonth()->endOfDay();
             $dateFrom = $rangeStart->toDateString();
             $dateTo = $rangeEnd->toDateString();
             $filterLabel = 'This Month';
+        } else {
+            $period = 'week';
+            $rangeStart = $today->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
+            $rangeEnd = $today->copy()->endOfWeek(Carbon::SUNDAY)->endOfDay();
+            $dateFrom = $rangeStart->toDateString();
+            $dateTo = $rangeEnd->toDateString();
+            $filterLabel = 'This Week';
         }
 
         $displayRange = $rangeStart->isSameDay($rangeEnd)
@@ -119,29 +125,79 @@ class AtriumDashboardController extends Controller
             $dailyBookingStats = $dailyBookingStats->slice(-31)->values();
         }
 
-        $revenueStart = $rangeStart->copy()->startOfMonth();
-        $revenueEnd = $rangeEnd->copy()->endOfMonth();
-        $revenueRaw = AtriumEventPayment::query()
-            ->selectRaw("DATE_FORMAT(date_of_payment, '%Y-%m') as ym")
-            ->selectRaw('SUM(payment_amount) as total_amount')
-            ->whereDate('date_of_payment', '>=', $revenueStart->toDateString())
-            ->whereDate('date_of_payment', '<=', $rangeEnd->toDateString())
-            ->groupBy('ym')
-            ->orderBy('ym')
-            ->get()
-            ->pluck('total_amount', 'ym');
+        $rangeDays = $rangeStart->copy()->startOfDay()->diffInDays($rangeEnd->copy()->startOfDay()) + 1;
+        if ($rangeDays <= 45) {
+            $revenueGranularity = 'day';
+        } elseif ($rangeDays <= 180) {
+            $revenueGranularity = 'week';
+        } else {
+            $revenueGranularity = 'month';
+        }
 
-        $monthlyRevenue = collect();
-        $monthCursor = $revenueStart->copy()->startOfMonth();
-        $monthLimit = $rangeEnd->copy()->startOfMonth();
-        while ($monthCursor->lte($monthLimit)) {
-            $monthKey = $monthCursor->format('Y-m');
-            $monthlyRevenue->push([
-                'label' => $monthCursor->format('M Y'),
-                'amount' => round((float) ($revenueRaw[$monthKey] ?? 0), 2),
-            ]);
+        if ($revenueGranularity === 'day') {
+            $revenueRaw = AtriumEventPayment::query()
+                ->selectRaw("DATE(date_of_payment) as bucket")
+                ->selectRaw('SUM(payment_amount) as total_amount')
+                ->whereDate('date_of_payment', '>=', $rangeStart->toDateString())
+                ->whereDate('date_of_payment', '<=', $rangeEnd->toDateString())
+                ->groupBy('bucket')
+                ->orderBy('bucket')
+                ->get()
+                ->pluck('total_amount', 'bucket');
 
-            $monthCursor->addMonth();
+            $monthlyRevenue = collect();
+            foreach (CarbonPeriod::create($rangeStart->copy()->startOfDay(), $rangeEnd->copy()->startOfDay()) as $day) {
+                $key = $day->toDateString();
+                $monthlyRevenue->push([
+                    'label' => $day->format('M d'),
+                    'amount' => round((float) ($revenueRaw[$key] ?? 0), 2),
+                ]);
+            }
+        } elseif ($revenueGranularity === 'week') {
+            $revenueRaw = AtriumEventPayment::query()
+                ->selectRaw("YEARWEEK(date_of_payment, 3) as bucket")
+                ->selectRaw('SUM(payment_amount) as total_amount')
+                ->whereDate('date_of_payment', '>=', $rangeStart->toDateString())
+                ->whereDate('date_of_payment', '<=', $rangeEnd->toDateString())
+                ->groupBy('bucket')
+                ->orderBy('bucket')
+                ->get()
+                ->pluck('total_amount', 'bucket');
+
+            $monthlyRevenue = collect();
+            $weekCursor = $rangeStart->copy()->startOfWeek(Carbon::MONDAY);
+            $weekLimit = $rangeEnd->copy()->startOfWeek(Carbon::MONDAY);
+            while ($weekCursor->lte($weekLimit)) {
+                $key = (int) $weekCursor->format('o') . str_pad((string) $weekCursor->isoWeek(), 2, '0', STR_PAD_LEFT);
+                $monthlyRevenue->push([
+                    'label' => $weekCursor->format('M d'),
+                    'amount' => round((float) ($revenueRaw[$key] ?? 0), 2),
+                ]);
+                $weekCursor->addWeek();
+            }
+        } else {
+            $revenueStart = $rangeStart->copy()->startOfMonth();
+            $revenueRaw = AtriumEventPayment::query()
+                ->selectRaw("DATE_FORMAT(date_of_payment, '%Y-%m') as ym")
+                ->selectRaw('SUM(payment_amount) as total_amount')
+                ->whereDate('date_of_payment', '>=', $revenueStart->toDateString())
+                ->whereDate('date_of_payment', '<=', $rangeEnd->toDateString())
+                ->groupBy('ym')
+                ->orderBy('ym')
+                ->get()
+                ->pluck('total_amount', 'ym');
+
+            $monthlyRevenue = collect();
+            $monthCursor = $revenueStart->copy()->startOfMonth();
+            $monthLimit = $rangeEnd->copy()->startOfMonth();
+            while ($monthCursor->lte($monthLimit)) {
+                $monthKey = $monthCursor->format('Y-m');
+                $monthlyRevenue->push([
+                    'label' => $monthCursor->format('M Y'),
+                    'amount' => round((float) ($revenueRaw[$monthKey] ?? 0), 2),
+                ]);
+                $monthCursor->addMonth();
+            }
         }
 
         $nextEvents = AtriumEvent::query()

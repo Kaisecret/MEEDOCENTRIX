@@ -184,9 +184,34 @@
         grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);
         gap:10px;
     }
+    .db-card--chart {
+        border-color:#dbe5f1;
+        box-shadow:0 8px 20px rgba(15,23,42,.06);
+    }
+    .db-card--chart .db-card-head {
+        background:#f7fafd;
+    }
+    .db-card-head-meta {
+        font-size:.8rem;
+        color:var(--db-muted);
+        font-weight:600;
+    }
+    .db-chart-shell {
+        border:1px solid #e8eef6;
+        border-radius:12px;
+        background:linear-gradient(180deg,#fbfdff 0%,#f7fbff 100%);
+        padding:12px;
+    }
     .db-chart-wrap {
         position:relative;
         width:100%;
+    }
+    .db-chart-wrap--lg { height:280px; }
+    .db-chart-wrap--md { height:260px; }
+    .db-chart-wrap--sm {
+        height:190px;
+        width:190px;
+        flex-shrink:0;
     }
     .db-chart-wrap canvas {
         width:100% !important;
@@ -199,10 +224,10 @@
         margin-top:10px;
     }
     .db-chart-kpi-item {
-        border:1px solid var(--db-border);
-        border-radius:9px;
-        padding:.55rem .62rem;
-        background:#f8fbff;
+        border:1px solid #dce7f5;
+        border-radius:10px;
+        padding:.58rem .66rem;
+        background:#fff;
     }
     .db-chart-kpi-item span {
         display:block;
@@ -312,15 +337,32 @@
     .db-badge-cancelled { border-color:#fecaca; background:#fff1f2; color:#9f1239; }
 
     .db-status-list { display:grid; gap:10px; }
-    .db-status-row {
+    .db-status-layout {
         display:flex;
-        justify-content:space-between;
+        align-items:stretch;
+        gap:14px;
+        flex-wrap:wrap;
+    }
+    .db-status-list-card {
+        flex:1;
+        min-width:190px;
+        display:grid;
+        gap:6px;
+        border:1px solid #e5edf7;
+        border-radius:12px;
+        background:#f9fbfe;
+        padding:10px;
+    }
+    .db-status-row {
+        display:grid;
+        grid-template-columns:1fr auto;
         align-items:center;
-        border-bottom:1px solid #f1f5f9;
-        padding:.52rem 0;
+        border-bottom:1px solid #e7edf5;
+        padding:.48rem 0;
+        gap:8px;
     }
     .db-status-row:last-child { border-bottom:none; }
-    .db-status-label { color:var(--db-muted); font-size:.84rem; }
+    .db-status-label { color:#4f6682; font-size:.83rem; }
     .db-status-value { color:var(--db-head); font-weight:700; font-size:.88rem; }
 
     @media (max-width:1100px) {
@@ -401,45 +443,41 @@
     @endphp
 
     <section class="db-twin">
-        <article class="db-card">
+        <article class="db-card db-card--chart">
             <div class="db-card-head">
-                <h3><i class="fa-solid fa-chart-column" style="color:var(--db-primary);"></i>Activity Trend</h3>
-                <span style="font-size:.8rem;color:var(--db-muted);">{{ $filterLabel }} ({{ $activityPointCount }} day{{ $activityPointCount === 1 ? '' : 's' }})</span>
+                <h3><i class="fa-solid fa-chart-line" style="color:var(--db-primary);"></i>Monthly Collection Trend</h3>
+                <span class="db-card-head-meta">{{ $displayRange }}</span>
             </div>
             <div class="db-card-body">
-                <div class="db-chart-wrap" style="height:240px;">
-                    <canvas id="cemeteryActivityChart"></canvas>
-                </div>
-                <div class="db-chart-kpi">
-                    <div class="db-chart-kpi-item">
-                        <span>Transactions</span>
-                        <strong>{{ number_format((int) collect($activityStats)->sum('transactions')) }}</strong>
-                    </div>
-                    <div class="db-chart-kpi-item">
-                        <span>Services</span>
-                        <strong>{{ number_format((int) collect($activityStats)->sum('services')) }}</strong>
+                <div class="db-chart-shell">
+                    <div class="db-chart-wrap db-chart-wrap--lg">
+                        <canvas id="cemeteryCollectionTrendChart"></canvas>
                     </div>
                 </div>
             </div>
         </article>
 
-        <article class="db-card">
+        <article class="db-card db-card--chart">
             <div class="db-card-head">
                 <h3><i class="fa-solid fa-circle-half-stroke" style="color:var(--db-primary);"></i>Transaction Status Mix</h3>
-                <span style="font-size:.8rem;color:var(--db-muted);">{{ $filterLabel }}</span>
+                <span class="db-card-head-meta">{{ $filterLabel }}</span>
             </div>
-            <div class="db-card-body" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-                <div class="db-chart-wrap" style="height:170px;width:170px;flex-shrink:0;">
-                    <canvas id="cemeteryStatusChart"></canvas>
-                </div>
-                <div style="flex:1;min-width:170px;display:grid;gap:6px;">
-                    <div class="db-status-row"><span class="db-status-label">Pending</span><span class="db-status-value">{{ number_format($pendingStatusCount) }}</span></div>
-                    <div class="db-status-row"><span class="db-status-label">Unpaid</span><span class="db-status-value">{{ number_format($unpaidStatusCount) }}</span></div>
-                    <div class="db-status-row"><span class="db-status-label">Partial</span><span class="db-status-value">{{ number_format($partialStatusCount) }}</span></div>
-                    <div class="db-status-row"><span class="db-status-label">Paid</span><span class="db-status-value">{{ number_format($paidStatusCount) }}</span></div>
-                    <div class="db-status-row"><span class="db-status-label">Overdue</span><span class="db-status-value">{{ number_format($overdueStatusCount) }}</span></div>
-                    <div class="db-status-row"><span class="db-status-label">Cancelled</span><span class="db-status-value">{{ number_format($cancelledStatusCount) }}</span></div>
-                    <div class="db-status-row"><span class="db-status-label">Total</span><span class="db-status-value">{{ number_format($statusTotalCount) }}</span></div>
+            <div class="db-card-body">
+                <div class="db-status-layout">
+                    <div class="db-chart-shell">
+                        <div class="db-chart-wrap db-chart-wrap--sm">
+                            <canvas id="cemeteryStatusChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="db-status-list-card">
+                        <div class="db-status-row"><span class="db-status-label">Pending</span><span class="db-status-value">{{ number_format($pendingStatusCount) }}</span></div>
+                        <div class="db-status-row"><span class="db-status-label">Unpaid</span><span class="db-status-value">{{ number_format($unpaidStatusCount) }}</span></div>
+                        <div class="db-status-row"><span class="db-status-label">Partial</span><span class="db-status-value">{{ number_format($partialStatusCount) }}</span></div>
+                        <div class="db-status-row"><span class="db-status-label">Paid</span><span class="db-status-value">{{ number_format($paidStatusCount) }}</span></div>
+                        <div class="db-status-row"><span class="db-status-label">Overdue</span><span class="db-status-value">{{ number_format($overdueStatusCount) }}</span></div>
+                        <div class="db-status-row"><span class="db-status-label">Cancelled</span><span class="db-status-value">{{ number_format($cancelledStatusCount) }}</span></div>
+                        <div class="db-status-row"><span class="db-status-label">Total</span><span class="db-status-value">{{ number_format($statusTotalCount) }}</span></div>
+                    </div>
                 </div>
             </div>
         </article>
@@ -518,18 +556,6 @@
 
     <section class="db-card">
         <div class="db-card-head">
-            <h3><i class="fa-solid fa-chart-line" style="color:var(--db-primary);"></i>Monthly Collection Trend</h3>
-            <span style="font-size:.8rem;color:var(--db-muted);">{{ $displayRange }}</span>
-        </div>
-        <div class="db-card-body">
-            <div class="db-chart-wrap" style="height:260px;">
-                <canvas id="cemeteryCollectionTrendChart"></canvas>
-            </div>
-        </div>
-    </section>
-
-    <section class="db-card">
-        <div class="db-card-head">
             <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--db-primary);"></i>Recent Cemetery Transactions ({{ $filterLabel }})</h3>
             <a class="db-link-btn" href="{{ route('cemetery.transactions') }}"><i class="fa-solid fa-arrow-right"></i> View All</a>
         </div>
@@ -576,7 +602,6 @@
     </section>
 </div>
 
-<script id="dbCemeteryActivityJson" type="application/json">@json($activityStats)</script>
 <script id="dbCemeteryStatusJson" type="application/json">@json($statusCounts)</script>
 <script id="dbCemeteryMonthlyCollectionsJson" type="application/json">@json($monthlyCollections)</script>
 
@@ -651,56 +676,18 @@
     }
 
     const PRIMARY = '#155f8f';
+    const PRIMARY_SOFT = 'rgba(21,95,143,0.18)';
     const GREEN = '#10b981';
     const RED = '#dc2626';
     const AMBER = '#f59e0b';
     const SLATE = '#64748b';
+    const GRID_COLOR = '#e7eef7';
 
-    const activityData = parseJsonScript('dbCemeteryActivityJson', []);
+    Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
+    Chart.defaults.color = '#52637a';
+
     const statusData = parseJsonScript('dbCemeteryStatusJson', {});
     const monthlyCollections = parseJsonScript('dbCemeteryMonthlyCollectionsJson', []);
-
-    const activityCanvas = document.getElementById('cemeteryActivityChart');
-    if (activityCanvas) {
-        new Chart(activityCanvas, {
-            type: 'bar',
-            data: {
-                labels: activityData.map((row) => `${row.label}\n${row.date}`),
-                datasets: [
-                    {
-                        label: 'Transactions',
-                        data: activityData.map((row) => Number(row.transactions || 0)),
-                        backgroundColor: PRIMARY,
-                        borderRadius: 6,
-                        borderSkipped: false,
-                    },
-                    {
-                        label: 'Services',
-                        data: activityData.map((row) => Number(row.services || 0)),
-                        backgroundColor: GREEN,
-                        borderRadius: 6,
-                        borderSkipped: false,
-                    },
-                ],
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
-                    tooltip: { mode: 'index', intersect: false },
-                },
-                scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                    y: {
-                        beginAtZero: true,
-                        ticks: { stepSize: 1, font: { size: 10 } },
-                        grid: { color: '#eef2f7' },
-                    },
-                },
-            },
-        });
-    }
 
     const statusCanvas = document.getElementById('cemeteryStatusChart');
     if (statusCanvas) {
@@ -710,6 +697,27 @@
         const paid = Number(statusData.paid || 0);
         const overdue = Number(statusData.overdue || 0);
         const cancelled = Number(statusData.cancelled || 0);
+        const total = pending + unpaid + partial + paid + overdue + cancelled;
+
+        const centerTextPlugin = {
+            id: 'statusCenterText',
+            afterDraw(chart) {
+                const meta = chart.getDatasetMeta(0);
+                if (!meta?.data?.length) return;
+                const { x, y } = meta.data[0];
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#0f172a';
+                ctx.font = '700 22px Inter, system-ui, sans-serif';
+                ctx.fillText(String(total), x, y - 6);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '600 10px Inter, system-ui, sans-serif';
+                ctx.fillText('total', x, y + 14);
+                ctx.restore();
+            },
+        };
 
         new Chart(statusCanvas, {
             type: 'doughnut',
@@ -718,17 +726,24 @@
                 datasets: [{
                     data: [pending, unpaid, partial, paid, overdue, cancelled],
                     backgroundColor: [SLATE, AMBER, '#3b82f6', GREEN, RED, '#7f1d1d'],
-                    borderColor: '#ffffff',
-                    borderWidth: 2,
+                    borderColor: '#f8fbff',
+                    borderWidth: 3,
+                    hoverOffset: 5,
                 }],
             },
+            plugins: [centerTextPlugin],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '66%',
+                cutout: '70%',
                 plugins: {
                     legend: { display: false },
-                    tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.parsed}` } },
+                    tooltip: {
+                        backgroundColor: '#0f172a',
+                        titleFont: { size: 12, weight: 700 },
+                        bodyFont: { size: 11, weight: 600 },
+                        callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.parsed}` },
+                    },
                 },
             },
         });
@@ -744,12 +759,23 @@
                     label: 'Collected Amount',
                     data: monthlyCollections.map((row) => Number(row.amount || 0)),
                     borderColor: PRIMARY,
-                    backgroundColor: 'rgba(21,95,143,0.14)',
-                    borderWidth: 2.5,
-                    pointRadius: 4,
+                    backgroundColor: (context) => {
+                        const chart = context.chart;
+                        const { ctx, chartArea } = chart;
+                        if (!chartArea) return PRIMARY_SOFT;
+                        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                        gradient.addColorStop(0, 'rgba(21,95,143,0.26)');
+                        gradient.addColorStop(1, 'rgba(21,95,143,0.02)');
+                        return gradient;
+                    },
+                    borderWidth: 2.75,
+                    pointRadius: 3.2,
+                    pointHoverRadius: 5,
                     pointBackgroundColor: PRIMARY,
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 1.8,
                     fill: true,
-                    tension: 0.33,
+                    tension: 0.36,
                 }],
             },
             options: {
@@ -758,20 +784,27 @@
                 plugins: {
                     legend: { display: false },
                     tooltip: {
+                        backgroundColor: '#0f172a',
+                        titleFont: { size: 12, weight: 700 },
+                        bodyFont: { size: 11, weight: 600 },
                         callbacks: {
                             label: (ctx) => ' PHP ' + Number(ctx.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2 }),
                         },
                     },
                 },
                 scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                    x: {
+                        grid: { display: false, drawBorder: false },
+                        ticks: { font: { size: 10, weight: 600 }, color: '#5c6f88' },
+                    },
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            font: { size: 10 },
+                            font: { size: 10, weight: 600 },
+                            color: '#5c6f88',
                             callback: (value) => 'PHP ' + Number(value).toLocaleString('en-PH'),
                         },
-                        grid: { color: '#eef2f7' },
+                        grid: { color: GRID_COLOR, borderDash: [4, 4], drawBorder: false },
                     },
                 },
             },

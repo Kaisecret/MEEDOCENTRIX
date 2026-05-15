@@ -220,10 +220,6 @@ class CemeteryPaymentCollectionController extends Controller
             }
         }
 
-        $existingPayment = CemeteryPaymentCollection::query()
-            ->where('cemetery_transaction_id', (int) $transaction->id)
-            ->first();
-
         $validated = $request->validate([
             'form_mode' => ['nullable', 'string', Rule::in(['quick_pay'])],
             'quick_transaction_id' => ['nullable', 'integer'],
@@ -266,10 +262,6 @@ class CemeteryPaymentCollectionController extends Controller
             $existsQuery = CemeteryPaymentCollection::query()
                 ->where('official_receipt_no', $receiptNo);
 
-            if ($existingPayment) {
-                $existsQuery->where('id', '!=', $existingPayment->id);
-            }
-
             $exists = $existsQuery->exists();
             if ($exists) {
                 throw ValidationException::withMessages([
@@ -280,29 +272,10 @@ class CemeteryPaymentCollectionController extends Controller
 
         $contactId = $this->resolveOptionalContactIdForTransaction($transaction->id);
         $paymentDate = (string) $validated['payment_date'];
-        $existingRecordedAmount = $existingPayment ? round((float) $existingPayment->amount_paid, 2) : 0.0;
-        $otherPaid = $existingPayment
-            ? round(max($effectiveTotalPaid - $existingRecordedAmount, 0), 2)
-            : $effectiveTotalPaid;
         $newTotalPaid = round(min($effectiveTotalPaid + $amountPaid, $amountDue), 2);
         $resolvedStatus = $newTotalPaid >= $amountDue ? 'paid' : 'partial';
 
-        $payment = DB::transaction(function () use ($existingPayment, $transaction, $validated, $amountPaid, $receiptNo, $contactId, $paymentDate, $resolvedStatus, $newTotalPaid, $otherPaid, $amountDue): CemeteryPaymentCollection {
-            if ($existingPayment) {
-                $updatedAmountPaid = round(min(max($newTotalPaid - $otherPaid, 0), $amountDue), 2);
-                $existingPayment->fill([
-                    'cemetery_contact_id' => $contactId ?? $existingPayment->cemetery_contact_id,
-                    'amount_paid' => $updatedAmountPaid,
-                    'official_receipt_no' => $receiptNo,
-                    'payment_date' => $paymentDate,
-                    'payment_status' => $resolvedStatus,
-                    'remarks' => $this->nullableTrimmed($validated['remarks'] ?? null),
-                ]);
-                $existingPayment->save();
-
-                return $existingPayment->fresh();
-            }
-
+        $payment = DB::transaction(function () use ($transaction, $validated, $amountPaid, $receiptNo, $contactId, $paymentDate, $resolvedStatus): CemeteryPaymentCollection {
             return CemeteryPaymentCollection::query()->create([
                 'payment_no' => $this->nextPaymentNo(),
                 'cemetery_transaction_id' => $transaction->id,

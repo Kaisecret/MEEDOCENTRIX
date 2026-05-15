@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class CollectorCollectionController extends Controller
 {
@@ -634,7 +634,7 @@ class CollectorCollectionController extends Controller
         ]);
     }
 
-    public function proofImage(Request $request, CollectionDispatchItem $dispatchItem): BinaryFileResponse
+    public function proofImage(Request $request, CollectionDispatchItem $dispatchItem): Response
     {
         $dispatchItem->loadMissing('dispatch');
         $user = $request->user();
@@ -669,13 +669,138 @@ class CollectorCollectionController extends Controller
             abort(404);
         }
 
+        $departmentCode = (string) $dispatchItem->dispatch->department_code;
         $absolutePath = Storage::disk('public')->path($proofPath);
         $mimeType = Storage::disk('public')->mimeType($proofPath) ?: 'image/jpeg';
+
+        // Apply watermark only for fishport/market proof previews, while preserving original storage.
+        if (in_array($departmentCode, ['fishport', 'market'], true) && str_starts_with($mimeType, 'image/')) {
+            $watermarked = $this->buildWatermarkedProofPayload($absolutePath, $mimeType, $request, $departmentCode);
+            if ($watermarked !== null) {
+                return response($watermarked['content'], 200, [
+                    'Content-Type' => $watermarked['mime_type'],
+                    'Cache-Control' => 'private, no-store, no-cache, must-revalidate',
+                    'Pragma' => 'no-cache',
+                    'Expires' => '0',
+                ]);
+            }
+        }
 
         return response()->file($absolutePath, [
             'Content-Type' => $mimeType,
             'Cache-Control' => 'private, max-age=300',
         ]);
+    }
+
+    /**
+     * @return array{content:string,mime_type:string}|null
+     */
+    private function buildWatermarkedProofPayload(
+        string $absolutePath,
+        string $mimeType,
+        Request $request,
+        string $departmentCode = 'fishport'
+    ): ?array
+    {
+        if (! function_exists('imagecreatefromstring') || ! function_exists('imagecreatetruecolor')) {
+            return null;
+        }
+
+        $raw = @file_get_contents($absolutePath);
+        if ($raw === false || $raw === '') {
+            return null;
+        }
+
+        $image = @imagecreatefromstring($raw);
+        if (! $image) {
+            return null;
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+        if ($width < 16 || $height < 16) {
+            imagedestroy($image);
+            return null;
+        }
+
+        $overlay = imagecreatetruecolor($width, $height);
+        if (! $overlay) {
+            imagedestroy($image);
+            return null;
+        }
+
+        imagealphablending($overlay, false);
+        imagesavealpha($overlay, true);
+        $transparent = imagecolorallocatealpha($overlay, 0, 0, 0, 127);
+        imagefilledrectangle($overlay, 0, 0, $width, $height, $transparent);
+
+        $font = 3;
+        $viewerName = trim((string) ($request->user()?->name ?? 'authorized user'));
+        $departmentLabel = strtoupper(trim($departmentCode)) !== '' ? strtoupper(trim($departmentCode)) : 'SYSTEM';
+        $stampText = strtoupper((string) config('app.name', 'MEEDOCENTRIX'))
+            . ' | ' . $departmentLabel . ' CONFIDENTIAL | '
+            . strtoupper($viewerName)
+            . ' | '
+            . now()->format('Y-m-d H:i');
+        $textColor = imagecolorallocatealpha($overlay, 255, 255, 255, 82);
+
+        $stepX = max(220, (int) floor($width / 2.2));
+        $stepY = max(110, (int) floor($height / 3.1));
+
+        for ($y = -$height; $y < $height * 2; $y += $stepY) {
+            for ($x = -$width; $x < $width * 2; $x += $stepX) {
+                imagestring($overlay, $font, $x, $y, $stampText, $textColor);
+            }
+        }
+
+        $rotateBg = imagecolorallocatealpha($overlay, 0, 0, 0, 127);
+        $rotatedOverlay = imagerotate($overlay, -28, $rotateBg);
+        imagedestroy($overlay);
+        if (! $rotatedOverlay) {
+            imagedestroy($image);
+            return null;
+        }
+
+        imagealphablending($image, true);
+        imagesavealpha($image, true);
+        $offsetX = (int) floor(($width - imagesx($rotatedOverlay)) / 2);
+        $offsetY = (int) floor(($height - imagesy($rotatedOverlay)) / 2);
+        imagecopy(
+            $image,
+            $rotatedOverlay,
+            $offsetX,
+            $offsetY,
+            0,
+            0,
+            imagesx($rotatedOverlay),
+            imagesy($rotatedOverlay)
+        );
+        imagedestroy($rotatedOverlay);
+
+        ob_start();
+        $outputMime = 'image/jpeg';
+
+        if ($mimeType === 'image/png') {
+            $outputMime = 'image/png';
+            imagepng($image, null, 6);
+        } elseif ($mimeType === 'image/webp' && function_exists('imagewebp')) {
+            $outputMime = 'image/webp';
+            imagewebp($image, null, 82);
+        } else {
+            imagejpeg($image, null, 86);
+        }
+
+        $content = (string) ob_get_clean();
+        imagedestroy($image);
+
+        if ($content === '') {
+            return null;
+        }
+
+        return [
+            'content' => $content,
+            'mime_type' => $outputMime,
+        ];
     }
 
     private function applyQueueDateFilter($query, ?Carbon $fromDate, ?Carbon $toDate): void
